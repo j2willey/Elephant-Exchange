@@ -86,6 +86,72 @@ app.post('/api/:gameId/reset', async (req, res) => {
 
     res.json({ success: true });
 });
+// 4. ADD PARTICIPANT
+app.post('/api/:gameId/participants', async (req, res) => {
+    const { gameId } = req.params;
+    const { name, number } = req.body;
+    const key = getGameKey(gameId);
+
+    // Basic Validation
+    if (!name && !number) return res.status(400).json({ error: "Name or Number required" });
+
+    // Fetch current state
+    const data = await redisClient.get(key);
+    if (!data) return res.status(404).json({ error: "Game not found" });
+
+    const gameState = JSON.parse(data);
+
+    // Create the new participant object
+    const newParticipant = {
+        id: `p_${Date.now()}`, // Simple unique ID
+        name: name || `Player ${number}`,
+        number: number ? parseInt(number) : null,
+        status: 'waiting', // waiting, up, done
+        heldGiftId: null
+    };
+
+    // Add to state
+    gameState.participants.push(newParticipant);
+
+    // Save to Redis
+    await redisClient.set(key, JSON.stringify(gameState));
+
+    // REAL-TIME UPDATE: Tell everyone!
+    io.to(gameId).emit('stateUpdate', gameState);
+
+    res.json({ success: true, participant: newParticipant });
+});
+
+// 5. ADD GIFT
+app.post('/api/:gameId/gifts', async (req, res) => {
+    const { gameId } = req.params;
+    const { description } = req.body;
+    const key = getGameKey(gameId);
+
+    if (!description) return res.status(400).json({ error: "Description required" });
+
+    const data = await redisClient.get(key);
+    if (!data) return res.status(404).json({ error: "Game not found" });
+
+    const gameState = JSON.parse(data);
+
+    // Create new gift
+    const newGift = {
+        id: `g_${Date.now()}`,
+        description,
+        isFrozen: false,
+        stealCount: 0,
+        ownerHistory: []
+    };
+
+    gameState.gifts.push(newGift);
+
+    // Save & Broadcast
+    await redisClient.set(key, JSON.stringify(gameState));
+    io.to(gameId).emit('stateUpdate', gameState);
+
+    res.json({ success: true, gift: newGift });
+});
 
 // --- SOCKET.IO REALTIME ---
 
