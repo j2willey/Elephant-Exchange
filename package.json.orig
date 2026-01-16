@@ -1,0 +1,25 @@
+{
+  "name": "elephant-exchange",
+  "version": "1.0.0",
+  "description": "A real-time White Elephant gift exchange tracker with state management.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/j2willey/Elephant-Exchange.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/j2willey/Elephant-Exchange/issues"
+  },
+  "homepage": "https://github.com/j2willey/Elephant-Exchange#readme",
+  "dependencies": {
+    "express": "^5.2.1",
+    "redis": "^5.10.0"
+  }
+}
