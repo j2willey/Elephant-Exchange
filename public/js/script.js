@@ -6,6 +6,7 @@
 
 let socket;
 let currentGameId = null;
+let stealingPlayerId = null; // Tracks who is currently looking for a gift to steal
 
 document.addEventListener('DOMContentLoaded', () => {
     const scaleSlider = document.getElementById('uiScale');
@@ -58,6 +59,19 @@ async function refreshState() {
 }
 
 function render(state) {
+    // --- GHOST BUSTER PROTOCOL 👻 ---
+    // If the UI thinks someone is stealing, but the Server says they are Done (have a gift),
+    // we must force-clear the stealing mode immediately.
+    if (stealingPlayerId) {
+        const thief = state.participants.find(p => p.id === stealingPlayerId);
+        // If thief doesn't exist, OR they have a gift, OR they became a victim... stop waiting!
+        if (!thief || thief.heldGiftId) {
+            console.log("Ghost Buster: Clearing stale steal mode for", stealingPlayerId);
+            stealingPlayerId = null;
+        }
+    }
+    // --------------------------------
+
     // 1. Header
     document.getElementById('displayGameId').innerHTML = 
         `${state.id} <span style="font-size:0.6em; color:#666;">(Turn #${state.currentTurn})</span>`;
@@ -67,10 +81,23 @@ function render(state) {
     pList.innerHTML = '';
     const sortedParticipants = state.participants.sort((a,b) => a.number - b.number);
 
+    // --- Active Set (Slots) Logic ---
+    const victims = state.participants.filter(p => p.isVictim && !p.heldGiftId);
+    
+    // Identify Queue (Non-Victims, Waiting, >= CurrentTurn)
+    const queue = state.participants
+        .filter(p => !p.isVictim && !p.heldGiftId && p.number >= state.currentTurn)
+        .sort((a,b) => a.number - b.number);
+
+    const limit = state.settings.activePlayerCount || 1;
+    const slotsForQueue = Math.max(0, limit - victims.length);
+    
+    const activeQueue = queue.slice(0, slotsForQueue);
+    const activeIds = [...victims, ...activeQueue].map(p => p.id);
+    // --------------------------------
+
     sortedParticipants.forEach(p => {
-        const isActiveVictim = state.activeVictimId && p.id === state.activeVictimId;
-        const isTurnOwner = !state.activeVictimId && p.number === state.currentTurn;
-        const isTrulyActive = isActiveVictim || isTurnOwner;
+        const isTrulyActive = activeIds.includes(p.id);
 
         const li = document.createElement('li');
         if (isTrulyActive) {
@@ -82,9 +109,8 @@ function render(state) {
         if (p.heldGiftId) statusIcon = '🎁';
         if (isTrulyActive) statusIcon = '🔴';
 
-        let html = `<span><b>#${p.number}</b> ${p.name}</span>`;
-
-        // NEW: Add Timer if Active
+        let html = `<span><b>#${p.number}</b> ${p.name}`;
+        
         if (isTrulyActive) {
             const duration = state.settings.turnDurationSeconds || 60;
             const startTime = state.timerStart || Date.now();
@@ -92,16 +118,32 @@ function render(state) {
         }
         html += `</span>`;
         
+        // ACTION BUTTONS
         if (isTrulyActive && !p.heldGiftId) {
-            html += `
-                <div class="action-buttons">
-                    <button onclick="promptOpenGift()" class="btn-green">🎁 Open New</button>
-                    <button onclick="showStealOptions()" class="btn-orange">😈 Steal</button>
-                </div>
-            `;
+            if (stealingPlayerId === p.id) {
+                // This player is actively selecting
+                html += `
+                    <div class="action-buttons">
+                        <span style="color:#d97706; font-weight:bold; font-size:0.9em; margin-right:5px;">Select Gift below...</span>
+                        <button onclick="cancelStealMode()" class="btn-gray">Cancel</button>
+                    </div>
+                `;
+            } else if (stealingPlayerId) {
+                // Someone ELSE is stealing. We must wait.
+                html += `<div style="font-size:0.8em; color:#ccc;">Waiting...</div>`;
+            } else {
+                // Normal State
+                html += `
+                    <div class="action-buttons">
+                        <button onclick="promptOpenGift('${p.id}')" class="btn-green">🎁 Open New</button>
+                        <button onclick="enterStealMode('${p.id}')" class="btn-orange">😈 Steal</button>
+                    </div>
+                `;
+            }
         } else {
             html += `<span>${statusIcon}</span>`;
         }
+
         li.innerHTML = html;
         pList.appendChild(li);
     });
@@ -120,12 +162,11 @@ function render(state) {
             const owner = state.participants.find(p => p.id === g.ownerId);
             const ownerName = owner ? owner.name : 'Unknown';
             
-            // Find active player to check Forbidden status
-            const activeP = state.participants.find(p => 
-                (state.activeVictimId && p.id === state.activeVictimId) || 
-                (!state.activeVictimId && p.number === state.currentTurn)
-            );
-            const isForbidden = activeP && activeP.forbiddenGiftId === g.id;
+            let isForbidden = false;
+            if (stealingPlayerId) {
+                const thief = state.participants.find(p => p.id === stealingPlayerId);
+                if (thief && thief.forbiddenGiftId === g.id) isForbidden = true;
+            }
 
             const itemStyle = g.isFrozen ? 'opacity: 0.5; background: #f1f5f9;' : '';
             
@@ -134,7 +175,7 @@ function render(state) {
             else if (isForbidden) statusBadge = `<span class="badge" style="background:#fde68a; color:#92400e;">🚫 NO TAKE-BACKS</span>`;
             else statusBadge = g.stealCount > 0 ? `<span class="badge stolen">${g.stealCount}/3 Steals</span>` : `<span class="badge">0/3 Steals</span>`;
 
-            const showStealBtn = !g.isFrozen && !isForbidden && activeP && !activeP.heldGiftId;
+            const showStealBtn = stealingPlayerId && !g.isFrozen && !isForbidden;
 
             return `
                 <li style="${itemStyle}">
@@ -147,13 +188,14 @@ function render(state) {
                     </div>
                     <div style="text-align:right;">
                         ${statusBadge}
-                        ${showStealBtn ? `<button onclick="attemptSteal('${g.id}', '${g.description.replace(/'/g, "\\'")}')" class="btn-orange" style="font-size:0.7em; margin-left:5px;">Steal</button>` : ''}
+                        ${showStealBtn ? `<button onclick="attemptSteal('${g.id}', '${g.description.replace(/'/g, "\\'")}')" class="btn-orange" style="font-size:0.7em; margin-left:5px;">Select</button>` : ''}
                     </div>
                 </li>
             `;
         }).join('');
     }
 }
+
 
 // --- ACTIONS ---
 async function promptOpenGift() {
@@ -181,15 +223,28 @@ async function addParticipant() {
 }
 
 async function attemptSteal(giftId, description) {
-    if(!confirm(`Are you sure you want to steal the ${description}?`)) return;
-    const res = await fetch(`/api/${currentGameId}/steal`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ giftId })
-    });
-    if(!res.ok) {
-        const data = await res.json();
-        alert("Error: " + data.error);
+    if (!stealingPlayerId) return; 
+
+    if(!confirm(`Confirm steal: ${description}?`)) return;
+
+    try {
+        const res = await fetch(`/api/${currentGameId}/steal`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ giftId, thiefId: stealingPlayerId }) 
+        });
+
+        if(!res.ok) {
+            const data = await res.json();
+            alert("Error: " + data.error);
+        }
+    } catch (err) {
+        console.error(err);
+        alert("Steal failed.");
+    } finally {
+        // ALWAYS run this, success or fail
+        stealingPlayerId = null;
+        refreshState();
     }
 }
 
@@ -244,6 +299,87 @@ function updateTimers() {
         else if (seconds <= 30) el.style.color = "#d97706"; // Orange
         else el.style.color = "#2563eb"; // Blue
     });
+}
+
+// 7. SETTINGS MODAL LOGIC
+function openSettings() {
+    // Current state should be available globally via render, 
+    // but better to fetch fresh or store state in a global variable.
+    // For now, let's fetch state to be safe.
+    fetch(`/api/${currentGameId}/state`)
+        .then(res => res.json())
+        .then(state => {
+            document.getElementById('settingDuration').value = state.settings.turnDurationSeconds || 60;
+            document.getElementById('settingMaxSteals').value = state.settings.maxSteals || 3;
+            document.getElementById('settingActiveCount').value = state.settings.activePlayerCount || 1;
+            
+            document.getElementById('settingsModal').classList.remove('hidden');
+        });
+}
+
+function closeSettings() {
+    document.getElementById('settingsModal').classList.add('hidden');
+}
+
+async function saveSettings() {
+    const turnDurationSeconds = document.getElementById('settingDuration').value;
+    const maxSteals = document.getElementById('settingMaxSteals').value;
+    const activePlayerCount = document.getElementById('settingActiveCount').value;
+
+    await fetch(`/api/${currentGameId}/settings`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ turnDurationSeconds, maxSteals, activePlayerCount })
+    });
+
+    closeSettings();
+}
+
+// --- NEW ACTION HANDLERS ---
+
+function enterStealMode(playerId) {
+    stealingPlayerId = playerId;
+    // Re-render to update UI (hide other buttons, show gift buttons)
+    // We can fetch state to trigger a re-render
+    refreshState(); 
+}
+
+function cancelStealMode() {
+    stealingPlayerId = null;
+    refreshState();
+}
+
+// Updated OPEN: Accepts playerId
+async function promptOpenGift(playerId) {
+    const description = prompt("What is inside the gift?");
+    if (!description) return;
+    
+    await fetch(`/api/${currentGameId}/open-new`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ description, playerId }) // NEW: Send ID
+    });
+}
+
+// Updated STEAL: Uses global stealingPlayerId
+async function attemptSteal(giftId, description) {
+    if (!stealingPlayerId) return; // Safety check
+
+    if(!confirm(`Confirm steal: ${description}?`)) return;
+
+    const res = await fetch(`/api/${currentGameId}/steal`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ giftId, thiefId: stealingPlayerId }) // NEW: Send ID
+    });
+
+    if(!res.ok) {
+        const data = await res.json();
+        alert("Error: " + data.error);
+    } else {
+        // Reset mode on success
+        stealingPlayerId = null;
+    }
 }
 
 document.getElementById('gameIdInput').addEventListener('keypress', e => e.key === 'Enter' && joinGame());

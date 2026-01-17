@@ -34,24 +34,52 @@ const getGameKey = (gameId) => `game:${gameId}`;
 
 const getDefaultState = (gameId) => ({
     id: gameId,
-    participants: [], // { id, name, number, status, heldGiftId, forbiddenGiftId }
+    participants: [], // { id, name, number, status, heldGiftId, forbiddenGiftId, isVictim }
     gifts: [],        // { id, description, ownerId, stealCount, isFrozen }
-    settings: { maxSteals: 3, 
-                isPaused: false, 
-                turnDurationSeconds: 60 // seconds
+    settings: { 
+        maxSteals: 3, 
+        isPaused: false, 
+        turnDurationSeconds: 60, 
+        activePlayerCount: 1
     },
-    timerStart: Date.now(), // Track when the current action started
+    timerStart: Date.now(), 
     currentTurn: 1,
-    activeVictimId: null, // Priority override for steals
+    activeVictimId: null, // Legacy global, replaced by isVictim flag for multi-player
     history: []
 });
 
-// HELPER: Find who is truly active (Turn Number vs Victim)
-function getActivePlayer(gameState) {
-    if (gameState.activeVictimId) {
-        return gameState.participants.find(p => p.id === gameState.activeVictimId);
-    }
-    return gameState.participants.find(p => p.number === gameState.currentTurn);
+// HELPER: The "Slots" Logic (Multi-Player)
+function isPlayerActive(gameState, playerId) {
+    const target = gameState.participants.find(p => p.id === playerId);
+    if (!target) return false;
+    
+    // Rule 1: If you are done, you are NOT active.
+    if (target.status === 'done') return false;
+
+    // Rule 2: If you are a Victim, you are ALWAYS active (Priority).
+    if (target.isVictim) return true;
+
+    // Rule 3: The Queue
+    const activeLimit = gameState.settings.activePlayerCount || 1;
+    
+    // Count how many victims are currently taking up slots
+    const activeVictims = gameState.participants.filter(p => p.isVictim && p.status !== 'done');
+    const slotsTakenByVictims = activeVictims.length;
+    
+    // How many slots are left for the normal queue?
+    let slotsForQueue = activeLimit - slotsTakenByVictims;
+    if (slotsForQueue < 0) slotsForQueue = 0; 
+
+    if (slotsForQueue === 0) return false; // No room for normal players
+
+    // Find the next X people in the queue
+    const sortedQueue = gameState.participants
+        .filter(p => p.number >= gameState.currentTurn && p.status === 'waiting' && !p.isVictim)
+        .sort((a,b) => a.number - b.number);
+
+    // Is our target in the top X of this list?
+    const activeQueuePlayers = sortedQueue.slice(0, slotsForQueue);
+    return activeQueuePlayers.some(p => p.id === playerId);
 }
 
 // --- API ROUTES ---
@@ -101,7 +129,6 @@ app.post('/api/:gameId/participants', async (req, res) => {
     if (!data) return res.status(404).json({ error: "Game not found" });
     const gameState = JSON.parse(data);
 
-    // Auto-number logic
     const nextNumber = gameState.participants.length + 1;
     const finalNumber = number ? parseInt(number) : nextNumber;
 
@@ -111,7 +138,8 @@ app.post('/api/:gameId/participants', async (req, res) => {
         number: finalNumber,
         status: 'waiting',
         heldGiftId: null,
-        forbiddenGiftId: null
+        forbiddenGiftId: null,
+        isVictim: false
     };
 
     gameState.participants.push(newParticipant);
@@ -124,19 +152,23 @@ app.post('/api/:gameId/participants', async (req, res) => {
 // 5. OPEN NEW GIFT
 app.post('/api/:gameId/open-new', async (req, res) => {
     const { gameId } = req.params;
-    const { description } = req.body;
+    const { description, playerId } = req.body;
+    
     const key = getGameKey(gameId);
-
+    
     if (!description) return res.status(400).json({ error: "Description required" });
-
+    
     const data = await redisClient.get(key);
     if (!data) return res.status(404).json({ error: "Game not found" });
     let gameState = JSON.parse(data);
-
-    const activePlayer = getActivePlayer(gameState);
-    if (!activePlayer) return res.status(400).json({ error: "No active player for this turn" });
-
-    // Clear "No Take-Back" restriction since they chose to open
+       
+    // VALIDATE PLAYER
+    if (!isPlayerActive(gameState, playerId)) {
+        return res.status(403).json({ error: "This player is not currently active" });
+    }
+    const activePlayer = gameState.participants.find(p => p.id === playerId);
+    
+    // Clear restrictions
     activePlayer.forbiddenGiftId = null;
 
     const newGift = {
@@ -149,22 +181,19 @@ app.post('/api/:gameId/open-new', async (req, res) => {
     };
 
     // UPDATE STATE
-    gameState.gifts.push(newGift); // <--- THIS WAS LIKELY MISSING
+    gameState.gifts.push(newGift); 
     activePlayer.heldGiftId = newGift.id;
     activePlayer.status = 'done';
+    activePlayer.isVictim = false; // Satisfied
 
-    // Advance Turn Logic
-    if (gameState.activeVictimId) {
-        gameState.activeVictimId = null; // Victim satisfied
-        // Check if original turn owner is done
-        const turnPlayer = gameState.participants.find(p => p.number === gameState.currentTurn);
-        if (turnPlayer && turnPlayer.heldGiftId) {
-             gameState.currentTurn += 1;
-        }
-    } else {
+    // Advance Turn Logic: Only advance if the "Turn Owner" is done
+    const turnPlayer = gameState.participants.find(p => p.number === gameState.currentTurn);
+    if (turnPlayer && turnPlayer.status === 'done') {
         gameState.currentTurn += 1;
     }
-    // RESET CLOCK FOR THE NEXT PERSON
+    
+    // Clear legacy global just in case
+    gameState.activeVictimId = null;
     gameState.timerStart = Date.now();
 
     gameState.history.push(`${activePlayer.name} opened a new gift: ${description}`);
@@ -177,16 +206,19 @@ app.post('/api/:gameId/open-new', async (req, res) => {
 // 6. STEAL GIFT
 app.post('/api/:gameId/steal', async (req, res) => {
     const { gameId } = req.params;
-    const { giftId } = req.body;
+    const { giftId, thiefId } = req.body; // FIX: Expect thiefId, avoid name collision
     const key = getGameKey(gameId);
 
     const data = await redisClient.get(key);
     if (!data) return res.status(404).json({ error: "Game not found" });
     let gameState = JSON.parse(data);
 
-    const thief = getActivePlayer(gameState);
-    if (!thief) return res.status(400).json({ error: "No active player" });
-
+    // Validate using the ID
+    if (!isPlayerActive(gameState, thiefId)) {
+        return res.status(403).json({ error: "This player is not allowed to steal right now" });
+    }
+    const thief = gameState.participants.find(p => p.id === thiefId);
+    
     const gift = gameState.gifts.find(g => g.id === giftId);
     if (!gift || !gift.ownerId) return res.status(404).json({ error: "Invalid gift" });
     if (gift.isFrozen) return res.status(400).json({ error: "Gift is frozen" });
@@ -196,20 +228,27 @@ app.post('/api/:gameId/steal', async (req, res) => {
     const victim = gameState.participants.find(p => p.id === gift.ownerId);
 
     // Execute Swap
+    // Victim updates
+    victim.heldGiftId = null;
+    victim.status = 'waiting';
+    victim.forbiddenGiftId = gift.id; 
+    victim.isVictim = true; // Mark as Priority
+
+    // Thief updates
     thief.heldGiftId = gift.id;
     thief.status = 'done';
     thief.forbiddenGiftId = null;
+    thief.isVictim = false; // Satisfied
 
-    victim.heldGiftId = null;
-    victim.status = 'waiting';
-    victim.forbiddenGiftId = gift.id; // Apply "No Take-Back" Rule
+    // CLEANUP: We do NOT set gameState.activeVictimId here anymore.
+    // We rely entirely on the .isVictim flag for multi-player logic.
+    gameState.activeVictimId = null;
 
     gift.ownerId = thief.id;
     gift.ownerHistory.push(thief.id);
     gift.stealCount += 1;
     if (gift.stealCount >= gameState.settings.maxSteals) gift.isFrozen = true;
 
-    gameState.activeVictimId = victim.id;
     gameState.history.push(`${thief.name} stole ${gift.description} from ${victim.name}!`);
     gameState.timerStart = Date.now();
 
@@ -235,6 +274,36 @@ app.put('/api/:gameId/gifts/:giftId', async (req, res) => {
         io.to(gameId).emit('stateUpdate', gameState);
     }
     res.json({ success: true });
+});
+
+// 9. ACTION: UPDATE SETTINGS
+app.put('/api/:gameId/settings', async (req, res) => {
+    const { gameId } = req.params;
+    const { maxSteals, turnDurationSeconds, activePlayerCount } = req.body;
+    const key = getGameKey(gameId);
+
+    const data = await redisClient.get(key);
+    if (!data) return res.status(404).json({ error: "Game not found" });
+    let gameState = JSON.parse(data);
+
+    // Update fields if provided
+    if (maxSteals !== undefined) gameState.settings.maxSteals = parseInt(maxSteals);
+    if (turnDurationSeconds !== undefined) gameState.settings.turnDurationSeconds = parseInt(turnDurationSeconds);
+    if (activePlayerCount !== undefined) gameState.settings.activePlayerCount = parseInt(activePlayerCount);
+
+    // Re-evaluate Frozen status
+    gameState.gifts.forEach(g => {
+        if (g.stealCount >= gameState.settings.maxSteals) {
+            g.isFrozen = true;
+        } else {
+            g.isFrozen = false;
+        }
+    });
+
+    await redisClient.set(key, JSON.stringify(gameState));
+    io.to(gameId).emit('stateUpdate', gameState);
+
+    res.json({ success: true, settings: gameState.settings });
 });
 
 // --- SOCKET.IO ---

@@ -9,7 +9,7 @@
 <body>
 
     <div id="login-section" class="card" style="max-width: 400px; margin: 40px auto; text-align: center;">
-        <h1>🐘 Elephant Exchange</h1>
+    <h1>Elephant Exchange</h1>
         <div class="input-group">
             <input type="text" id="gameIdInput" placeholder="Game ID (e.g. troop-55)" autofocus />
             <button onclick="joinGame()">Start</button>
@@ -18,16 +18,20 @@
 
     <div id="dashboard-section" class="hidden">
         <header style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
-            <div style="display:flex; align-items:center; gap: 20px;">
-                <h2 style="margin:0;">Hosting: <span id="displayGameId">...</span></h2>
-                <div style="display:flex; align-items:center; gap:5px; background:#eee; padding:5px 10px; border-radius:20px;">
-                    <span style="font-size:0.8rem;">🔍</span>
-                    <input type="range" id="uiScale" min="0.5" max="1.5" step="0.1" value="1" style="width:80px; cursor:pointer;">
+            <div class="header-row" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                <h2 id="displayGameId" style="margin:0;">Loading...</h2>
+                
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <span style="font-size:1.2rem;">🔍</span>
+                    <input type="range" id="uiScale" min="0.5" max="1.5" step="0.1" value="1" style="width:100px;">
                 </div>
-            </div>
-            <div>
-                <button class="btn-red" onclick="clearDb()">⚠️ Clear DB</button>
-                <button onclick="location.reload()" style="background:#64748b;">Exit</button>
+
+                <div style="display:flex; gap:10px;">
+                    <button onclick="openSettings()" class="btn-gray" title="Game Settings">⚙️</button>
+                    
+                    <button onclick="clearDb()" class="btn-red">⚠️ Clear DB</button>
+                    <button onclick="location.reload()" class="btn-gray">Exit</button>
+                </div>
             </div>
         </header>
 
@@ -49,6 +53,28 @@
         </div>
     </div>
 
+    <div id="settingsModal" class="modal hidden">
+        <div class="modal-content">
+            <h2>⚙️ Game Settings</h2>
+
+            <label>⏱️ Turn Timer (Seconds)</label>
+            <input type="number" id="settingDuration" value="60">
+            <p class="hint">How long before the timer flashes red.</p>
+
+            <label>🔒 Max Steals per Gift</label>
+            <input type="number" id="settingMaxSteals" value="3">
+            <p class="hint">Gifts lock after this many steals.</p>
+
+            <label>👥 Active Players (Simultaneous)</label>
+            <input type="number" id="settingActiveCount" value="1" min="1" max="10">
+            <p class="hint">Increase this to speed up large groups.</p>
+
+            <div class="modal-actions">
+                <button onclick="closeSettings()" class="btn-gray">Cancel</button>
+                <button onclick="saveSettings()" class="btn-green">Save Changes</button>
+            </div>
+        </div>
+    </div>
     <script src="/socket.io/socket.io.js"></script>
     <script src="js/script.js"></script>
 </body>
