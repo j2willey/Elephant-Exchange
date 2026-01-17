@@ -83,6 +83,14 @@ function render(state) {
         if (isTrulyActive) statusIcon = '🔴';
 
         let html = `<span><b>#${p.number}</b> ${p.name}</span>`;
+
+        // NEW: Add Timer if Active
+        if (isTrulyActive) {
+            const duration = state.settings.turnDurationSeconds || 60;
+            const startTime = state.timerStart || Date.now();
+            html += ` <span class="player-timer" data-start="${startTime}" data-duration="${duration}" style="font-family:monospace; font-weight:bold; font-size:1.2em; margin-left:10px;">--:--</span>`;
+        }
+        html += `</span>`;
         
         if (isTrulyActive && !p.heldGiftId) {
             html += `
@@ -208,6 +216,34 @@ function showStealOptions() {
     list.style.transition = "background 0.2s";
     list.style.background = "#fff7ed";
     setTimeout(() => list.style.background = "transparent", 300);
+}
+
+// 6. TIMER LOGIC
+setInterval(updateTimers, 1000); // Run every second
+
+function updateTimers() {
+    const timerElements = document.querySelectorAll('.player-timer');
+    if(timerElements.length === 0) return;
+
+    timerElements.forEach(el => {
+        const start = parseInt(el.dataset.start);
+        const duration = parseInt(el.dataset.duration) * 1000;
+        const now = Date.now();
+        const elapsed = now - start;
+        const remaining = Math.max(0, duration - elapsed);
+
+        const seconds = Math.ceil(remaining / 1000);
+
+        // Format: "0:59"
+        const m = Math.floor(seconds / 60);
+        const s = seconds % 60;
+        el.innerText = `${m}:${s.toString().padStart(2, '0')}`;
+
+        // Visual Cues (Red text when low)
+        if (seconds <= 10) el.style.color = "#dc2626"; // Red
+        else if (seconds <= 30) el.style.color = "#d97706"; // Orange
+        else el.style.color = "#2563eb"; // Blue
+    });
 }
 
 document.getElementById('gameIdInput').addEventListener('keypress', e => e.key === 'Enter' && joinGame());

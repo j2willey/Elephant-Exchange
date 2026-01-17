@@ -36,7 +36,11 @@ const getDefaultState = (gameId) => ({
     id: gameId,
     participants: [], // { id, name, number, status, heldGiftId, forbiddenGiftId }
     gifts: [],        // { id, description, ownerId, stealCount, isFrozen }
-    settings: { maxSteals: 3, isPaused: false },
+    settings: { maxSteals: 3, 
+                isPaused: false, 
+                turnDurationSeconds: 60 // seconds
+    },
+    timerStart: Date.now(), // Track when the current action started
     currentTurn: 1,
     activeVictimId: null, // Priority override for steals
     history: []
@@ -160,6 +164,8 @@ app.post('/api/:gameId/open-new', async (req, res) => {
     } else {
         gameState.currentTurn += 1;
     }
+    // RESET CLOCK FOR THE NEXT PERSON
+    gameState.timerStart = Date.now();
 
     gameState.history.push(`${activePlayer.name} opened a new gift: ${description}`);
     await redisClient.set(key, JSON.stringify(gameState));
@@ -205,6 +211,7 @@ app.post('/api/:gameId/steal', async (req, res) => {
 
     gameState.activeVictimId = victim.id;
     gameState.history.push(`${thief.name} stole ${gift.description} from ${victim.name}!`);
+    gameState.timerStart = Date.now();
 
     await redisClient.set(key, JSON.stringify(gameState));
     io.to(gameId).emit('stateUpdate', gameState);

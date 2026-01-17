@@ -28,3 +28,15 @@ li:last-child { border-bottom: none; }
 .btn-green { background: #16a34a; margin-right: 5px; }
 .btn-orange { background: #ea580c; }
 .btn-red { background: #dc2626; font-size: 0.8rem; }
+
+@keyframes flashOrange {
+    0% { background-color: #111827; } /* Dark base */
+    50% { background-color: #451a03; } /* Dark Orange tint */
+    100% { background-color: #111827; }
+}
+
+@keyframes flashRed {
+    0% { background-color: #111827; }
+    50% { background-color: #450a0a; } /* Dark Red tint */
+    100% { background-color: #111827; }
+}
