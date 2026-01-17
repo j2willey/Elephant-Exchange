@@ -7,196 +7,67 @@
     <style>
         :root { --primary: #2563eb; --bg: #f8fafc; --card: #ffffff; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 1000px; margin: 0 auto; padding: 20px; background: var(--bg); color: #1e293b; }
-        
-        /* Layout Utils */
         .hidden { display: none !important; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 20px; }
+        .grid { display: grid; grid-template-columns: 1.5fr 1fr; gap: 24px; margin-top: 20px; } /* Wider participant column */
         .card { background: var(--card); padding: 24px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-        
-        /* Typography */
-        h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
-        h2 { font-size: 1.25rem; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-top: 0; }
-        
-        /* Forms */
+        h1, h2 { margin-top: 0; }
         .input-group { display: flex; gap: 8px; margin-bottom: 16px; }
         input { flex: 1; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; }
         button { cursor: pointer; background: var(--primary); color: white; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 500; }
-        button:hover { opacity: 0.9; }
-        button.secondary { background: #64748b; }
-
-        /* Lists */
         ul { list-style: none; padding: 0; margin: 0; }
         li { padding: 12px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; }
-        li:last-child { border-bottom: none; }
         
-        .badge { font-size: 0.75rem; padding: 2px 8px; border-radius: 99px; background: #e2e8f0; color: #475569; }
-        .badge.stolen { background: #fee2e2; color: #991b1b; }
+        /* Action Buttons */
+        .btn-green { background: #16a34a; margin-right: 5px; }
+        .btn-orange { background: #ea580c; }
+        .btn-red { background: #dc2626; font-size: 0.8rem; }
     </style>
 </head>
 <body>
 
     <div id="login-section" class="card" style="max-width: 400px; margin: 40px auto; text-align: center;">
         <h1>🐘 Elephant Exchange</h1>
-        <p style="color: #64748b; margin-bottom: 20px;">Enter a Game ID to host or join.</p>
         <div class="input-group">
-            <input type="text" id="gameIdInput" placeholder="e.g. acme-party" autofocus />
+            <input type="text" id="gameIdInput" placeholder="Game ID (e.g. troop-55)" autofocus />
             <button onclick="joinGame()">Start</button>
         </div>
     </div>
 
     <div id="dashboard-section" class="hidden">
-        <header style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
-            <div>
-                <h1 style="margin:0;">Hosting: <span id="displayGameId" style="color: var(--primary);">...</span></h1>
-                <small style="color: #64748b;">Share this ID with your guests</small>
+<header style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
+            <div style="display:flex; align-items:center; gap: 20px;">
+                <h2 style="margin:0;">Hosting: <span id="displayGameId">...</span></h2>
+                
+                <div style="display:flex; align-items:center; gap:5px; background:#eee; padding:5px 10px; border-radius:20px;">
+                    <span style="font-size:0.8rem;">🔍</span>
+                    <input type="range" id="uiScale" min="0.5" max="1.5" step="0.1" value="1" style="width:80px; cursor:pointer;">
+                </div>
             </div>
-            <button class="secondary" onclick="location.reload()">Exit Game</button>
-        </header>
 
+            <div>
+                <button class="btn-red" onclick="clearDb()">⚠️ Clear DB</button>
+                <button onclick="location.reload()" style="background:#64748b;">Exit</button>
+            </div>
+        </header>
         <div class="grid">
             <div class="card">
-                <h2>👥 Participants</h2>
+                <h2>👥 Player Queue</h2>
                 <div class="input-group">
                     <input type="number" id="pNumber" placeholder="#" style="max-width: 60px;">
-                    <input type="text" id="pName" placeholder="Name (e.g. Uncle Bob)">
+                    <input type="text" id="pName" placeholder="Name">
                     <button onclick="addParticipant()">Add</button>
                 </div>
-                <ul id="participantList">
-                    </ul>
+                <ul id="participantList"></ul>
             </div>
 
             <div class="card">
-                <h2>🎁 Gifts</h2>
-                <div class="input-group">
-                    <input type="text" id="gDesc" placeholder="Description (e.g. Red Toaster)">
-                    <button onclick="addGift()">Add</button>
-                </div>
-                <ul id="giftList">
-                    </ul>
+                <h2>🎁 Gift History</h2>
+                <ul id="giftList"></ul>
             </div>
         </div>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
-    <script>
-        let socket;
-        let currentGameId = null;
-
-        // --- AUTH & SETUP ---
-        async function joinGame() {
-            const gameId = document.getElementById('gameIdInput').value.trim();
-            if(!gameId) return alert("Please enter a Game ID");
-
-            // 1. Tell Server to Init Game
-            const res = await fetch('/api/create', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ gameId })
-            });
-
-            if(res.ok) {
-                currentGameId = gameId;
-                // Switch Screens
-                document.getElementById('login-section').classList.add('hidden');
-                document.getElementById('dashboard-section').classList.remove('hidden');
-                document.getElementById('displayGameId').innerText = gameId;
-                
-                // Connect Realtime
-                initSocket(gameId);
-                refreshState();
-            }
-        }
-
-        function initSocket(gameId) {
-            socket = io();
-            socket.emit('joinGame', gameId);
-            
-            // Listen for server updates
-            socket.on('stateUpdate', (state) => {
-                console.log("⚡ Update received:", state);
-                render(state);
-            });
-        }
-
-        // --- DATA HANDLING ---
-        async function refreshState() {
-            const res = await fetch(`/api/${currentGameId}/state`);
-            const state = await res.json();
-            render(state);
-        }
-
-        function render(state) {
-            // Render Participants
-            const pList = document.getElementById('participantList');
-            if (state.participants.length === 0) {
-                pList.innerHTML = `<li style="color:#ccc; justify-content:center;">No participants yet</li>`;
-            } else {
-                pList.innerHTML = state.participants
-                    .sort((a,b) => a.number - b.number) // Sort by #
-                    .map(p => `
-                    <li>
-                        <span><b>#${p.number || '?'}</b> ${p.name}</span>
-                        <span class="badge">${p.status}</span>
-                    </li>
-                `).join('');
-            }
-
-            // Render Gifts
-            const gList = document.getElementById('giftList');
-            if (state.gifts.length === 0) {
-                gList.innerHTML = `<li style="color:#ccc; justify-content:center;">No gifts yet</li>`;
-            } else {
-                gList.innerHTML = state.gifts.map(g => `
-                    <li>
-                        <span>${g.description}</span>
-                        <span class="badge ${g.stealCount > 0 ? 'stolen' : ''}">
-                            ${g.stealCount > 0 ? `Stolen ${g.stealCount}x` : 'Wrapped'}
-                        </span>
-                    </li>
-                `).join('');
-            }
-        }
-
-        // --- USER ACTIONS ---
-        async function addParticipant() {
-            const numInput = document.getElementById('pNumber');
-            const nameInput = document.getElementById('pName');
-            
-            if(!nameInput.value && !numInput.value) return;
-
-            await fetch(`/api/${currentGameId}/participants`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ 
-                    name: nameInput.value, 
-                    number: numInput.value 
-                })
-            });
-
-            // Clear inputs
-            nameInput.value = '';
-            numInput.value = '';
-            nameInput.focus();
-        }
-
-        async function addGift() {
-            const descInput = document.getElementById('gDesc');
-            if(!descInput.value) return;
-
-            await fetch(`/api/${currentGameId}/gifts`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ description: descInput.value })
-            });
-
-            descInput.value = '';
-            descInput.focus();
-        }
-
-        // Allow "Enter" key to submit
-        document.getElementById('gameIdInput').addEventListener('keypress', e => e.key === 'Enter' && joinGame());
-        document.getElementById('pName').addEventListener('keypress', e => e.key === 'Enter' && addParticipant());
-        document.getElementById('gDesc').addEventListener('keypress', e => e.key === 'Enter' && addGift());
-    </script>
+    <script src="script.js"></script>
 </body>
 </html>

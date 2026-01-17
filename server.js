@@ -29,14 +29,24 @@ const getGameKey = (gameId) => `game:${gameId}`;
 
 // Helper: Get default state
 const getDefaultState = (gameId) => ({
-    id: gameId,
-    participants: [],
-    gifts: [],
-    settings: {
-        maxSteals: 3,
-        isPaused: false
-    }
-});
+        id: gameId,
+        participants: [], // { id, name, number, status, heldGiftId }
+        gifts: [],        // { id, description, ownerId, stealCount, isFrozen }
+        settings: { maxSteals: 3, isPaused: false },
+        // --- NEW FIELDS ---
+        currentTurn: 1,   // Starts at Player #1
+        history: []       // Log of what happened
+ });
+
+// HELPER: Find who should be playing
+function getActivePlayer(gameState) {
+    // 1. Is there someone who just had their gift stolen? (Priority)
+    // In a real game, this is complex. For now, we will trust the "currentTurn" index
+    // unless we explicitly set a "victim" state later.
+    
+    // Simple version: Find the participant with the current number
+    return gameState.participants.find(p => p.number === gameState.currentTurn);
+}
 
 // --- API ROUTES ---
 
@@ -101,12 +111,15 @@ app.post('/api/:gameId/participants', async (req, res) => {
 
     const gameState = JSON.parse(data);
 
-    // Create the new participant object
+    // AUTO-NUMBER LOGIC: If no number provided, append to end of line
+    const nextNumber = gameState.participants.length + 1;
+    const finalNumber = number ? parseInt(number) : nextNumber;
+
     const newParticipant = {
-        id: `p_${Date.now()}`, // Simple unique ID
-        name: name || `Player ${number}`,
-        number: number ? parseInt(number) : null,
-        status: 'waiting', // waiting, up, done
+        id: `p_${Date.now()}`,
+        name: name || `Player ${finalNumber}`,
+        number: finalNumber, // Now guaranteed to be an integer
+        status: 'waiting', 
         heldGiftId: null
     };
 
@@ -152,6 +165,50 @@ app.post('/api/:gameId/gifts', async (req, res) => {
 
     res.json({ success: true, gift: newGift });
 });
+
+
+// 6. ACTION: OPEN NEW GIFT (Just-in-Time Creation)
+app.post('/api/:gameId/open-new', async (req, res) => {
+    const { gameId } = req.params;
+    const { description } = req.body;
+    const key = getGameKey(gameId);
+
+    if (!description) return res.status(400).json({ error: "Description required" });
+
+    const data = await redisClient.get(key);
+    if (!data) return res.status(404).json({ error: "Game not found" });
+    let gameState = JSON.parse(data);
+
+    // 1. Identify Active Player
+    const activePlayer = gameState.participants.find(p => p.number === gameState.currentTurn);
+    if (!activePlayer) return res.status(400).json({ error: "No active player for this turn" });
+
+    // 2. Create the Gift
+    const newGift = {
+        id: `g_${Date.now()}`,
+        description,
+        isFrozen: false,
+        stealCount: 0,
+        ownerId: activePlayer.id, // Immediately owned
+        ownerHistory: [activePlayer.id]
+    };
+
+    // 3. Update State
+    gameState.gifts.push(newGift);
+    activePlayer.heldGiftId = newGift.id;
+    activePlayer.status = 'done';
+
+    // 4. Advance Turn
+    gameState.currentTurn += 1;
+    gameState.history.push(`${activePlayer.name} opened a new gift: ${description}`);
+
+    // Save & Broadcast
+    await redisClient.set(key, JSON.stringify(gameState));
+    io.to(gameId).emit('stateUpdate', gameState);
+
+    res.json({ success: true, activePlayer, gift: newGift });
+});
+
 
 // --- SOCKET.IO REALTIME ---
 
