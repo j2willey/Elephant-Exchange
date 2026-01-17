@@ -43,12 +43,22 @@ function joinGame() {
         updateDebugFooter("Live Sync Active", gameId);
     });
 
+    socket.on('settingsPreview', (settings) => {
+        if (settings.scrollSpeed !== undefined) {
+            window.currentScrollSpeed = parseInt(settings.scrollSpeed);
+            // If it was stopped (0) and is now moving, kickstart the loop
+            if (!scrollInterval && window.currentScrollSpeed > 0) initAutoScroll();
+        }
+    });
+    
     socket.on('disconnect', () => {
         updateDebugFooter("Socket Disconnected!", gameId);
         const banner = document.getElementById('activePlayerBanner');
-        banner.innerText = "⚠️ Connection Lost";
-        banner.style.background = "#b91c1c";
-        banner.dataset.active = "false"; // Stop timer
+        if(banner) {
+            banner.innerText = "⚠️ Connection Lost";
+            banner.style.background = "#b91c1c";
+            banner.dataset.active = "false";
+        }
     });
 
     // Initial Fetch
@@ -60,7 +70,8 @@ function joinGame() {
         .then(state => renderTV(state))
         .catch(err => {
             console.error(err);
-            document.getElementById('activePlayerBanner').innerText = "Game Not Found";
+            const banner = document.getElementById('activePlayerBanner');
+            if(banner) banner.innerText = "Game Not Found";
             updateDebugFooter("Error: Game Not Found", gameId);
         });
 }
@@ -73,6 +84,12 @@ function updateDebugFooter(status, gameId) {
 // --- RENDER LOGIC ---
 
 function renderTV(state) {
+    // Save speed globally for the scroller
+    window.currentScrollSpeed = state.settings.scrollSpeed !== undefined ? state.settings.scrollSpeed : 3;
+    
+    // START SCROLLER IF NOT STARTED
+    if (!scrollInterval) initAutoScroll();
+
     // 1. FIND ACTIVE PLAYER
     const activeP = state.participants.find(p => 
         (state.activeVictimId && p.id === state.activeVictimId) || 
@@ -107,18 +124,15 @@ function renderTV(state) {
     // 3. RENDER GIFTS (The Master List)
     const gList = document.getElementById('giftList');
     
-    // Sort: Frozen (bottom), then Most Stolen (top)
     const sortedGifts = state.gifts.sort((a,b) => {
         if (a.isFrozen !== b.isFrozen) return a.isFrozen - b.isFrozen;
         return b.stealCount - a.stealCount;
     });
 
     if (sortedGifts.length === 0) {
-        // Ensure this list item displays block so it takes up space
         gList.innerHTML = '<li style="color:#6b7280; text-align:center; display:block;">No gifts opened yet</li>';
     } else {
         gList.innerHTML = sortedGifts.map(g => {
-            // Find Owner Name
             const owner = state.participants.find(p => p.id === g.ownerId);
             const ownerName = owner ? owner.name : 'Unknown';
 
@@ -129,11 +143,7 @@ function renderTV(state) {
             return `
                 <li style="${g.isFrozen ? 'opacity:0.5' : ''}">
                     <span style="font-weight:600; color: white;">${g.description}</span>
-                    
-                    <span class="owner-col">
-                        Held by <b>${ownerName}</b>
-                    </span>
-                    
+                    <span class="owner-col">Held by <b>${ownerName}</b></span>
                     ${badge}
                 </li>
             `;
@@ -141,8 +151,58 @@ function renderTV(state) {
     }
 }
 
-// --- ANIMATION LOOP ---
-setInterval(updateScoreboardTimer, 100);
+// --- ANIMATION & SCROLL LOOP ---
+let scrollInterval;
+let pauseCounter = 0;
+let virtualScrollY = 0; // The Accumulator! 🛡️
+
+// Run loop at 60 FPS (approx 16ms)
+setInterval(() => {
+    updateScoreboardTimer();
+    // We combine the loops for efficiency
+}, 100); 
+
+function initAutoScroll() {
+    if (scrollInterval) clearInterval(scrollInterval);
+    
+    // Smoother scroll loop (30ms)
+    scrollInterval = setInterval(() => {
+        const container = document.querySelector('.card'); 
+        if (!container) return;
+        
+        // 1. Check Settings
+        if (!window.currentScrollSpeed || window.currentScrollSpeed <= 0) return;
+
+        // 2. Detect if scrolling is needed
+        if (container.scrollHeight <= container.clientHeight) return;
+
+        // 3. Pause Logic
+        if (pauseCounter > 0) {
+            pauseCounter--;
+            return;
+        }
+
+        // 4. Scroll Logic (with Accumulator)
+        // Ensure we start from the current visual position if we just reset
+        if (virtualScrollY === 0 && container.scrollTop > 0) {
+             virtualScrollY = container.scrollTop;
+        }
+
+        // Speed Factor: 0.5px per tick (smoother) * Speed Setting
+        const speed = window.currentScrollSpeed * 0.15; 
+        virtualScrollY += speed;
+        
+        container.scrollTop = virtualScrollY;
+
+        // 5. Bottom Detection
+        // buffer of 5px to be safe
+        if (container.scrollTop + container.clientHeight >= container.scrollHeight - 5) {
+            pauseCounter = 100; // Pause ~3 seconds at bottom
+            virtualScrollY = 0; // Reset accumulator
+            container.scrollTop = 0; // SNAP back to top
+        }
+    }, 30);
+}
 
 function updateScoreboardTimer() {
     const banner = document.getElementById('activePlayerBanner');
@@ -165,20 +225,17 @@ function updateScoreboardTimer() {
     const body = document.body;
     
     if (remaining <= 0) {
-        banner.style.background = "#000"; // Time's up!
+        banner.style.background = "#000"; 
         body.style.animation = "none";
         if(timerDisplay) timerDisplay.innerText = "TIME'S UP!";
     } 
     else if (remaining <= 10) {
-        // SUPER FAST FLASH (Panic!)
         body.style.animation = "flashRed 0.5s infinite";
     } 
     else if (remaining <= 30) {
-        // Slow Flash (Warning)
         body.style.animation = "flashOrange 2s infinite";
     } 
     else {
-        // Normal
         body.style.animation = "none";
     }
 }

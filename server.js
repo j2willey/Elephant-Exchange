@@ -9,6 +9,9 @@ const http = require('http');
 const { Server } = require('socket.io');
 const { createClient } = require('redis');
 
+// NEW: Import the logic from the library
+const { getDefaultState, isPlayerActive } = require('./lib/gameEngine');
+
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
@@ -28,59 +31,7 @@ redisClient.on('error', (err) => console.log('Redis Client Error', err));
 app.use(express.static('public'));
 app.use(express.json());
 
-// --- GAME STATE MANAGEMENT ---
-
 const getGameKey = (gameId) => `game:${gameId}`;
-
-const getDefaultState = (gameId) => ({
-    id: gameId,
-    participants: [], // { id, name, number, status, heldGiftId, forbiddenGiftId, isVictim }
-    gifts: [],        // { id, description, ownerId, stealCount, isFrozen }
-    settings: { 
-        maxSteals: 3, 
-        isPaused: false, 
-        turnDurationSeconds: 60, 
-        activePlayerCount: 1
-    },
-    timerStart: Date.now(), 
-    currentTurn: 1,
-    activeVictimId: null, // Legacy global, replaced by isVictim flag for multi-player
-    history: []
-});
-
-// HELPER: The "Slots" Logic (Multi-Player)
-function isPlayerActive(gameState, playerId) {
-    const target = gameState.participants.find(p => p.id === playerId);
-    if (!target) return false;
-    
-    // Rule 1: If you are done, you are NOT active.
-    if (target.status === 'done') return false;
-
-    // Rule 2: If you are a Victim, you are ALWAYS active (Priority).
-    if (target.isVictim) return true;
-
-    // Rule 3: The Queue
-    const activeLimit = gameState.settings.activePlayerCount || 1;
-    
-    // Count how many victims are currently taking up slots
-    const activeVictims = gameState.participants.filter(p => p.isVictim && p.status !== 'done');
-    const slotsTakenByVictims = activeVictims.length;
-    
-    // How many slots are left for the normal queue?
-    let slotsForQueue = activeLimit - slotsTakenByVictims;
-    if (slotsForQueue < 0) slotsForQueue = 0; 
-
-    if (slotsForQueue === 0) return false; // No room for normal players
-
-    // Find the next X people in the queue
-    const sortedQueue = gameState.participants
-        .filter(p => p.number >= gameState.currentTurn && p.status === 'waiting' && !p.isVictim)
-        .sort((a,b) => a.number - b.number);
-
-    // Is our target in the top X of this list?
-    const activeQueuePlayers = sortedQueue.slice(0, slotsForQueue);
-    return activeQueuePlayers.some(p => p.id === playerId);
-}
 
 // --- API ROUTES ---
 
@@ -94,6 +45,7 @@ app.post('/api/create', async (req, res) => {
 
     if (!exists) {
         console.log(`✨ Creating new game: ${gameId}`);
+        // Uses the imported function
         await redisClient.set(key, JSON.stringify(getDefaultState(gameId)));
     }
     res.json({ success: true, gameId });
@@ -111,6 +63,7 @@ app.get('/api/:gameId/state', async (req, res) => {
 app.post('/api/:gameId/reset', async (req, res) => {
     const { gameId } = req.params;
     const key = getGameKey(gameId);
+    // Uses the imported function
     const initialState = getDefaultState(gameId);
     await redisClient.set(key, JSON.stringify(initialState));
     io.to(gameId).emit('stateUpdate', initialState);
@@ -162,13 +115,12 @@ app.post('/api/:gameId/open-new', async (req, res) => {
     if (!data) return res.status(404).json({ error: "Game not found" });
     let gameState = JSON.parse(data);
        
-    // VALIDATE PLAYER
+    // VALIDATE PLAYER (Uses imported function)
     if (!isPlayerActive(gameState, playerId)) {
         return res.status(403).json({ error: "This player is not currently active" });
     }
     const activePlayer = gameState.participants.find(p => p.id === playerId);
     
-    // Clear restrictions
     activePlayer.forbiddenGiftId = null;
 
     const newGift = {
@@ -184,15 +136,13 @@ app.post('/api/:gameId/open-new', async (req, res) => {
     gameState.gifts.push(newGift); 
     activePlayer.heldGiftId = newGift.id;
     activePlayer.status = 'done';
-    activePlayer.isVictim = false; // Satisfied
+    activePlayer.isVictim = false; 
 
-    // Advance Turn Logic: Only advance if the "Turn Owner" is done
     const turnPlayer = gameState.participants.find(p => p.number === gameState.currentTurn);
     if (turnPlayer && turnPlayer.status === 'done') {
         gameState.currentTurn += 1;
     }
     
-    // Clear legacy global just in case
     gameState.activeVictimId = null;
     gameState.timerStart = Date.now();
 
@@ -206,14 +156,14 @@ app.post('/api/:gameId/open-new', async (req, res) => {
 // 6. STEAL GIFT
 app.post('/api/:gameId/steal', async (req, res) => {
     const { gameId } = req.params;
-    const { giftId, thiefId } = req.body; // FIX: Expect thiefId, avoid name collision
+    const { giftId, thiefId } = req.body;
     const key = getGameKey(gameId);
 
     const data = await redisClient.get(key);
     if (!data) return res.status(404).json({ error: "Game not found" });
     let gameState = JSON.parse(data);
 
-    // Validate using the ID
+    // Validate (Uses imported function)
     if (!isPlayerActive(gameState, thiefId)) {
         return res.status(403).json({ error: "This player is not allowed to steal right now" });
     }
@@ -228,20 +178,16 @@ app.post('/api/:gameId/steal', async (req, res) => {
     const victim = gameState.participants.find(p => p.id === gift.ownerId);
 
     // Execute Swap
-    // Victim updates
     victim.heldGiftId = null;
     victim.status = 'waiting';
     victim.forbiddenGiftId = gift.id; 
-    victim.isVictim = true; // Mark as Priority
+    victim.isVictim = true; 
 
-    // Thief updates
     thief.heldGiftId = gift.id;
     thief.status = 'done';
     thief.forbiddenGiftId = null;
-    thief.isVictim = false; // Satisfied
+    thief.isVictim = false; 
 
-    // CLEANUP: We do NOT set gameState.activeVictimId here anymore.
-    // We rely entirely on the .isVictim flag for multi-player logic.
     gameState.activeVictimId = null;
 
     gift.ownerId = thief.id;
@@ -276,22 +222,21 @@ app.put('/api/:gameId/gifts/:giftId', async (req, res) => {
     res.json({ success: true });
 });
 
-// 9. ACTION: UPDATE SETTINGS
+// 9. UPDATE SETTINGS
 app.put('/api/:gameId/settings', async (req, res) => {
     const { gameId } = req.params;
-    const { maxSteals, turnDurationSeconds, activePlayerCount } = req.body;
+    const { maxSteals, turnDurationSeconds, activePlayerCount, scrollSpeed } = req.body;
     const key = getGameKey(gameId);
 
     const data = await redisClient.get(key);
     if (!data) return res.status(404).json({ error: "Game not found" });
     let gameState = JSON.parse(data);
 
-    // Update fields if provided
     if (maxSteals !== undefined) gameState.settings.maxSteals = parseInt(maxSteals);
     if (turnDurationSeconds !== undefined) gameState.settings.turnDurationSeconds = parseInt(turnDurationSeconds);
     if (activePlayerCount !== undefined) gameState.settings.activePlayerCount = parseInt(activePlayerCount);
+    if (scrollSpeed !== undefined) gameState.settings.scrollSpeed = parseInt(scrollSpeed);
 
-    // Re-evaluate Frozen status
     gameState.gifts.forEach(g => {
         if (g.stealCount >= gameState.settings.maxSteals) {
             g.isFrozen = true;
@@ -309,9 +254,16 @@ app.put('/api/:gameId/settings', async (req, res) => {
 // --- SOCKET.IO ---
 io.on('connection', (socket) => {
     console.log('🔌 User connected:', socket.id);
+    
     socket.on('joinGame', (gameId) => {
         socket.join(gameId);
         console.log(`Joined room: ${gameId}`);
+    });
+
+    // NEW: Live Preview Relay (Does not save to DB)
+    socket.on('previewSettings', (data) => {
+        // Broadcast to the room (Scoreboard will hear this)
+        socket.to(data.gameId).emit('settingsPreview', data.settings);
     });
 });
 
