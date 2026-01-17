@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Elephant Scoreboard</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        /* TV/Scoreboard Specific Overrides */
+        body { background: #111827; color: #f3f4f6; max-width: 100%; padding: 40px; box-sizing: border-box; }
+        .card { background: #1f2937; border: 1px solid #374151; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5); }
+        h1, h2 { color: #e5e7eb; border-color: #374151; }
+        
+        /* Banner */
+        #activePlayerBanner {
+            background: #374151; color: white;
+            padding: 30px; border-radius: 16px;
+            text-align: center; font-size: 4rem; font-weight: 800;
+            margin-bottom: 40px;
+            box-shadow: 0 0 40px rgba(0,0,0,0.5);
+            transition: background 0.5s;
+        }
+
+        /* Single List Layout */
+        ul { display: flex; flex-direction: column; gap: 10px; }
+        
+        li { 
+            font-size: 2rem; padding: 20px 30px; border-color: #374151; 
+            display: grid; grid-template-columns: 2fr 1fr 150px; /* Gift Name | Owner | Badge */
+            align-items: center;
+        }
+        
+        /* Owner Name Column */
+        .owner-col { text-align: right; color: #9ca3af; font-size: 1.5rem; padding-right: 20px; }
+        .owner-col b { color: #fbbf24; }
+
+        .badge { font-size: 1.2rem; padding: 8px 16px; text-align: center; }
+
+        /* DEBUG FOOTER */
+        #debugFooter {
+            position: fixed; bottom: 10px; right: 10px;
+            font-family: monospace; font-size: 0.8rem;
+            color: #6b7280; background: rgba(0,0,0,0.8);
+            padding: 5px 10px; border-radius: 4px;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="login-section" style="text-align:center; margin-top:100px;">
+        <h1 style="font-size:4rem;">🐘 Scoreboard</h1>
+        <input type="text" id="gameIdInput" placeholder="Enter Game ID" 
+               style="font-size:2rem; padding:20px; text-align:center; width:300px; color:#000;">
+        <br><br>
+        <button onclick="joinGame()" style="font-size:2rem; padding:15px 40px;">Connect</button>
+    </div>
+
+    <div id="dashboard-section" class="hidden">
+        
+        <div id="activePlayerBanner">
+            Connecting...
+        </div>
+
+        <div class="card" style="max-width: 1200px; margin: 0 auto;">
+            <ul id="giftList"></ul>
+        </div>
+    </div>
+
+    <div id="debugFooter">Not Connected</div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="js/scoreboard.js"></script>
+</body>
+</html>
