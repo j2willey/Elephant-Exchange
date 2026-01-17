@@ -1,3 +1,9 @@
+/*
+ * Elephant Exchange
+ * Copyright (c) 2026 Jim Willey
+ * Licensed under the MIT License.
+ */
+
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -24,33 +30,29 @@ app.use(express.json());
 
 // --- GAME STATE MANAGEMENT ---
 
-// Helper: Get key for specific game
 const getGameKey = (gameId) => `game:${gameId}`;
 
-// Helper: Get default state
 const getDefaultState = (gameId) => ({
-        id: gameId,
-        participants: [], // { id, name, number, status, heldGiftId }
-        gifts: [],        // { id, description, ownerId, stealCount, isFrozen }
-        settings: { maxSteals: 3, isPaused: false },
-        // --- NEW FIELDS ---
-        currentTurn: 1,   // Starts at Player #1
-        history: []       // Log of what happened
- });
+    id: gameId,
+    participants: [], // { id, name, number, status, heldGiftId, forbiddenGiftId }
+    gifts: [],        // { id, description, ownerId, stealCount, isFrozen }
+    settings: { maxSteals: 3, isPaused: false },
+    currentTurn: 1,
+    activeVictimId: null, // Priority override for steals
+    history: []
+});
 
-// HELPER: Find who should be playing
+// HELPER: Find who is truly active (Turn Number vs Victim)
 function getActivePlayer(gameState) {
-    // 1. Is there someone who just had their gift stolen? (Priority)
-    // In a real game, this is complex. For now, we will trust the "currentTurn" index
-    // unless we explicitly set a "victim" state later.
-    
-    // Simple version: Find the participant with the current number
+    if (gameState.activeVictimId) {
+        return gameState.participants.find(p => p.id === gameState.activeVictimId);
+    }
     return gameState.participants.find(p => p.number === gameState.currentTurn);
 }
 
 // --- API ROUTES ---
 
-// 1. CREATE / JOIN GAME
+// 1. CREATE / JOIN
 app.post('/api/create', async (req, res) => {
     const { gameId } = req.body;
     if (!gameId) return res.status(400).json({ error: "gameId required" });
@@ -60,114 +62,62 @@ app.post('/api/create', async (req, res) => {
 
     if (!exists) {
         console.log(`✨ Creating new game: ${gameId}`);
-        const initialState = getDefaultState(gameId);
-        await redisClient.set(key, JSON.stringify(initialState));
-    } else {
-        console.log(`🔙 Rejoining existing game: ${gameId}`);
+        await redisClient.set(key, JSON.stringify(getDefaultState(gameId)));
     }
-
     res.json({ success: true, gameId });
 });
 
-// 2. GET GAME STATE
+// 2. GET STATE
 app.get('/api/:gameId/state', async (req, res) => {
     const { gameId } = req.params;
-    const key = getGameKey(gameId);
-
-    const data = await redisClient.get(key);
-    if (!data) {
-        return res.status(404).json({ error: "Game not found" });
-    }
-
+    const data = await redisClient.get(getGameKey(gameId));
+    if (!data) return res.status(404).json({ error: "Game not found" });
     res.json(JSON.parse(data));
 });
 
-// 3. RESET GAME (Dev Tool)
+// 3. RESET (CLEAR DB)
 app.post('/api/:gameId/reset', async (req, res) => {
     const { gameId } = req.params;
     const key = getGameKey(gameId);
-
-    console.log(`🔥 Resetting game: ${gameId}`);
     const initialState = getDefaultState(gameId);
     await redisClient.set(key, JSON.stringify(initialState));
-
-    // Notify everyone in the room!
     io.to(gameId).emit('stateUpdate', initialState);
-
     res.json({ success: true });
 });
+
 // 4. ADD PARTICIPANT
 app.post('/api/:gameId/participants', async (req, res) => {
     const { gameId } = req.params;
     const { name, number } = req.body;
     const key = getGameKey(gameId);
-
-    // Basic Validation
+    
     if (!name && !number) return res.status(400).json({ error: "Name or Number required" });
 
-    // Fetch current state
     const data = await redisClient.get(key);
     if (!data) return res.status(404).json({ error: "Game not found" });
-
     const gameState = JSON.parse(data);
 
-    // AUTO-NUMBER LOGIC: If no number provided, append to end of line
+    // Auto-number logic
     const nextNumber = gameState.participants.length + 1;
     const finalNumber = number ? parseInt(number) : nextNumber;
 
     const newParticipant = {
         id: `p_${Date.now()}`,
         name: name || `Player ${finalNumber}`,
-        number: finalNumber, // Now guaranteed to be an integer
-        status: 'waiting', 
-        heldGiftId: null
+        number: finalNumber,
+        status: 'waiting',
+        heldGiftId: null,
+        forbiddenGiftId: null
     };
 
-    // Add to state
     gameState.participants.push(newParticipant);
-
-    // Save to Redis
     await redisClient.set(key, JSON.stringify(gameState));
-
-    // REAL-TIME UPDATE: Tell everyone!
     io.to(gameId).emit('stateUpdate', gameState);
 
     res.json({ success: true, participant: newParticipant });
 });
 
-// 5. ADD GIFT
-app.post('/api/:gameId/gifts', async (req, res) => {
-    const { gameId } = req.params;
-    const { description } = req.body;
-    const key = getGameKey(gameId);
-
-    if (!description) return res.status(400).json({ error: "Description required" });
-
-    const data = await redisClient.get(key);
-    if (!data) return res.status(404).json({ error: "Game not found" });
-
-    const gameState = JSON.parse(data);
-
-    // Create new gift
-    const newGift = {
-        id: `g_${Date.now()}`,
-        description,
-        isFrozen: false,
-        stealCount: 0,
-        ownerHistory: []
-    };
-
-    gameState.gifts.push(newGift);
-
-    // Save & Broadcast
-    await redisClient.set(key, JSON.stringify(gameState));
-    io.to(gameId).emit('stateUpdate', gameState);
-
-    res.json({ success: true, gift: newGift });
-});
-
-
-// 6. ACTION: OPEN NEW GIFT (Just-in-Time Creation)
+// 5. OPEN NEW GIFT
 app.post('/api/:gameId/open-new', async (req, res) => {
     const { gameId } = req.params;
     const { description } = req.body;
@@ -179,56 +129,115 @@ app.post('/api/:gameId/open-new', async (req, res) => {
     if (!data) return res.status(404).json({ error: "Game not found" });
     let gameState = JSON.parse(data);
 
-    // 1. Identify Active Player
-    const activePlayer = gameState.participants.find(p => p.number === gameState.currentTurn);
+    const activePlayer = getActivePlayer(gameState);
     if (!activePlayer) return res.status(400).json({ error: "No active player for this turn" });
 
-    // 2. Create the Gift
+    // Clear "No Take-Back" restriction since they chose to open
+    activePlayer.forbiddenGiftId = null;
+
     const newGift = {
         id: `g_${Date.now()}`,
         description,
         isFrozen: false,
         stealCount: 0,
-        ownerId: activePlayer.id, // Immediately owned
+        ownerId: activePlayer.id,
         ownerHistory: [activePlayer.id]
     };
 
-    // 3. Update State
-    gameState.gifts.push(newGift);
+    // UPDATE STATE
+    gameState.gifts.push(newGift); // <--- THIS WAS LIKELY MISSING
     activePlayer.heldGiftId = newGift.id;
     activePlayer.status = 'done';
 
-    // 4. Advance Turn
-    gameState.currentTurn += 1;
-    gameState.history.push(`${activePlayer.name} opened a new gift: ${description}`);
+    // Advance Turn Logic
+    if (gameState.activeVictimId) {
+        gameState.activeVictimId = null; // Victim satisfied
+        // Check if original turn owner is done
+        const turnPlayer = gameState.participants.find(p => p.number === gameState.currentTurn);
+        if (turnPlayer && turnPlayer.heldGiftId) {
+             gameState.currentTurn += 1;
+        }
+    } else {
+        gameState.currentTurn += 1;
+    }
 
-    // Save & Broadcast
+    gameState.history.push(`${activePlayer.name} opened a new gift: ${description}`);
     await redisClient.set(key, JSON.stringify(gameState));
     io.to(gameId).emit('stateUpdate', gameState);
 
     res.json({ success: true, activePlayer, gift: newGift });
 });
 
+// 6. STEAL GIFT
+app.post('/api/:gameId/steal', async (req, res) => {
+    const { gameId } = req.params;
+    const { giftId } = req.body;
+    const key = getGameKey(gameId);
 
-// --- SOCKET.IO REALTIME ---
+    const data = await redisClient.get(key);
+    if (!data) return res.status(404).json({ error: "Game not found" });
+    let gameState = JSON.parse(data);
 
+    const thief = getActivePlayer(gameState);
+    if (!thief) return res.status(400).json({ error: "No active player" });
+
+    const gift = gameState.gifts.find(g => g.id === giftId);
+    if (!gift || !gift.ownerId) return res.status(404).json({ error: "Invalid gift" });
+    if (gift.isFrozen) return res.status(400).json({ error: "Gift is frozen" });
+    if (gift.ownerId === thief.id) return res.status(400).json({ error: "Cannot steal from self" });
+    if (thief.forbiddenGiftId === gift.id) return res.status(400).json({ error: "No take-backs!" });
+
+    const victim = gameState.participants.find(p => p.id === gift.ownerId);
+
+    // Execute Swap
+    thief.heldGiftId = gift.id;
+    thief.status = 'done';
+    thief.forbiddenGiftId = null;
+
+    victim.heldGiftId = null;
+    victim.status = 'waiting';
+    victim.forbiddenGiftId = gift.id; // Apply "No Take-Back" Rule
+
+    gift.ownerId = thief.id;
+    gift.ownerHistory.push(thief.id);
+    gift.stealCount += 1;
+    if (gift.stealCount >= gameState.settings.maxSteals) gift.isFrozen = true;
+
+    gameState.activeVictimId = victim.id;
+    gameState.history.push(`${thief.name} stole ${gift.description} from ${victim.name}!`);
+
+    await redisClient.set(key, JSON.stringify(gameState));
+    io.to(gameId).emit('stateUpdate', gameState);
+
+    res.json({ success: true });
+});
+
+// 7. EDIT GIFT
+app.put('/api/:gameId/gifts/:giftId', async (req, res) => {
+    const { gameId, giftId } = req.params;
+    const { description } = req.body;
+    const key = getGameKey(gameId);
+
+    const data = await redisClient.get(key);
+    let gameState = JSON.parse(data);
+    
+    const gift = gameState.gifts.find(g => g.id === giftId);
+    if (gift) {
+        gift.description = description;
+        await redisClient.set(key, JSON.stringify(gameState));
+        io.to(gameId).emit('stateUpdate', gameState);
+    }
+    res.json({ success: true });
+});
+
+// --- SOCKET.IO ---
 io.on('connection', (socket) => {
-    console.log('🔌 A user connected:', socket.id);
-
-    // Client MUST ask to join a specific game room
+    console.log('🔌 User connected:', socket.id);
     socket.on('joinGame', (gameId) => {
         socket.join(gameId);
-        console.log(`ID ${socket.id} joined room: ${gameId}`);
-    });
-
-    socket.on('disconnect', () => {
-        console.log('User disconnected');
+        console.log(`Joined room: ${gameId}`);
     });
 });
 
-// --- START SERVER ---
-// Important: Listen on 'server', not 'app'
 const PORT = 3000;
-server.listen(PORT, () => {
-    console.log(`🚀 Elephant Exchange running on port ${PORT}`);
-});
+server.listen(PORT, () => console.log(`🚀 Elephant Exchange running on port ${PORT}`));
