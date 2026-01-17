@@ -86,7 +86,7 @@ app.post('/api/:gameId/participants', async (req, res) => {
     const finalNumber = number ? parseInt(number) : nextNumber;
 
     const newParticipant = {
-        id: `p_${Date.now()}`,
+        id: `p_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
         name: name || `Player ${finalNumber}`,
         number: finalNumber,
         status: 'waiting',
@@ -124,7 +124,7 @@ app.post('/api/:gameId/open-new', async (req, res) => {
     activePlayer.forbiddenGiftId = null;
 
     const newGift = {
-        id: `g_${Date.now()}`,
+        id: `g_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
         description,
         isFrozen: false,
         stealCount: 0,

@@ -9,7 +9,9 @@ let currentGameId = null;
 let stealingPlayerId = null; // Tracks who is currently looking for a gift to steal
 let originalScrollSpeed = 3; // Store original value for canceling
 
+// 1. AUTO-LOGIN ON LOAD
 document.addEventListener('DOMContentLoaded', () => {
+    // UI Scale Logic
     const scaleSlider = document.getElementById('uiScale');
     const savedScale = localStorage.getItem('elephantScale');
     if (savedScale) {
@@ -22,10 +24,21 @@ document.addEventListener('DOMContentLoaded', () => {
             localStorage.setItem('elephantScale', e.target.value);
         });
     }
+
+    // NEW: Check URL or LocalStorage for Game ID
+    const params = new URLSearchParams(window.location.search);
+    const urlGameId = params.get('game');
+    
+    if (urlGameId) {
+        document.getElementById('gameIdInput').value = urlGameId;
+        joinGame(urlGameId);
+    }
 });
 
-async function joinGame() {
-    const gameId = document.getElementById('gameIdInput').value.trim();
+async function joinGame(forceId = null) {
+    const inputId = document.getElementById('gameIdInput').value.trim();
+    const gameId = forceId || inputId;
+    
     if(!gameId) return alert("Please enter a Game ID");
 
     const res = await fetch('/api/create', {
@@ -36,19 +49,43 @@ async function joinGame() {
 
     if(res.ok) {
         currentGameId = gameId;
+        
+        // Update URL without reloading (so refresh works later)
+        const newUrl = `${window.location.pathname}?game=${gameId}`;
+        window.history.pushState({path: newUrl}, '', newUrl);
+
         document.getElementById('login-section').classList.add('hidden');
         document.getElementById('dashboard-section').classList.remove('hidden');
         document.getElementById('displayGameId').innerText = gameId;
+        
         initSocket(gameId);
         refreshState();
     }
 }
 
 function initSocket(gameId) {
+    if (socket) socket.disconnect(); // Prevent duplicates
     socket = io();
-    socket.emit('joinGame', gameId);
+    
+    // 2. RECONNECT LOGIC
+    socket.on('connect', () => {
+        console.log("🟢 Connected to server");
+        // Re-join room immediately
+        socket.emit('joinGame', gameId);
+        
+        document.getElementById('displayGameId').style.color = "inherit";
+        document.getElementById('displayGameId').innerText = gameId;
+        
+        refreshState();
+    });
+
+    socket.on('disconnect', () => {
+        console.log("🔴 Disconnected");
+        document.getElementById('displayGameId').style.color = "red";
+        document.getElementById('displayGameId').innerText = gameId + " (Offline)";
+    });
+
     socket.on('stateUpdate', (state) => {
-        // console.log("⚡ Update:", state); 
         render(state);
     });
 }
@@ -389,24 +426,37 @@ function setTvMode(mode) {
 function showLocalQr() {
     if(!currentGameId) return;
 
-    // 1. Construct the Scoreboard URL
-    // We assume the scoreboard is at /scoreboard.html relative to current origin
     const origin = window.location.origin;
-    const url = `${origin}/scoreboard.html?game=${currentGameId}`;
+    // Construct the URL with the mobile flag
+    const url = `${origin}/scoreboard.html?game=${currentGameId}&mode=mobile`;
 
-    // 2. Clear old code
     const container = document.getElementById('localQrcode');
     container.innerHTML = '';
+    
+    // Update the Game ID text
     document.getElementById('qrGameIdDisplay').innerText = currentGameId;
 
-    // 3. Generate
+    // 1. Generate QR
     new QRCode(container, {
         text: url,
         width: 200,
         height: 200
     });
 
-    // 4. Show Modal
+    // 2. Add Clickable Link (NEW)
+    // We append a simple link below the QR code for easy testing
+    const link = document.createElement('a');
+    link.href = url;
+    link.target = "_blank";
+    link.innerText = "🔗 Click to Open Link";
+    link.style.display = "block";
+    link.style.marginTop = "15px";
+    link.style.color = "#2563eb";
+    link.style.textDecoration = "underline";
+    
+    container.appendChild(link);
+
+    // Show Modal
     document.getElementById('localQrModal').classList.remove('hidden');
 }
 

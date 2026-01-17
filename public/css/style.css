@@ -99,38 +99,77 @@ li:last-child { border-bottom: none; }
 
 /* --- TV / SCOREBOARD MODE --- */
 /* Applied when <body class="tv-mode"> */
-
-body.tv-mode { 
-    background: #111827; 
-    color: #f3f4f6; 
-    max-width: 100%; 
-    padding: 40px; 
-    box-sizing: border-box; 
-    overflow: hidden; /* Prevent body scroll, let the card scroll */
+/* --- TV MODE (Big Screen) --- */
+.tv-mode { 
+    background: #111827; color: #f3f4f6; 
+    max-width: 100%; padding: 40px; box-sizing: border-box; 
+    overflow: hidden; /* NO SCROLLING ALLOWED */
 }
 
 .tv-mode .card { 
-    background: #1f2937; 
-    border: 1px solid #374151; 
+    background: #1f2937; border: 1px solid #374151; 
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5); 
-    
-    /* Auto-Scroll Container */
-    max-width: 1200px; 
-    margin: 0 auto; 
+    max-width: 1200px; margin: 0 auto; 
     max-height: 70vh; 
-    overflow: hidden; /* Hide scrollbars for TV look */
+    overflow: hidden; /* HIDE SCROLLBARS */
     position: relative;
 }
 
-/* Gradient Mask at bottom of list */
+/* TV Gradient Mask */
 .tv-mode .card::after {
     content: ""; position: absolute; bottom: 0; left: 0; right: 0;
-    height: 60px; 
-    background: linear-gradient(transparent, #1f2937);
+    height: 50px; background: linear-gradient(transparent, #1f2937);
     pointer-events: none;
 }
 
+/* TV Typography & Layout */
 .tv-mode h1, .tv-mode h2 { color: #e5e7eb; border-color: #374151; }
+.tv-mode ul { display: flex; flex-direction: column; gap: 10px; }
+.tv-mode li { 
+    font-size: 2rem; padding: 20px 30px; border-color: #374151; 
+    display: grid; grid-template-columns: 2fr 1fr 150px; 
+    align-items: center;
+    /* GPU Fix for Ghosting */
+    transform: translateZ(0);
+    will-change: transform;
+}
+.tv-mode .owner-col { text-align: right; color: #9ca3af; font-size: 1.5rem; padding-right: 20px; }
+.tv-mode .owner-col b { color: #fbbf24; }
+
+
+/* --- MOBILE MODE (Phone) --- */
+.mobile-view {
+    background: #111827; color: #f3f4f6;
+    overflow: auto; /* ALLOW SCROLLING */
+    padding: 10px;
+}
+
+.mobile-view .card {
+    background: #1f2937; 
+    max-height: none; /* GROW AS NEEDED */
+    overflow: visible;
+    box-shadow: none;
+    border: none;
+}
+
+/* Mobile Typography & Layout */
+.mobile-view h1 { font-size: 1.5rem; text-align: center; }
+.mobile-view ul { display: flex; flex-direction: column; gap: 0; }
+.mobile-view li {
+    font-size: 1.1rem; padding: 15px 10px;
+    display: flex; flex-direction: column; align-items: flex-start; gap: 5px;
+    border-bottom: 1px solid #374151;
+}
+
+/* Star Icon */
+.star-icon {
+    font-size: 1.5rem; cursor: pointer; color: #fbbf24; margin-right: 8px;
+    user-select: none;
+}
+.highlight-gift {
+    background: rgba(251, 191, 36, 0.1); /* Gold Tint */
+    border-left: 4px solid #fbbf24;
+}    
 
 /* Active Player Banner */
 #activePlayerBanner {
@@ -153,6 +192,8 @@ body.tv-mode {
     display: grid; 
     grid-template-columns: 2fr 1fr 200px; 
     align-items: center;
+    transform: translateZ(0);
+    will-change: transform;
 }
 
 .tv-mode .owner-col { 
