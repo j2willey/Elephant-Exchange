@@ -41,6 +41,47 @@ li:last-child { border-bottom: none; }
     100% { background-color: #111827; }
 }
 
+/* OVERLAYS */
+.overlay-content {
+    background: #1f2937; color: white;
+    padding: 40px; border-radius: 20px;
+    
+    /* Better Centering */
+    max-width: 900px; width: 90%;
+    text-align: left; /* Keep text readable */
+    
+    box-shadow: 0 0 50px rgba(0,0,0,0.5);
+    border: 2px solid #374151;
+}
+
+/* Header Styling */
+.overlay-content h1 {
+    text-align: center;
+    font-size: 3rem;
+    margin-bottom: 30px;
+    color: #60a5fa; /* Light Blue */
+    border-bottom: 2px solid #374151;
+    padding-bottom: 20px;
+}
+
+/* List Styling */
+.rules-list { 
+    list-style: none; 
+    padding: 0; 
+    font-size: 1.8rem; /* Large but not huge */
+    line-height: 1.6; 
+}
+
+.rules-list li { 
+    margin-bottom: 20px; 
+    padding-left: 10px;
+    border-left: 5px solid #4b5563; /* Accent bar */
+}
+
+.rules-list b {
+    color: #fbbf24; /* Gold highlight for keywords */
+}
+
 /* MODAL STYLES */
 .modal {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -55,6 +96,98 @@ li:last-child { border-bottom: none; }
     width: 90%; max-width: 400px;
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
 }
+
+/* --- TV / SCOREBOARD MODE --- */
+/* Applied when <body class="tv-mode"> */
+
+body.tv-mode { 
+    background: #111827; 
+    color: #f3f4f6; 
+    max-width: 100%; 
+    padding: 40px; 
+    box-sizing: border-box; 
+    overflow: hidden; /* Prevent body scroll, let the card scroll */
+}
+
+.tv-mode .card { 
+    background: #1f2937; 
+    border: 1px solid #374151; 
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5); 
+    
+    /* Auto-Scroll Container */
+    max-width: 1200px; 
+    margin: 0 auto; 
+    max-height: 70vh; 
+    overflow: hidden; /* Hide scrollbars for TV look */
+    position: relative;
+}
+
+/* Gradient Mask at bottom of list */
+.tv-mode .card::after {
+    content: ""; position: absolute; bottom: 0; left: 0; right: 0;
+    height: 60px; 
+    background: linear-gradient(transparent, #1f2937);
+    pointer-events: none;
+}
+
+.tv-mode h1, .tv-mode h2 { color: #e5e7eb; border-color: #374151; }
+
+/* Active Player Banner */
+#activePlayerBanner {
+    background: #374151; color: white;
+    padding: 30px; border-radius: 16px;
+    text-align: center; font-size: 4rem; font-weight: 800;
+    margin-bottom: 40px;
+    box-shadow: 0 0 40px rgba(0,0,0,0.5);
+    transition: background 0.5s;
+    /* Font adjustments for long names */
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* List Styling */
+.tv-mode ul { display: flex; flex-direction: column; gap: 10px; padding-bottom: 50px; }
+.tv-mode li { 
+    font-size: 2rem; 
+    padding: 20px 30px; 
+    border-bottom: 1px solid #374151;
+    display: grid; 
+    grid-template-columns: 2fr 1fr 200px; 
+    align-items: center;
+}
+
+.tv-mode .owner-col { 
+    text-align: right; 
+    color: #9ca3af; 
+    font-size: 1.5rem; 
+    padding-right: 20px; 
+}
+.tv-mode .owner-col b { color: #fbbf24; }
+
+/* OVERLAYS (Rules & QR) */
+.overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.95);
+    z-index: 2000;
+    display: flex; justify-content: center; align-items: center;
+    animation: fadeIn 0.3s;
+}
+
+.overlay-content {
+    background: #1f2937; color: white;
+    padding: 50px; border-radius: 24px;
+    max-width: 1000px; width: 90%;
+    border: 2px solid #374151;
+    box-shadow: 0 0 50px rgba(0,0,0,0.8);
+}
+
+.overlay-content h1 { text-align: center; font-size: 3.5rem; color: #60a5fa; border-bottom: 2px solid #374151; padding-bottom: 20px; margin-bottom: 30px; }
+
+.rules-list { list-style: none; padding: 0; font-size: 2.2rem; line-height: 1.6; }
+.rules-list li { margin-bottom: 25px; padding-left: 20px; border-left: 6px solid #4b5563; }
+.rules-list b { color: #fbbf24; }
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
 
 .modal-content label { display: block; font-weight: bold; margin-top: 15px; }
 .modal-content input { width: 100%; padding: 10px; font-size: 1.2rem; border: 1px solid #ccc; border-radius: 6px; }

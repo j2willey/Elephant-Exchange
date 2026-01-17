@@ -366,6 +366,54 @@ async function saveSettings() {
     document.getElementById('settingsModal').classList.add('hidden');
 }
 
+// BROADCAST TV MODE
+function setTvMode(mode) {
+    if(!currentGameId) return;
+    socket.emit('previewSettings', { 
+        gameId: currentGameId, 
+        settings: { tvMode: mode } // We hijack the existing preview channel!
+    });
+}
+
+// --- TV REMOTE FUNCTIONS ---
+function setTvMode(mode) {
+    if(!currentGameId) return;
+    // Piggyback on the preview channel to send commands to TV
+    socket.emit('previewSettings', { 
+        gameId: currentGameId, 
+        settings: { tvMode: mode } 
+    });
+}
+
+// --- LOCAL QR FUNCTIONS ---
+function showLocalQr() {
+    if(!currentGameId) return;
+
+    // 1. Construct the Scoreboard URL
+    // We assume the scoreboard is at /scoreboard.html relative to current origin
+    const origin = window.location.origin;
+    const url = `${origin}/scoreboard.html?game=${currentGameId}`;
+
+    // 2. Clear old code
+    const container = document.getElementById('localQrcode');
+    container.innerHTML = '';
+    document.getElementById('qrGameIdDisplay').innerText = currentGameId;
+
+    // 3. Generate
+    new QRCode(container, {
+        text: url,
+        width: 200,
+        height: 200
+    });
+
+    // 4. Show Modal
+    document.getElementById('localQrModal').classList.remove('hidden');
+}
+
+function closeLocalQr() {
+    document.getElementById('localQrModal').classList.add('hidden');
+}
+
 // EVENT LISTENERS
 document.getElementById('gameIdInput').addEventListener('keypress', e => e.key === 'Enter' && joinGame());
 document.getElementById('pName').addEventListener('keypress', e => e.key === 'Enter' && addParticipant());

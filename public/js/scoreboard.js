@@ -49,8 +49,37 @@ function joinGame() {
             // If it was stopped (0) and is now moving, kickstart the loop
             if (!scrollInterval && window.currentScrollSpeed > 0) initAutoScroll();
         }
+        // 2. Handle TV Mode (NEW)
+        if (settings.tvMode) {
+            document.getElementById('overlay-rules').classList.add('hidden');
+            document.getElementById('overlay-qr').classList.add('hidden');
+            
+            if (settings.tvMode === 'rules') {
+                document.getElementById('overlay-rules').classList.remove('hidden');
+            } else if (settings.tvMode === 'qr') {
+                generateQrCode();
+                document.getElementById('overlay-qr').classList.remove('hidden');
+            }
+        }
+
     });
-    
+
+    // NEW: Listen for TV Mode changes
+    socket.on('tvMode', (mode) => {
+        // Hide all first
+        document.getElementById('overlay-rules').classList.add('hidden');
+        document.getElementById('overlay-qr').classList.add('hidden');
+
+        // Show selected
+        if (mode === 'rules') {
+            document.getElementById('overlay-rules').classList.remove('hidden');
+        } else if (mode === 'qr') {
+            generateQrCode(); // Helper function below
+            document.getElementById('overlay-qr').classList.remove('hidden');
+        }
+        // mode === 'game' just keeps everything hidden
+    });
+
     socket.on('disconnect', () => {
         updateDebugFooter("Socket Disconnected!", gameId);
         const banner = document.getElementById('activePlayerBanner');
@@ -238,4 +267,27 @@ function updateScoreboardTimer() {
     else {
         body.style.animation = "none";
     }
+}
+
+let qrCodeObj = null;
+
+function generateQrCode() {
+    const url = window.location.href; // The current URL (e.g. localhost:3000/scoreboard.html?game=xyz)
+
+    // Update text
+    document.getElementById('joinUrlDisplay').innerText = url;
+
+    // Clear previous if exists
+    const container = document.getElementById('qrcode');
+    container.innerHTML = '';
+
+    // Generate
+    new QRCode(container, {
+        text: url,
+        width: 256,
+        height: 256,
+        colorDark : "#000000",
+        colorLight : "#ffffff",
+        correctLevel : QRCode.CorrectLevel.H
+    });
 }

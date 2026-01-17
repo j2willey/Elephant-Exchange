@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Elephant Exchange - Host</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="js/script.js" defer></script>
+</head>
+<body>
+
+    <div id="login-section" class="container" style="text-align:center; margin-top:100px;">
+        <div class="card" style="max-width:400px; margin:0 auto; padding:40px;">
+            <h2>Elephant Exchange</h2>
+            <input type="text" id="gameIdInput" placeholder="Enter Game ID (e.g. acme-party)" 
+                   style="width:100%; padding:15px; font-size:1.2rem; margin:20px 0; border:1px solid #ccc; border-radius:8px;">
+            <button onclick="joinGame()" class="btn-primary" style="width:100%; font-size:1.2rem;">Start Managing</button>
+        </div>
+    </div>
+
+    <div id="dashboard-section" class="container hidden">
+        
+        <div class="header-row" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <h2 id="displayGameId" style="margin:0;">Loading...</h2>
+                <button onclick="showLocalQr()" class="btn-gray" style="padding:5px 10px;" title="Show QR on this screen">👁️📱</button>
+            </div>
+            
+            <div class="btn-group" style="background:#e5e7eb; padding:5px; border-radius:8px;">
+                <span style="font-size:0.8rem; color:#666; margin-right:5px; vertical-align:middle;">TV:</span>
+                <button onclick="setTvMode('game')" class="btn-gray" title="Show Game">🎮</button>
+                <button onclick="setTvMode('rules')" class="btn-gray" title="Show Rules">📜</button>
+                <button onclick="setTvMode('qr')" class="btn-gray" title="Broadcast QR">📡📱</button>
+            </div>
+
+            <div style="display:flex; gap:10px;">
+                <div style="display:flex; align-items:center; gap:5px; margin-right:10px;">
+                    <span style="font-size:1rem;">🔍</span>
+                    <input type="range" id="uiScale" min="0.5" max="1.5" step="0.1" value="1" style="width:60px;">
+                </div>
+
+                <button onclick="openSettings()" class="btn-gray" title="Settings">⚙️</button>
+                <button onclick="clearDb()" class="btn-red" title="Reset Game">⚠️</button>
+                <button onclick="location.reload()" class="btn-gray">Exit</button>
+            </div>
+        </div>
+
+        <div class="grid">
+            <div class="card">
+                <h3>👥 Player Queue</h3>
+                <div class="add-player-form">
+                    <input type="number" id="pNumber" placeholder="#" style="width:60px;">
+                    <input type="text" id="pName" placeholder="Name" style="flex-grow:1;">
+                    <button onclick="addParticipant()" class="btn-primary">Add</button>
+                </div>
+                <ul id="participantList"></ul>
+            </div>
+
+            <div class="card">
+                <h3>🎁 Gift History</h3>
+                <ul id="giftList"></ul>
+            </div>
+        </div>
+    </div>
+
+    <div id="settingsModal" class="modal hidden">
+        <div class="modal-content">
+            <h2>⚙️ Game Settings</h2>
+            
+            <label>⏱️ Turn Timer (Seconds)</label>
+            <input type="number" id="settingDuration" value="60">
+
+            <label>🔒 Max Steals per Gift</label>
+            <input type="number" id="settingMaxSteals" value="3">
+
+            <label>👥 Active Players (Simultaneous)</label>
+            <input type="number" id="settingActiveCount" value="1" min="1" max="10">
+
+            <label>📜 TV Scroll Speed</label>
+            <div style="display:flex; align-items:center; gap:10px;">
+                <span style="font-size:0.8rem;">Slow</span>
+                <input type="range" id="settingScrollSpeed" min="0" max="10" value="3" step="1" style="flex-grow:1;" oninput="previewScrollSpeed()">
+                <span style="font-size:0.8rem;">Fast</span>
+            </div>
+
+            <div class="modal-actions">
+                <button onclick="cancelSettings()" class="btn-gray">Cancel</button>
+                <button onclick="saveSettings()" class="btn-green">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="localQrModal" class="modal hidden" onclick="closeLocalQr()">
+        <div class="modal-content" style="text-align:center;" onclick="event.stopPropagation()">
+            <h3>📱 Private QR Code</h3>
+            <p>Scan to join <b><span id="qrGameIdDisplay"></span></b></p>
+            <div id="localQrcode" style="margin:20px auto; display:inline-block; background: white; padding: 10px; border-radius: 8px;"></div>
+            <br>
+            <button onclick="closeLocalQr()" class="btn-gray">Close</button>
+        </div>
+    </div>
+
+</body>
+</html>
