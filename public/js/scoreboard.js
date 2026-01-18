@@ -133,26 +133,22 @@ function renderView(state) {
         return b.stealCount - a.stealCount;
     });
 
-    if (sortedGifts.length === 0) {
-        gList.innerHTML = '<li style="color:#6b7280; text-align:center;">No gifts yet</li>';
-        return;
-    }
-
+    
     // RENDER ITEMS
     const isStatsEnabled = state.settings.showVictimStats;
-
+    
     // --- MOBILE TABLE RENDER ---
     if (isMobileMode) {
         let html = `
-            <div class="mobile-table-header">
-                <div>⭐</div>
-                <div>Gift</div>
-                <div style="text-align:center">#</div>
-                <div>Holder</div>
-                <div style="text-align:center">Steals</div> 
-            </div>
+        <div class="mobile-table-header">
+        <div>⭐</div>
+        <div>Gift</div>
+        <div style="text-align:center">#</div>
+        <div>Holder</div>
+        <div style="text-align:center">Steals</div> 
+        </div>
         `;
-
+        
         html += sortedGifts.map(g => {
             const owner = state.participants.find(p => p.id === g.ownerId);
             let ownerName = owner ? owner.name : '?';
@@ -161,26 +157,26 @@ function renderView(state) {
             if (isStatsEnabled && owner && owner.timesStolenFrom > 0) {
                 ownerName += ` <span style="color:#ef4444; font-size:0.8em;">💔${owner.timesStolenFrom}</span>`;
             }
-
+            
             const isStarred = myBookmarks.has(g.id);
             const match = g.description.match(/^(.*?) \(Item (\d+)\)$/);
             const giftName = match ? match[1] : g.description;
             const giftNum  = match ? match[2] : ''; 
-
+            
             const starChar = isStarred ? '⭐' : '☆';
             const rowClass = isStarred ? 'highlight-gift' : '';
             const max = state.settings.maxSteals || 3;
             let stealBadge = `<span class="badge">${g.stealCount}/${max}</span>`;
             if (g.isFrozen) stealBadge = `<span class="badge locked">🔒</span>`;
-
+            
             return `
-                <li class="${rowClass}" onclick="toggleBookmark('${g.id}')">
-                    <div class="col-star"><span class="star-icon">${starChar}</span></div>
-                    <div class="col-gift">${giftName}</div>
-                    <div class="col-num">${giftNum}</div>
-                    <div class="col-held">${ownerName}</div>
-                    <div class="col-stl">${stealBadge}</div>
-                </li>
+            <li class="${rowClass}" onclick="toggleBookmark('${g.id}')">
+            <div class="col-star"><span class="star-icon">${starChar}</span></div>
+            <div class="col-gift">${giftName}</div>
+            <div class="col-num">${giftNum}</div>
+            <div class="col-held">${ownerName}</div>
+            <div class="col-stl">${stealBadge}</div>
+            </li>
             `;
         }).join('');
         gList.innerHTML = html;
@@ -189,7 +185,7 @@ function renderView(state) {
         gList.innerHTML = sortedGifts.map(g => {
             const owner = state.participants.find(p => p.id === g.ownerId);
             let ownerName = owner ? owner.name : 'Unknown';
-
+            
             // NEW: Conditional Victim Badge (TV)
             if (isStatsEnabled && owner && owner.timesStolenFrom > 0) {
                 ownerName += ` <span style="color:#ef4444; font-size:0.8em; margin-left:5px;">💔${owner.timesStolenFrom}</span>`;
@@ -198,17 +194,22 @@ function renderView(state) {
             let badge = '';
             if (g.isFrozen) badge = '<span class="badge" style="background:#374151;">🔒 LOCKED</span>';
             else badge = `<span class="badge">${g.stealCount}/3 Steals</span>`;
-
+            
             return `
-                <li style="${g.isFrozen ? 'opacity:0.5' : ''}">
-                    <div style="display:flex; align-items:center; gap:10px;">
-                        <span style="font-weight:600;">${g.description}</span>
-                    </div>
-                    <span class="owner-col">Held by <b>${ownerName}</b></span>
-                    ${badge}
-                </li>
+            <li style="${g.isFrozen ? 'opacity:0.5' : ''}">
+            <div style="display:flex; align-items:center; gap:10px;">
+            <span style="font-weight:600;">${g.description}</span>
+            </div>
+            <span class="owner-col">Held by <b>${ownerName}</b></span>
+            ${badge}
+            </li>
             `;
         }).join('');
+    }
+    
+    if (sortedGifts.length === 0) {
+        gList.innerHTML = '<li style="color:#6b7280; text-align:center;">No gifts yet</li>';
+        return;
     }
 }
 

@@ -3,9 +3,7 @@
   "version": "1.0.0",
   "description": "A real-time White Elephant gift exchange tracker with state management.",
   "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
+  "scripts": {},
   "repository": {
     "type": "git",
     "url": "git+https://github.com/j2willey/Elephant-Exchange.git"
@@ -22,5 +20,9 @@
     "express": "^5.2.1",
     "redis": "^5.10.0",
     "socket.io": "^4.8.3"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.57.0",
+    "@types/node": "^25.0.9"
   }
 }

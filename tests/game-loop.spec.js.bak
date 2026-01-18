@@ -1,0 +1,32 @@
+const { test, expect } = require('@playwright/test');
+
+test('Complete Game Loop', async ({ browser }) => {
+  // 1. Create Contexts (Actors)
+  const adminContext = await browser.newContext();
+  const tvContext = await browser.newContext();
+  
+  const adminPage = await adminContext.newPage();
+  const tvPage = await tvContext.newPage();
+
+  // 2. Admin: Start Game
+  await adminPage.goto('http://localhost:3000/gameadmin.html');
+  await adminPage.fill('#gameIdInput', 'test-party');
+  await adminPage.click('text=Start Managing');
+  
+  // 3. Admin: Reset DB (Ensure clean state)
+  await adminPage.on('dialog', dialog => dialog.accept()); // Accept confirm alerts
+  await adminPage.click('button[title="Reset Game"]');
+  await adminPage.waitForTimeout(1000); // Wait for reload
+
+  // 4. Admin: Add Player
+  await adminPage.fill('#pName', 'TestUser');
+  await adminPage.fill('#pNumber', '1');
+  await adminPage.click('text=Add');
+  await expect(adminPage.locator('#participantList')).toContainText('TestUser');
+
+  // 5. TV: Verify Sync
+  await tvPage.goto('http://localhost:3000/scoreboard.html?game=test-party');
+  await expect(tvPage.locator('#activePlayerBanner')).toContainText('TestUser');
+
+  console.log("✅ Game Loop Verified");
+});
