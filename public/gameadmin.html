@@ -79,11 +79,26 @@
             <input type="number" id="settingActiveCount" value="1" min="1" max="10">
 
             <label>📜 TV Scroll Speed</label>
-            <div style="display:flex; align-items:center; gap:10px;">
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom: 20px;">
                 <span style="font-size:0.8rem;">Slow</span>
                 <input type="range" id="settingScrollSpeed" min="0" max="10" value="3" step="1" style="flex-grow:1;" oninput="previewScrollSpeed()">
                 <span style="font-size:0.8rem;">Fast</span>
             </div>
+
+            <label>🔊 Sound Theme</label>
+            <select id="settingSoundTheme" style="width:100%; padding:10px; border-radius:8px; margin-bottom:20px;">
+                <option value="standard">Standard (Beeps)</option>
+                <option value="christmas">🎄 Christmas</option>
+                <option value="cartoon">🤪 Cartoon</option>
+                <option value="irreverent">😈 Irreverent</option>
+                <option value="none">🔇 Silent</option>
+            </select>
+
+            <label style="display:flex; align-items:center; gap:10px; margin-top:15px; cursor:pointer; background: #f3f4f6; padding: 10px; border-radius: 8px;">
+                <input type="checkbox" id="settingShowVictimStats" style="width:auto; flex:none;">
+                <span>💔 Display "Times Stolen From" on Scoreboard?</span>
+            </label>
+            <p class="hint">Always visible to Admin. Optional for the public.</p>
 
             <div class="modal-actions">
                 <button onclick="cancelSettings()" class="btn-gray">Cancel</button>

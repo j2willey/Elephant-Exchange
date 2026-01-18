@@ -1,3 +1,7 @@
+/* * Elephant Exchange Styles 
+ * Combined Admin, Scoreboard (TV), and Mobile View
+ */
+
 :root { --primary: #2563eb; --bg: #f8fafc; --card: #ffffff; }
 body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 1000px; margin: 0 auto; padding: 20px; background: var(--bg); color: #1e293b; }
 
@@ -13,177 +17,109 @@ h2 { font-size: 1.25rem; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;
 /* Forms */
 .input-group { display: flex; gap: 8px; margin-bottom: 16px; }
 input { flex: 1; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; }
-button { cursor: pointer; background: var(--primary); color: white; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 500; }
+button { cursor: pointer; background: var(--primary); color: white; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 500; transition: opacity 0.2s; }
 button:hover { opacity: 0.9; }
+
+/* Button Variants */
+.btn-primary { background: #2563eb; }
+.btn-green { background: #16a34a; }
+.btn-red { background: #dc2626; }
+.btn-gray { background: #64748b; }
 
 /* Lists */
 ul { list-style: none; padding: 0; margin: 0; }
 li { padding: 12px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; }
 li:last-child { border-bottom: none; }
 
-.badge { font-size: 0.75rem; padding: 2px 8px; border-radius: 99px; background: #e2e8f0; color: #475569; }
-.badge.stolen { background: #fee2e2; color: #991b1b; }
+/* Participant Status */
+.status-waiting { color: #64748b; }
+.status-done { color: #16a34a; background: #f0fdf4; }
+.status-victim { color: #dc2626; font-weight: bold; background: #fef2f2; border-left: 4px solid #dc2626; }
 
-/* Action Buttons */
-.btn-green { background: #16a34a; margin-right: 5px; }
-.btn-orange { background: #ea580c; }
-.btn-red { background: #dc2626; font-size: 0.8rem; }
+/* Badges */
+.badge { font-size: 0.75rem; padding: 2px 8px; border-radius: 999px; background: #e2e8f0; color: #475569; font-weight: 600; }
 
-@keyframes flashOrange {
-    0% { background-color: #111827; } /* Dark base */
-    50% { background-color: #451a03; } /* Dark Orange tint */
-    100% { background-color: #111827; }
+/* Active Player Highlight */
+.active-turn { 
+    background: #eff6ff; border: 2px solid #2563eb; transform: scale(1.02); 
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); 
+    border-radius: 8px; margin: 10px 0;
 }
 
-@keyframes flashRed {
-    0% { background-color: #111827; }
-    50% { background-color: #450a0a; } /* Dark Red tint */
-    100% { background-color: #111827; }
-}
-
-/* OVERLAYS */
-.overlay-content {
-    background: #1f2937; color: white;
-    padding: 40px; border-radius: 20px;
-    
-    /* Better Centering */
-    max-width: 900px; width: 90%;
-    text-align: left; /* Keep text readable */
-    
-    box-shadow: 0 0 50px rgba(0,0,0,0.5);
-    border: 2px solid #374151;
-}
-
-/* Header Styling */
-.overlay-content h1 {
-    text-align: center;
-    font-size: 3rem;
-    margin-bottom: 30px;
-    color: #60a5fa; /* Light Blue */
-    border-bottom: 2px solid #374151;
-    padding-bottom: 20px;
-}
-
-/* List Styling */
-.rules-list { 
-    list-style: none; 
-    padding: 0; 
-    font-size: 1.8rem; /* Large but not huge */
-    line-height: 1.6; 
-}
-
-.rules-list li { 
-    margin-bottom: 20px; 
-    padding-left: 10px;
-    border-left: 5px solid #4b5563; /* Accent bar */
-}
-
-.rules-list b {
-    color: #fbbf24; /* Gold highlight for keywords */
-}
-
-/* MODAL STYLES */
+/* Modal */
 .modal {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     background: rgba(0,0,0,0.5);
-    display: flex; justify-content: center; align-items: center;
-    z-index: 1000;
+    display: flex; justify-content: center; align-items: center; z-index: 1000;
 }
-.modal.hidden { display: none; }
-
 .modal-content {
     background: white; padding: 30px; border-radius: 12px;
-    width: 90%; max-width: 400px;
+    width: 90%; max-width: 500px;
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
 }
+.modal-content label { display: block; margin-top: 15px; font-weight: 600; margin-bottom: 5px; }
+.modal-content input { width: 100%; box-sizing: border-box; padding: 10px; }
+.modal-actions { margin-top: 25px; display: flex; justify-content: flex-end; gap: 10px; }
+.hint { font-size: 0.85rem; color: #64748b; margin-top: 4px; }
+
 
 /* --- TV / SCOREBOARD MODE --- */
 /* Applied when <body class="tv-mode"> */
-/* --- TV MODE (Big Screen) --- */
-.tv-mode { 
-    background: #111827; color: #f3f4f6; 
-    max-width: 100%; padding: 40px; box-sizing: border-box; 
-    overflow: hidden; /* NO SCROLLING ALLOWED */
+
+body.tv-mode { 
+    background: #111827; 
+    color: #f3f4f6; 
+    max-width: 100%; 
+    padding: 40px; 
+    box-sizing: border-box; 
+    overflow: hidden; /* Prevent body scroll, let the card scroll */
 }
 
 .tv-mode .card { 
-    background: #1f2937; border: 1px solid #374151; 
+    background: #1f2937; 
+    border: 1px solid #374151; 
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5); 
-    max-width: 1200px; margin: 0 auto; 
+    
+    /* Auto-Scroll Container */
+    max-width: 1200px; 
+    margin: 0 auto; 
     max-height: 70vh; 
-    overflow: hidden; /* HIDE SCROLLBARS */
+    overflow: hidden; /* Hide scrollbars for TV look */
     position: relative;
 }
 
-/* TV Gradient Mask */
+/* Gradient Mask at bottom of list */
 .tv-mode .card::after {
     content: ""; position: absolute; bottom: 0; left: 0; right: 0;
-    height: 50px; background: linear-gradient(transparent, #1f2937);
+    height: 60px; 
+    background: linear-gradient(transparent, #1f2937);
     pointer-events: none;
 }
 
-/* TV Typography & Layout */
 .tv-mode h1, .tv-mode h2 { color: #e5e7eb; border-color: #374151; }
-.tv-mode ul { display: flex; flex-direction: column; gap: 10px; }
-.tv-mode li { 
-    font-size: 2rem; padding: 20px 30px; border-color: #374151; 
-    display: grid; grid-template-columns: 2fr 1fr 150px; 
-    align-items: center;
-    /* GPU Fix for Ghosting */
-    transform: translateZ(0);
-    will-change: transform;
-}
-.tv-mode .owner-col { text-align: right; color: #9ca3af; font-size: 1.5rem; padding-right: 20px; }
-.tv-mode .owner-col b { color: #fbbf24; }
 
-
-/* --- MOBILE MODE (Phone) --- */
-.mobile-view {
-    background: #111827; color: #f3f4f6;
-    overflow: auto; /* ALLOW SCROLLING */
-    padding: 10px;
-}
-
-.mobile-view .card {
-    background: #1f2937; 
-    max-height: none; /* GROW AS NEEDED */
-    overflow: visible;
-    box-shadow: none;
-    border: none;
-}
-
-/* Mobile Typography & Layout */
-.mobile-view h1 { font-size: 1.5rem; text-align: center; }
-.mobile-view ul { display: flex; flex-direction: column; gap: 0; }
-.mobile-view li {
-    font-size: 1.1rem; padding: 15px 10px;
-    display: flex; flex-direction: column; align-items: flex-start; gap: 5px;
-    border-bottom: 1px solid #374151;
-}
-
-/* Star Icon */
-.star-icon {
-    font-size: 1.5rem; cursor: pointer; color: #fbbf24; margin-right: 8px;
-    user-select: none;
-}
-.highlight-gift {
-    background: rgba(251, 191, 36, 0.1); /* Gold Tint */
-    border-left: 4px solid #fbbf24;
-}    
-
-/* Active Player Banner */
+/* Active Player Banner (Legacy / Wrapper) */
 #activePlayerBanner {
     background: #374151; color: white;
-    padding: 30px; border-radius: 16px;
+    padding: 0; /* Remove padding, let table handle it */
+    border-radius: 16px;
     text-align: center; font-size: 4rem; font-weight: 800;
     margin-bottom: 40px;
     box-shadow: 0 0 40px rgba(0,0,0,0.5);
     transition: background 0.5s;
-    /* Font adjustments for long names */
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    overflow: hidden;
 }
 
-/* List Styling */
+/* Active Player Table (Multi-User Timer) */
+.active-table { width: 100%; border-collapse: collapse; }
+.active-table td { padding: 15px 25px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); vertical-align: middle; }
+.active-table tr:last-child td { border-bottom: none; }
+.col-active-name { text-align: left; font-size: 2.5rem; font-weight: 700; }
+.col-active-time { text-align: right; font-size: 2.5rem; font-family: monospace; font-weight: 700; color: #fbbf24; }
+.row-steal .col-active-name { color: #f87171; }
+.row-turn .col-active-name { color: #60a5fa; }
+
+/* TV List Styling */
 .tv-mode ul { display: flex; flex-direction: column; gap: 10px; padding-bottom: 50px; }
 .tv-mode li { 
     font-size: 2rem; 
@@ -192,16 +128,11 @@ li:last-child { border-bottom: none; }
     display: grid; 
     grid-template-columns: 2fr 1fr 200px; 
     align-items: center;
-    transform: translateZ(0);
+    transform: translateZ(0); /* GPU Fix */
     will-change: transform;
 }
 
-.tv-mode .owner-col { 
-    text-align: right; 
-    color: #9ca3af; 
-    font-size: 1.5rem; 
-    padding-right: 20px; 
-}
+.tv-mode .owner-col { text-align: right; color: #9ca3af; font-size: 1.5rem; padding-right: 20px; }
 .tv-mode .owner-col b { color: #fbbf24; }
 
 /* OVERLAYS (Rules & QR) */
@@ -220,18 +151,92 @@ li:last-child { border-bottom: none; }
     border: 2px solid #374151;
     box-shadow: 0 0 50px rgba(0,0,0,0.8);
 }
-
 .overlay-content h1 { text-align: center; font-size: 3.5rem; color: #60a5fa; border-bottom: 2px solid #374151; padding-bottom: 20px; margin-bottom: 30px; }
-
 .rules-list { list-style: none; padding: 0; font-size: 2.2rem; line-height: 1.6; }
 .rules-list li { margin-bottom: 25px; padding-left: 20px; border-left: 6px solid #4b5563; }
 .rules-list b { color: #fbbf24; }
-
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
+/* Debug Footer */
+#debugFooter {
+    position: fixed; bottom: 10px; right: 10px;
+    font-family: monospace; font-size: 0.8rem;
+    color: #6b7280; background: rgba(0,0,0,0.8);
+    padding: 5px 10px; border-radius: 4px; pointer-events: none;
+}
 
-.modal-content label { display: block; font-weight: bold; margin-top: 15px; }
-.modal-content input { width: 100%; padding: 10px; font-size: 1.2rem; border: 1px solid #ccc; border-radius: 6px; }
-.modal-content .hint { font-size: 0.8rem; color: #666; margin-top: 5px; }
+/* --- MOBILE VIEW --- */
+.mobile-view {
+    background: #111827; color: #f3f4f6;
+    overflow: auto; /* ALLOW SCROLLING */
+    padding: 0; /* Full width */
+    max-width: 100%;
+}
 
-.modal-actions { margin-top: 25px; display: flex; gap: 10px; justify-content: flex-end; }
+.mobile-view .card {
+    background: #1f2937; 
+    max-height: none; 
+    overflow: visible;
+    box-shadow: none;
+    border: none;
+    border-radius: 0;
+    padding: 0; /* Table handles padding */
+}
+
+/* Mobile Active Banner Adjustments */
+.mobile-view #activePlayerBanner {
+    border-radius: 0;
+    margin-bottom: 0;
+}
+.mobile-view .col-active-name, 
+.mobile-view .col-active-time {
+    font-size: 1.2rem; /* Smaller for phone */
+    padding: 10px 15px;
+}
+
+/* Mobile Table Header (Sticky) */
+.mobile-table-header {
+    display: grid;
+    /* Columns: Star | Gift Name | Gift # | Holder | Steals */
+    grid-template-columns: 30px 1.5fr 40px 1fr 50px; 
+    gap: 8px;
+    padding: 10px;
+    background: #111827; 
+    color: #9ca3af;
+    font-size: 0.75rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    border-bottom: 2px solid #374151;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+/* Mobile Table Row */
+.mobile-view li {
+    display: grid;
+    grid-template-columns: 30px 1.5fr 40px 1fr 50px; 
+    gap: 8px;
+    align-items: center;
+    padding: 12px 5px;
+    border-bottom: 1px solid #374151;
+    font-size: 0.9rem;
+    line-height: 1.2;
+}
+
+/* Column Styles */
+.col-star { text-align: center; }
+.col-gift { font-weight: 600; color: white; overflow: hidden; text-overflow: ellipsis; }
+.col-num  { text-align: center; color: #6b7280; font-size: 0.8rem; }
+.col-held { text-align: left; color: #fbbf24; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.col-stl  { text-align: center; }
+
+/* Mobile Badge & Icons */
+.mobile-view .badge { padding: 2px 4px; font-size: 0.75rem; background: #374151; color: white; }
+.mobile-view .badge.locked { background: #b91c1c; }
+.mobile-view .star-icon { font-size: 1.2rem; cursor: pointer; color: #fbbf24; }
+.highlight-gift { background: rgba(251, 191, 36, 0.1); border-left: 4px solid #fbbf24; }
+
+/* Timer Flashing Animations */
+@keyframes flashRed { 0%, 100% { background-color: #111827; } 50% { background-color: #450a0a; } }
+@keyframes flashOrange { 0%, 100% { background-color: #111827; } 50% { background-color: #451a03; } }

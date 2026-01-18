@@ -6,12 +6,11 @@
 
 let socket;
 let currentGameId = null;
-let stealingPlayerId = null; // Tracks who is currently looking for a gift to steal
-let originalScrollSpeed = 3; // Store original value for canceling
+let stealingPlayerId = null; 
+let originalScrollSpeed = 3; 
 
-// 1. AUTO-LOGIN ON LOAD
 document.addEventListener('DOMContentLoaded', () => {
-    // UI Scale Logic
+    // 1. UI Zoom Restore
     const scaleSlider = document.getElementById('uiScale');
     const savedScale = localStorage.getItem('elephantScale');
     if (savedScale) {
@@ -25,7 +24,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // NEW: Check URL or LocalStorage for Game ID
+    // 2. Auto-Login from URL (Fixes "Reset" bug)
     const params = new URLSearchParams(window.location.search);
     const urlGameId = params.get('game');
     
@@ -41,6 +40,7 @@ async function joinGame(forceId = null) {
     
     if(!gameId) return alert("Please enter a Game ID");
 
+    // Create/Join Request
     const res = await fetch('/api/create', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -50,7 +50,7 @@ async function joinGame(forceId = null) {
     if(res.ok) {
         currentGameId = gameId;
         
-        // Update URL without reloading (so refresh works later)
+        // Update URL so Refresh works
         const newUrl = `${window.location.pathname}?game=${gameId}`;
         window.history.pushState({path: newUrl}, '', newUrl);
 
@@ -64,25 +64,12 @@ async function joinGame(forceId = null) {
 }
 
 function initSocket(gameId) {
-    if (socket) socket.disconnect(); // Prevent duplicates
+    if (socket) socket.disconnect();
     socket = io();
     
-    // 2. RECONNECT LOGIC
     socket.on('connect', () => {
-        console.log("🟢 Connected to server");
-        // Re-join room immediately
         socket.emit('joinGame', gameId);
-        
         document.getElementById('displayGameId').style.color = "inherit";
-        document.getElementById('displayGameId').innerText = gameId;
-        
-        refreshState();
-    });
-
-    socket.on('disconnect', () => {
-        console.log("🔴 Disconnected");
-        document.getElementById('displayGameId').style.color = "red";
-        document.getElementById('displayGameId').innerText = gameId + " (Offline)";
     });
 
     socket.on('stateUpdate', (state) => {
@@ -91,19 +78,21 @@ function initSocket(gameId) {
 }
 
 async function refreshState() {
-    const res = await fetch(`/api/${currentGameId}/state`);
-    const state = await res.json();
-    render(state);
+    if(!currentGameId) return;
+    try {
+        const res = await fetch(`/api/${currentGameId}/state`);
+        if(res.ok) {
+            const state = await res.json();
+            render(state);
+        }
+    } catch(e) { console.error("State fetch failed", e); }
 }
 
 function render(state) {
-    // --- GHOST BUSTER PROTOCOL 👻 ---
+    // --- GHOST BUSTER PROTOCOL ---
     if (stealingPlayerId) {
         const thief = state.participants.find(p => p.id === stealingPlayerId);
-        if (!thief || thief.heldGiftId) {
-            console.log("Ghost Buster: Clearing stale steal mode for", stealingPlayerId);
-            stealingPlayerId = null;
-        }
+        if (!thief || thief.heldGiftId) stealingPlayerId = null;
     }
 
     // 1. Header
@@ -114,29 +103,16 @@ function render(state) {
     const pList = document.getElementById('participantList');
     pList.innerHTML = '';
 
-    // --- Active Set (Slots) Logic ---
-    const victims = state.participants.filter(p => p.isVictim && !p.heldGiftId);
-    
-    // Identify Queue
-    const queue = state.participants
-        .filter(p => !p.isVictim && !p.heldGiftId && p.number >= state.currentTurn)
-        .sort((a,b) => a.number - b.number);
+    // Calculate Active Players (Queue Logic)
+    const activeIds = getActiveIds(state);
 
-    const limit = state.settings.activePlayerCount || 1;
-    const slotsForQueue = Math.max(0, limit - victims.length);
-    const activeQueue = queue.slice(0, slotsForQueue);
-    
-    // List of IDs that are currently "Active"
-    const activeIds = [...victims, ...activeQueue].map(p => p.id);
-
-    // SORTING: Active Players First, then by Number
+    // Sort: Active First, then Number
     const sortedParticipants = state.participants.sort((a,b) => {
         const aActive = activeIds.includes(a.id);
         const bActive = activeIds.includes(b.id);
-        
-        if (aActive && !bActive) return -1; // A moves up
-        if (!aActive && bActive) return 1;  // B moves up
-        return a.number - b.number;         // Otherwise numeric
+        if (aActive && !bActive) return -1;
+        if (!aActive && bActive) return 1;
+        return a.number - b.number;
     });
 
     sortedParticipants.forEach(p => {
@@ -146,19 +122,30 @@ function render(state) {
         if (isTrulyActive) {
             li.style.border = "2px solid var(--primary)";
             li.style.background = "#eff6ff";
-            // Make sure active players are visible in the scroll container
-            // (Optional: scrollIntoView logic could go here, but might be annoying if you are editing)
+            
+            // Highlight Victim Red
+            if (p.isVictim) {
+                li.style.borderColor = "#dc2626";
+                li.style.background = "#fef2f2";
+            }
         }
 
         let statusIcon = '⏳';
         if (p.heldGiftId) statusIcon = '🎁';
         if (isTrulyActive) statusIcon = '🔴';
 
-        let html = `<span><b>#${p.number}</b> ${p.name}`;
+        // Victim Stats Badge
+        let statsBadge = '';
+        if (p.timesStolenFrom > 0) {
+            statsBadge = `<span style="font-size:0.8rem; background:#fee2e2; color:#991b1b; padding:2px 6px; border-radius:4px; margin-left:5px;">💔 ${p.timesStolenFrom}</span>`;
+        }
+
+        let html = `<span><b>#${p.number}</b> ${p.name} ${statsBadge}`;
         
+        // Timer Display (Using Individual Start Time)
         if (isTrulyActive) {
             const duration = state.settings.turnDurationSeconds || 60;
-            const startTime = state.timerStart || Date.now();
+            const startTime = p.turnStartTime || Date.now(); 
             html += ` <span class="player-timer" data-start="${startTime}" data-duration="${duration}" style="font-family:monospace; font-weight:bold; font-size:1.2em; margin-left:10px;">--:--</span>`;
         }
         html += `</span>`;
@@ -166,7 +153,6 @@ function render(state) {
         // ACTION BUTTONS
         if (isTrulyActive && !p.heldGiftId) {
             if (stealingPlayerId === p.id) {
-                // Stealing State
                 html += `
                     <div class="action-buttons">
                         <span style="color:#d97706; font-weight:bold; font-size:0.9em; margin-right:5px;">Select Gift below...</span>
@@ -174,13 +160,11 @@ function render(state) {
                     </div>
                 `;
             } else if (stealingPlayerId) {
-                // Waiting State
                 html += `<div style="font-size:0.8em; color:#ccc;">Waiting...</div>`;
             } else {
-                // Normal State
                 html += `
                     <div class="action-buttons">
-                        <button onclick="promptOpenGift('${p.id}')" class="btn-green">🎁 Open New</button>
+                        <button onclick="promptOpenGift('${p.id}')" class="btn-green">🎁 Open</button>
                         <button onclick="enterStealMode('${p.id}')" class="btn-orange">😈 Steal</button>
                     </div>
                 `;
@@ -241,13 +225,22 @@ function render(state) {
     }
 }
 
+// --- LOGIC HELPERS ---
+function getActiveIds(state) {
+    const victims = state.participants.filter(p => p.isVictim && !p.heldGiftId);
+    const queue = state.participants
+        .filter(p => !p.isVictim && !p.heldGiftId && p.number >= state.currentTurn)
+        .sort((a,b) => a.number - b.number);
+    const limit = state.settings.activePlayerCount || 1;
+    const slotsForQueue = Math.max(0, limit - victims.length);
+    const activeQueue = queue.slice(0, slotsForQueue);
+    return [...victims, ...activeQueue].map(p => p.id);
+}
 
 // --- ACTIONS ---
-
 async function promptOpenGift(playerId) {
     const description = prompt("What is inside the gift?");
     if (!description) return;
-    
     await fetch(`/api/${currentGameId}/open-new`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -269,10 +262,8 @@ async function addParticipant() {
     nameInput.focus();
 }
 
-// Updated STEAL: Includes Race Condition Fix
 async function attemptSteal(giftId, description) {
     if (!stealingPlayerId) return; 
-
     if(!confirm(`Confirm steal: ${description}?`)) return;
 
     try {
@@ -281,13 +272,11 @@ async function attemptSteal(giftId, description) {
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ giftId, thiefId: stealingPlayerId }) 
         });
-
         if(!res.ok) {
             const data = await res.json();
             alert("Error: " + data.error);
         }
     } catch (err) {
-        console.error(err);
         alert("Steal failed.");
     } finally {
         stealingPlayerId = null;
@@ -305,10 +294,24 @@ async function editGift(giftId, currentDesc) {
     });
 }
 
+// RESET GAME LOGIC
 async function clearDb() {
-    if(!confirm("Are you sure? This deletes all players and gifts.")) return;
-    await fetch(`/api/${currentGameId}/reset`, { method: 'POST' });
-    location.reload();
+    if(!currentGameId) {
+        alert("No Game ID found. Try refreshing.");
+        return;
+    }
+    if(!confirm("⚠️ DANGER: This will delete ALL players and gifts for this game.\n\nAre you sure?")) return;
+    
+    try {
+        const res = await fetch(`/api/${currentGameId}/reset`, { method: 'POST' });
+        if(res.ok) {
+            location.reload();
+        } else {
+            alert("Reset failed. Server might be down.");
+        }
+    } catch(e) {
+        alert("Reset failed. Network error.");
+    }
 }
 
 function enterStealMode(playerId) {
@@ -321,7 +324,7 @@ function cancelStealMode() {
     refreshState();
 }
 
-// --- TIMER LOGIC ---
+// --- TIMER LOOP ---
 setInterval(updateTimers, 1000);
 
 function updateTimers() {
@@ -331,6 +334,8 @@ function updateTimers() {
     timerElements.forEach(el => {
         const start = parseInt(el.dataset.start);
         const duration = parseInt(el.dataset.duration) * 1000;
+        if (!start) return; // Wait for timestamp
+        
         const now = Date.now();
         const elapsed = now - start;
         const remaining = Math.max(0, duration - elapsed);
@@ -346,11 +351,9 @@ function updateTimers() {
     });
 }
 
-// --- SETTINGS MODAL LOGIC (FIXED) ---
+// --- SETTINGS MODAL & TV REMOTE ---
 function openSettings() {
-    // Uses current game ID to fetch active settings
     if(!currentGameId) return;
-
     fetch(`/api/${currentGameId}/state`)
         .then(res => res.json())
         .then(state => {
@@ -358,33 +361,18 @@ function openSettings() {
             document.getElementById('settingDuration').value = s.turnDurationSeconds || 60;
             document.getElementById('settingMaxSteals').value = s.maxSteals || 3;
             document.getElementById('settingActiveCount').value = s.activePlayerCount || 1;
-
-            // Load and Store Original
-            const speed = (s.scrollSpeed !== undefined) ? s.scrollSpeed : 3;
-            document.getElementById('settingScrollSpeed').value = speed;
-            originalScrollSpeed = speed;
+            document.getElementById('settingScrollSpeed').value = (s.scrollSpeed !== undefined) ? s.scrollSpeed : 3;
+            originalScrollSpeed = s.scrollSpeed;
+            
+            // New Settings (Checkboxes)
+            const soundThemeEl = document.getElementById('settingSoundTheme');
+            if(soundThemeEl) soundThemeEl.value = s.soundTheme || 'standard';
+            
+            const statsEl = document.getElementById('settingShowVictimStats');
+            if(statsEl) statsEl.checked = s.showVictimStats || false;
 
             document.getElementById('settingsModal').classList.remove('hidden');
         });
-}
-
-function cancelSettings() {
-    // REVERT: Send the original value back to the TV
-    socket.emit('previewSettings', { 
-        gameId: currentGameId, 
-        settings: { scrollSpeed: originalScrollSpeed } 
-    });
-
-    document.getElementById('settingsModal').classList.add('hidden');
-}
-
-function previewScrollSpeed() {
-    const val = document.getElementById('settingScrollSpeed').value;
-    // Emit directly to server (bypassing DB)
-    socket.emit('previewSettings', { 
-        gameId: currentGameId, 
-        settings: { scrollSpeed: val } 
-    });
 }
 
 async function saveSettings() {
@@ -392,71 +380,63 @@ async function saveSettings() {
     const maxSteals = document.getElementById('settingMaxSteals').value;
     const activePlayerCount = document.getElementById('settingActiveCount').value;
     const scrollSpeed = document.getElementById('settingScrollSpeed').value;
+    
+    // Optional fields
+    const soundThemeEl = document.getElementById('settingSoundTheme');
+    const soundTheme = soundThemeEl ? soundThemeEl.value : 'standard';
+    
+    const statsEl = document.getElementById('settingShowVictimStats');
+    const showVictimStats = statsEl ? statsEl.checked : false;
 
     await fetch(`/api/${currentGameId}/settings`, {
         method: 'PUT',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ turnDurationSeconds, maxSteals, activePlayerCount, scrollSpeed })
+        body: JSON.stringify({ 
+            turnDurationSeconds, maxSteals, activePlayerCount, scrollSpeed, 
+            soundTheme, showVictimStats 
+        })
     });
-
-// Close the modal directly (no dependency on other functions)
     document.getElementById('settingsModal').classList.add('hidden');
 }
 
-// BROADCAST TV MODE
+function cancelSettings() {
+    document.getElementById('settingsModal').classList.add('hidden');
+}
 function setTvMode(mode) {
     if(!currentGameId) return;
-    socket.emit('previewSettings', { 
-        gameId: currentGameId, 
-        settings: { tvMode: mode } // We hijack the existing preview channel!
-    });
+    socket.emit('previewSettings', { gameId: currentGameId, settings: { tvMode: mode } });
+}
+function previewScrollSpeed() {
+    const val = document.getElementById('settingScrollSpeed').value;
+    socket.emit('previewSettings', { gameId: currentGameId, settings: { scrollSpeed: val } });
 }
 
-// --- TV REMOTE FUNCTIONS ---
-function setTvMode(mode) {
-    if(!currentGameId) return;
-    // Piggyback on the preview channel to send commands to TV
-    socket.emit('previewSettings', { 
-        gameId: currentGameId, 
-        settings: { tvMode: mode } 
-    });
-}
-
-// --- LOCAL QR FUNCTIONS ---
+// --- LOCAL QR ---
 function showLocalQr() {
     if(!currentGameId) return;
-
     const origin = window.location.origin;
-    // Construct the URL with the mobile flag
-    const url = `${origin}/scoreboard.html?game=${currentGameId}&mode=mobile`;
-
+    const url = `${origin}/scoreboard.html?game=${currentGameId}&mode=mobile`; // Auto mobile link
+    
     const container = document.getElementById('localQrcode');
     container.innerHTML = '';
-    
-    // Update the Game ID text
     document.getElementById('qrGameIdDisplay').innerText = currentGameId;
-
-    // 1. Generate QR
-    new QRCode(container, {
-        text: url,
-        width: 200,
-        height: 200
-    });
-
-    // 2. Add Clickable Link (NEW)
-    // We append a simple link below the QR code for easy testing
-    const link = document.createElement('a');
-    link.href = url;
-    link.target = "_blank";
-    link.innerText = "🔗 Click to Open Link";
-    link.style.display = "block";
-    link.style.marginTop = "15px";
-    link.style.color = "#2563eb";
-    link.style.textDecoration = "underline";
     
-    container.appendChild(link);
+    new QRCode(container, { text: url, width: 200, height: 200 });
 
-    // Show Modal
+    // Clickable Link
+    let link = document.getElementById('localQrLink');
+    if(!link) {
+        link = document.createElement('a');
+        link.id = 'localQrLink';
+        link.target = "_blank";
+        link.style.display = "block";
+        link.style.marginTop = "10px";
+        link.style.color = "#2563eb";
+        container.parentElement.appendChild(link);
+    }
+    link.href = url;
+    link.innerText = "🔗 Click to Open Link";
+
     document.getElementById('localQrModal').classList.remove('hidden');
 }
 
@@ -464,6 +444,6 @@ function closeLocalQr() {
     document.getElementById('localQrModal').classList.add('hidden');
 }
 
-// EVENT LISTENERS
+// --- EVENT BINDINGS ---
 document.getElementById('gameIdInput').addEventListener('keypress', e => e.key === 'Enter' && joinGame());
 document.getElementById('pName').addEventListener('keypress', e => e.key === 'Enter' && addParticipant());
