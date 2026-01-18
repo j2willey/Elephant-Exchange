@@ -84,7 +84,7 @@ function renderView(state) {
         if (!scrollInterval) initAutoScroll();
     }
 
-    // 2. ACTIVE PLAYER TABLE (Independent Timers)
+    // 2. ACTIVE PLAYER TABLE
     const banner = document.getElementById('activePlayerBanner');
     const activeList = getActivePlayersList(state);
     
@@ -98,8 +98,6 @@ function renderView(state) {
             const isSteal = item.type === 'steal';
             const rowClass = isSteal ? 'row-steal' : 'row-turn';
             const label = isSteal ? `🚨 ${p.name}` : `${p.name} (#${p.number})`;
-            
-            // TIMER LOGIC: Use individual turnStartTime
             const startTime = p.turnStartTime || Date.now(); 
             const duration = state.settings.turnDurationSeconds || 60;
 
@@ -133,27 +131,38 @@ function renderView(state) {
         return b.stealCount - a.stealCount;
     });
 
-    
-    // RENDER ITEMS
-    const isStatsEnabled = state.settings.showVictimStats;
-    
-    // --- MOBILE TABLE RENDER ---
+    // --- RENDER LOGIC START ---
+    let html = '';
+
+    // STEP A: Mobile Header (Always render first)
     if (isMobileMode) {
-        let html = `
+        html += `
         <div class="mobile-table-header">
-        <div>⭐</div>
-        <div>Gift</div>
-        <div style="text-align:center">#</div>
-        <div>Holder</div>
-        <div style="text-align:center">Steals</div> 
+            <div>⭐</div>
+            <div>Gift</div>
+            <div style="text-align:center">#</div>
+            <div>Holder</div>
+            <div style="text-align:center">Steals</div> 
         </div>
         `;
-        
+    }
+
+    // STEP B: Check Empty
+    if (sortedGifts.length === 0) {
+        html += '<li style="color:#6b7280; text-align:center; padding: 20px;">No gifts yet</li>';
+        gList.innerHTML = html;
+        return; // Stop here, but preserve the header in 'html'
+    }
+
+    // STEP C: Render Items (If not empty)
+    const isStatsEnabled = state.settings.showVictimStats;
+
+    if (isMobileMode) {
+        // Mobile Rows
         html += sortedGifts.map(g => {
             const owner = state.participants.find(p => p.id === g.ownerId);
             let ownerName = owner ? owner.name : '?';
             
-            // NEW: Conditional Victim Badge (Mobile)
             if (isStatsEnabled && owner && owner.timesStolenFrom > 0) {
                 ownerName += ` <span style="color:#ef4444; font-size:0.8em;">💔${owner.timesStolenFrom}</span>`;
             }
@@ -171,22 +180,20 @@ function renderView(state) {
             
             return `
             <li class="${rowClass}" onclick="toggleBookmark('${g.id}')">
-            <div class="col-star"><span class="star-icon">${starChar}</span></div>
-            <div class="col-gift">${giftName}</div>
-            <div class="col-num">${giftNum}</div>
-            <div class="col-held">${ownerName}</div>
-            <div class="col-stl">${stealBadge}</div>
+                <div class="col-star"><span class="star-icon">${starChar}</span></div>
+                <div class="col-gift">${giftName}</div>
+                <div class="col-num">${giftNum}</div>
+                <div class="col-held">${ownerName}</div>
+                <div class="col-stl">${stealBadge}</div>
             </li>
             `;
         }).join('');
-        gList.innerHTML = html;
     } else {
-        // --- TV RENDER ---
-        gList.innerHTML = sortedGifts.map(g => {
+        // TV Rows
+        html += sortedGifts.map(g => {
             const owner = state.participants.find(p => p.id === g.ownerId);
             let ownerName = owner ? owner.name : 'Unknown';
             
-            // NEW: Conditional Victim Badge (TV)
             if (isStatsEnabled && owner && owner.timesStolenFrom > 0) {
                 ownerName += ` <span style="color:#ef4444; font-size:0.8em; margin-left:5px;">💔${owner.timesStolenFrom}</span>`;
             }
@@ -197,20 +204,17 @@ function renderView(state) {
             
             return `
             <li style="${g.isFrozen ? 'opacity:0.5' : ''}">
-            <div style="display:flex; align-items:center; gap:10px;">
-            <span style="font-weight:600;">${g.description}</span>
-            </div>
-            <span class="owner-col">Held by <b>${ownerName}</b></span>
-            ${badge}
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <span style="font-weight:600;">${g.description}</span>
+                </div>
+                <span class="owner-col">Held by <b>${ownerName}</b></span>
+                ${badge}
             </li>
             `;
         }).join('');
     }
-    
-    if (sortedGifts.length === 0) {
-        gList.innerHTML = '<li style="color:#6b7280; text-align:center;">No gifts yet</li>';
-        return;
-    }
+
+    gList.innerHTML = html;
 }
 
 // Helper: Determine who is active for the table
