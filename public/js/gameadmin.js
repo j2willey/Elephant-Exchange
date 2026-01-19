@@ -95,6 +95,14 @@ async function refreshState() {
 // --- 3. MAIN RENDER LOOP ---
 
 function render(state) {
+    applyTheme(state.settings);
+
+    // --- GHOST BUSTER PROTOCOL (Existing code) ---
+    if (stealingPlayerId) {
+        const thief = state.participants.find(p => p.id === stealingPlayerId);
+        if (!thief || thief.heldGiftId) stealingPlayerId = null;
+    }
+
     // Safety Check: If thief opened a gift, exit steal mode
     if (stealingPlayerId) {
         const thief = state.participants.find(p => p.id === stealingPlayerId);
@@ -130,11 +138,10 @@ function renderParticipants(state) {
         
         // Style Active Rows
         if (isActive) {
-            li.style.border = "2px solid var(--primary)";
-            li.style.background = "#eff6ff";
-            if (p.isVictim) { // Red for victims
-                li.style.borderColor = "#dc2626";
-                li.style.background = "#fef2f2";
+            li.classList.add('active-row');
+            if (p.isVictim) { 
+                li.classList.remove('active-row');
+                li.classList.add('victim-row');
             }
         }
 

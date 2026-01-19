@@ -1,71 +1,72 @@
-/*
- * Elephant Exchange Seeder
- * Usage: node scripts/seed.js [gameId]
- */
+const { createClient } = require('redis');
 
-const BASE_URL = 'http://localhost:3000/api';
-const GAME_ID = process.argv[2] || 'test-1';
+// Default to 'redis-db' if inside Docker, 'localhost' if running locally with mapped ports
+const redisUrl = process.env.REDIS_URL || 'redis://redis-db:6379'; 
 
-const GIFTS = [
-    "Echo Dot", "Blanket", "Whiskey Stones", "Star Wars Lego", "Candle",
-    "Gift Card", "Blender", "Socks", "Coffee Maker", "Board Game",
-    "Bluetooth Speaker", "Mug", "Hot Sauce Kit", "Puzzle", "Plant"
-];
+const gameId = 'demo-party';
+const redisClient = createClient({ url: redisUrl });
 
-const NAMES = [
-    "Alice", "Bob", "Charlie", "David", "Eve", "Frank", "Grace", "Heidi",
-    "Ivan", "Judy", "Karl", "Leo", "Mike", "Nina", "Oscar", "Peggy",
-    "Quinn", "Rupert", "Sybil", "Ted", "Ursula", "Victor", "Walter", "Xena"
-];
+redisClient.on('error', err => console.error('Redis Client Error', err));
 
 async function seed() {
-    console.log(`🌱 Seeding Game: ${GAME_ID}...`);
+    console.log(`🌱 Connecting to Redis at ${redisUrl}...`);
+    await redisClient.connect();
 
-    // 1. Create Game
-    await fetch(`${BASE_URL}/create`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ gameId: GAME_ID })
-    });
+    // 1. Create Default State
+    const state = {
+        id: gameId,
+        currentTurn: 3, // Simulate mid-game
+        activeVictimId: null,
+        participants: [],
+        gifts: [],
+        history: ["Game seeded by script"],
+        settings: {
+            maxSteals: 3,
+            turnDurationSeconds: 60,
+            activePlayerCount: 1,
+            isPaused: false,
+            scrollSpeed: 3,
+            soundTheme: 'standard',
+            showVictimStats: true,
+            themeColor: '#d97706', // Gold Theme
+            themeBg: 'https://images.unsplash.com/photo-1513297887119-d46091b24bfa?auto=format&fit=crop&q=80' // Snow
+        }
+    };
 
-    // 2. Add 30 Participants
-    console.log("👥 Adding 30 participants...");
-    const participants = [];
-    for (let i = 1; i <= 30; i++) {
-        const name = `${NAMES[i % NAMES.length]} ${i}`;
-        const res = await fetch(`${BASE_URL}/${GAME_ID}/participants`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ name, number: i })
-        });
-        const data = await res.json();
-        participants.push(data.participant);
-    }
+    // 2. Add Participants
+    const names = ["Alice", "Bob", "Charlie", "David", "Eve", "Frank"];
+    state.participants = names.map((name, i) => ({
+        id: `p_${i + 1}`,
+        name: name,
+        number: i + 1,
+        status: i < 2 ? 'done' : 'waiting', // Alice & Bob are done
+        heldGiftId: null,
+        forbiddenGiftId: null,
+        isVictim: false,
+        turnStartTime: null,
+        timesStolenFrom: 0
+    }));
 
-    // 3. Open 15 Gifts
-    console.log("🎁 Opening 15 gifts...");
-    for (let i = 0; i < 15; i++) {
-        const p = participants[i]; // Player #1 to #15
-        const giftName = `${GIFTS[i % GIFTS.length]} (Item ${i+1})`;
-        
-        await fetch(`${BASE_URL}/${GAME_ID}/open-new`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ 
-                description: giftName, 
-                playerId: p.id 
-            })
-        });
-    }
+    // 3. Add Gifts
+    const g1 = {
+        id: 'g_101', description: 'Espresso Machine', ownerId: 'p_1',
+        stealCount: 0, isFrozen: false, images: [], primaryImageId: null
+    };
+    state.participants[0].heldGiftId = g1.id;
 
-    // 4. Update Settings (Active Count: 3, Speed: 5)
-    await fetch(`${BASE_URL}/${GAME_ID}/settings`, {
-        method: 'PUT',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ activePlayerCount: 3, scrollSpeed: 5 })
-    });
+    const g2 = {
+        id: 'g_102', description: 'Lava Lamp', ownerId: 'p_2',
+        stealCount: 1, isFrozen: false, images: [], primaryImageId: null
+    };
+    state.participants[1].heldGiftId = g2.id;
 
-    console.log("✅ Done! Open http://localhost:3000/scoreboard.html?game=" + GAME_ID);
+    state.gifts = [g1, g2];
+
+    // 4. Save
+    await redisClient.set(`game:${gameId}`, JSON.stringify(state));
+    console.log(`✅ Game '${gameId}' seeded successfully!`);
+    await redisClient.disconnect();
+    process.exit(0);
 }
 
 seed();

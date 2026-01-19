@@ -102,45 +102,7 @@ async function refreshState() {
 
 function renderView(state) {
     // A. APPLY BRANDING / THEME (Priority 1)
-    if (state.settings) {
-        const root = document.documentElement;
-        
-        // Color
-        if (state.settings.themeColor) {
-            root.style.setProperty('--primary', state.settings.themeColor);
-            
-            // Force override for buttons using injected style (stronger than CSS)
-            let styleTag = document.getElementById('dynamic-theme');
-            if (!styleTag) {
-                styleTag = document.createElement('style');
-                styleTag.id = 'dynamic-theme';
-                document.head.appendChild(styleTag);
-            }
-            styleTag.innerHTML = `
-                .btn-primary { background-color: ${state.settings.themeColor} !important; }
-                .active-turn { border-color: ${state.settings.themeColor} !important; background-color: ${state.settings.themeColor}15 !important; }
-            `;
-        }
-
-        // Background
-        if (state.settings.themeBg) {
-             root.style.setProperty('--bg-image', `url('${state.settings.themeBg}')`);
-        } else {
-             root.style.setProperty('--bg-image', 'none');
-        }
-        
-        // Logo
-        const titleEl = document.querySelector('h1');
-        if (state.settings.themeLogo && !document.getElementById('customLogo')) {
-            const img = document.createElement('img');
-            img.src = state.settings.themeLogo;
-            img.id = 'customLogo';
-            img.className = 'game-logo';
-            if(titleEl) titleEl.parentNode.insertBefore(img, titleEl);
-        } else if (state.settings.themeLogo) {
-            document.getElementById('customLogo').src = state.settings.themeLogo;
-        }
-    }
+    applyTheme(state.settings);
     
     // B. RENDER COMPONENTS
     renderTvCatalog(state); // The overlay grid

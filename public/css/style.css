@@ -28,6 +28,7 @@ body {
     background-attachment: fixed;
     background-position: center;
     color: var(--text-main); 
+    transition: background 0.5s ease;
 }
 
 /* =========================================
@@ -60,7 +61,7 @@ button {
 }
 button:hover { opacity: 0.9; }
 
-.btn-primary { background: #2563eb; }
+.btn-primary { background: var(--primary); }
 .btn-green   { background: #16a34a; }
 .btn-red     { background: #dc2626; }
 .btn-gray    { background: #64748b; }
@@ -95,7 +96,7 @@ li:last-child { border-bottom: none; }
 
 .active-turn { 
     background: #eff6ff; 
-    border: 2px solid #2563eb; 
+    border: 2px solid var(--primary);
     transform: scale(1.02); 
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); 
     border-radius: 8px; 
@@ -125,7 +126,7 @@ li:last-child { border-bottom: none; }
 
 /* --- TV / SCOREBOARD MODE --- */
 body.tv-mode { 
-    background: #111827; 
+    background-color: #111827; 
     color: #f3f4f6; 
     max-width: 100%; 
     padding: 40px; 

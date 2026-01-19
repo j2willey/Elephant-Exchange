@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="css/style.css">
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="js/gamelib.js" defer></script>
     <script src="js/gameadmin.js" defer></script>
 </head>
 <body>
@@ -132,7 +133,7 @@
                 <button onclick="uploadLogo()" class="btn-primary" style="padding: 5px 10px;">Upload</button>
             </div>
             <p class="hint">Upload applies immediately.</p>
-            
+
             <div class="modal-actions">
                 <button onclick="cancelSettings()" class="btn-gray">Cancel</button>
                 <button onclick="saveSettings()" class="btn-green">Save Changes</button>

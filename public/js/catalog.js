@@ -1,3 +1,12 @@
+/*
+ * ==============================================================================
+ * ELEPHANT EXCHANGE - CATALOG
+ * ==============================================================================
+ * Handles the Catalog view.
+ */
+
+
+
 /* Visual Catalog Logic */
 let socket;
 let currentGameId = null;
@@ -40,6 +49,9 @@ async function fetchState() {
 
 function renderGrid(state) {
     currentState = state;
+    
+    if (window.applyTheme) applyTheme(state.settings);
+
     const grid = document.getElementById('catalogGrid');
     
     // Sort: Gifts with photos first, then by ID
