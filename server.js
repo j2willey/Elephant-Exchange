@@ -396,6 +396,77 @@ app.delete('/api/:gameId/images/:giftId/:imageId', async (req, res) => {
     res.json({ success: true });
 });
 
+
+// --- TEST/AUTOMATION ROUTES ---
+
+// 1. HTTP Join (for seeding scripts)
+app.post('/api/:gameId/join', async (req, res) => {
+    const { gameId } = req.params;
+    const { name } = req.body;
+    const key = getGameKey(gameId);
+
+    let data = await redisClient.get(key);
+    if (!data) return res.status(404).json({ error: "Game not found" });
+    
+    let gameState = JSON.parse(data);
+    
+    // Use your existing logic or simple push
+    // Check for duplicates to be safe
+    if (!gameState.participants.find(p => p.name === name)) {
+        const newPlayer = {
+            id: `p_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+            name: name,
+            number: gameState.participants.length + 1,
+            isVictim: false,
+            heldGiftId: null,
+            turnStartTime: null
+        };
+        gameState.participants.push(newPlayer);
+        await redisClient.set(key, JSON.stringify(gameState));
+        io.to(gameId).emit('stateUpdate', gameState);
+    }
+    
+    res.json({ success: true });
+});
+
+// 2. HTTP Move (for seeding scripts)
+app.post('/api/:gameId/move', async (req, res) => {
+    const { gameId } = req.params;
+    const { playerId, action, description, targetId } = req.body; // targetId used for steals
+    const key = getGameKey(gameId);
+
+    let data = await redisClient.get(key);
+    if (!data) return res.status(404).json({ error: "Game not found" });
+    let gameState = JSON.parse(data);
+
+    // --- LOGIC REPLICATION (Simplified for Seeding) ---
+    const player = gameState.participants.find(p => p.id === playerId);
+    if (!player) return res.status(400).json({ error: "Player not found" });
+
+    if (action === 'open') {
+        const newGift = {
+            id: `g_${Date.now()}`,
+            description: description || "Mystery Gift",
+            ownerId: player.id,
+            isFrozen: false,
+            stealCount: 0,
+            openOrder: gameState.gifts.length + 1,
+            images: [] // Initialize empty images array
+        };
+        gameState.gifts.push(newGift);
+        player.heldGiftId = newGift.id;
+        
+        // Advance turn logic (simple)
+        gameState.currentTurn++; 
+    }
+    
+    await redisClient.set(key, JSON.stringify(gameState));
+    io.to(gameId).emit('stateUpdate', gameState);
+    
+    res.json({ success: true });
+});
+
+
 // --- SOCKET.IO ---
 io.on('connection', (socket) => {
     socket.on('joinGame', (gameId) => {

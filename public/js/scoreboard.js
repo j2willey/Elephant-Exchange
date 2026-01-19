@@ -12,6 +12,7 @@ let scrollInterval;
 let pauseCounter = 0;
 let virtualScrollY = 0; 
 let currentUploadGiftId = null; // Track which gift is receiving a photo
+let showThumbnails = false; 
 
 document.addEventListener('DOMContentLoaded', () => {
     const params = new URLSearchParams(window.location.search);
@@ -149,9 +150,28 @@ function renderView(state) {
     // --- RENDER LOGIC START ---
     let html = '';
 
-    // STEP A: Mobile Header
+    // STEP A: Mobile Header & Controls
     if (isMobileMode) {
-        // Updated grid-template-columns inline style to fit the camera icon
+        // 1. Controls Container (New!)
+        // Check if we already added the controls to avoid re-rendering inputs every second
+        let controls = document.getElementById('mobile-controls');
+        if (!controls) {
+            controls = document.createElement('div');
+            controls.id = 'mobile-controls';
+            controls.className = 'mobile-controls';
+            controls.innerHTML = `
+                <label class="toggle-switch">
+                    <input type="checkbox" id="togglePhotos" onchange="window.togglePhotoView(this)">
+                    <span class="slider round"></span>
+                    <span class="toggle-label">Show Photos</span>
+                </label>
+                <a href="/catalog.html?game=${currentGameId}" class="btn-sm btn-blue">View Catalog ➡️</a>
+            `;
+            // Insert before the list
+            gList.parentNode.insertBefore(controls, gList);
+        }
+
+        // 2. The Sticky Header
         html += `
         <li class="mobile-table-header" style="display:grid; grid-template-columns: 30px 1fr 30px 1fr 40px 40px; gap:5px; position:sticky; top:0; z-index:10;">
             <div>⭐</div>
@@ -174,30 +194,41 @@ function renderView(state) {
     // STEP C: Render Items
     if (isMobileMode) {
         html += sortedGifts.map(g => {
+            // ... (keep existing owner/stats logic) ...
             const owner = state.participants.find(p => p.id === g.ownerId);
             let ownerName = owner ? owner.name : '?';
-            
             if (isStatsEnabled && owner && owner.timesStolenFrom > 0) {
                 ownerName += ` <span style="color:#ef4444; font-size:0.8em;">💔${owner.timesStolenFrom}</span>`;
             }
             
+            // ... (keep logic for stars, match, classes) ...
             const isStarred = myBookmarks.has(g.id);
             const match = g.description.match(/^(.*?) \(Item (\d+)\)$/);
             const giftName = match ? match[1] : g.description;
             const giftNum  = match ? match[2] : ''; 
-            
             const starChar = isStarred ? '⭐' : '☆';
             const rowClass = isStarred ? 'highlight-gift' : '';
+            
+            // ... (Steal Badge Logic) ...
             const max = state.settings.maxSteals || 3;
             let stealBadge = `<span class="badge">${g.stealCount}/${max}</span>`;
             if (g.isFrozen) stealBadge = `<span class="badge locked">🔒</span>`;
-            
-            // Check for images
+
+            // ... (Camera Logic) ...
             const hasImages = g.images && g.images.length > 0;
             const cameraIcon = hasImages ? '📸' : '➕';
             const cameraClass = hasImages ? 'btn-camera-view' : 'btn-camera-add';
 
-            // Note: Updated Grid Layout to match Header
+            // --- NEW: THUMBNAIL LOGIC ---
+            let thumbHtml = '';
+            if (showThumbnails && hasImages) {
+                // Use primary image
+                const heroId = g.primaryImageId || g.images[0].id;
+                const imgObj = g.images.find(i => i.id === heroId) || g.images[0];
+                thumbHtml = `<div style="grid-column: 1/-1; padding: 5px 0 10px 35px;"><img src="${imgObj.path}" style="height:80px; border-radius:4px;"></div>`;
+            }
+            // -----------------------------
+
             return `
             <li class="${rowClass}" style="display:grid; grid-template-columns: 30px 1fr 30px 1fr 40px 40px; gap:5px; align-items:center;">
                 <div class="col-star" onclick="toggleBookmark('${g.id}')"><span class="star-icon">${starChar}</span></div>
@@ -208,7 +239,7 @@ function renderView(state) {
                 <div class="col-cam" style="text-align:center; cursor:pointer;" onclick="initUpload('${g.id}')">
                     <span class="${cameraClass}">${cameraIcon}</span>
                 </div>
-            </li>
+                ${thumbHtml} </li>
             `;
         }).join('');
     } else {
@@ -328,18 +359,21 @@ function loadBookmarks(gameId) {
     const saved = localStorage.getItem(`bookmarks_${gameId}`);
     if (saved) myBookmarks = new Set(JSON.parse(saved));
 }
+
 window.toggleBookmark = function(giftId) {
     if (myBookmarks.has(giftId)) myBookmarks.delete(giftId);
     else myBookmarks.add(giftId);
     localStorage.setItem(`bookmarks_${currentGameId}`, JSON.stringify([...myBookmarks]));
     refreshState(); 
 }
+
 function handleTvMode(mode) {
     document.getElementById('overlay-rules').classList.add('hidden');
     document.getElementById('overlay-qr').classList.add('hidden');
     if (mode === 'rules') document.getElementById('overlay-rules').classList.remove('hidden');
     else if (mode === 'qr') { generateQrCode(); document.getElementById('overlay-qr').classList.remove('hidden'); }
 }
+
 function generateQrCode() {
     const url = window.location.href; 
     document.getElementById('joinUrlDisplay').innerText = url;
@@ -347,6 +381,7 @@ function generateQrCode() {
     container.innerHTML = '';
     new QRCode(container, { text: url, width: 256, height: 256 });
 }
+
 function initAutoScroll() {
     if (scrollInterval) clearInterval(scrollInterval);
     scrollInterval = setInterval(() => {
@@ -363,4 +398,9 @@ function initAutoScroll() {
             pauseCounter = 100; virtualScrollY = 0; container.scrollTop = 0; 
         }
     }, 30);
+}
+
+window.togglePhotoView = function(el) {
+    showThumbnails = el.checked;
+    refreshState(); // Re-render the list immediately
 }
