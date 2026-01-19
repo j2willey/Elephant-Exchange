@@ -11,6 +11,7 @@ let myBookmarks = new Set();
 let scrollInterval;
 let pauseCounter = 0;
 let virtualScrollY = 0; 
+let currentUploadGiftId = null; // Track which gift is receiving a photo
 
 document.addEventListener('DOMContentLoaded', () => {
     const params = new URLSearchParams(window.location.search);
@@ -20,6 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (mode === 'mobile') {
         isMobileMode = true;
         document.body.classList.add('mobile-view');
+        createHiddenFileInput(); // Create the invisible file picker
     } else {
         document.body.classList.add('tv-mode');
     }
@@ -29,6 +31,17 @@ document.addEventListener('DOMContentLoaded', () => {
         joinGame(gameId);
     }
 });
+
+// Create invisible input for file selection
+function createHiddenFileInput() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.id = 'hidden-file-input';
+    input.accept = 'image/*'; // Accept only images
+    input.style.display = 'none';
+    input.addEventListener('change', handleFileUpload);
+    document.body.appendChild(input);
+}
 
 function joinGame(urlGameId = null) {
     const inputId = document.getElementById('gameIdInput').value.trim();
@@ -92,7 +105,7 @@ function renderView(state) {
         banner.dataset.active = "true";
         banner.style.background = "#1f2937"; 
 
-        let tableHtml = `<table class="active-table">`;
+        let tableHtml = `<table class="active-table" hello="Elephant Exchange">`;
         tableHtml += activeList.map(item => {
             const p = item.player;
             const isSteal = item.type === 'steal';
@@ -131,19 +144,23 @@ function renderView(state) {
         return b.stealCount - a.stealCount;
     });
 
+    const isStatsEnabled = state.settings.showVictimStats;
+
     // --- RENDER LOGIC START ---
     let html = '';
 
-    // STEP A: Mobile Header (Always render first)
+    // STEP A: Mobile Header
     if (isMobileMode) {
+        // Updated grid-template-columns inline style to fit the camera icon
         html += `
-        <div class="mobile-table-header">
+        <li class="mobile-table-header" style="display:grid; grid-template-columns: 30px 1fr 30px 1fr 40px 40px; gap:5px; position:sticky; top:0; z-index:10;">
             <div>⭐</div>
             <div>Gift</div>
             <div style="text-align:center">#</div>
             <div>Holder</div>
-            <div style="text-align:center">Steals</div> 
-        </div>
+            <div style="text-align:center">Stl</div> 
+            <div style="text-align:center">📷</div> 
+        </li>
         `;
     }
 
@@ -151,14 +168,11 @@ function renderView(state) {
     if (sortedGifts.length === 0) {
         html += '<li style="color:#6b7280; text-align:center; padding: 20px;">No gifts yet</li>';
         gList.innerHTML = html;
-        return; // Stop here, but preserve the header in 'html'
+        return; 
     }
 
-    // STEP C: Render Items (If not empty)
-    const isStatsEnabled = state.settings.showVictimStats;
-
+    // STEP C: Render Items
     if (isMobileMode) {
-        // Mobile Rows
         html += sortedGifts.map(g => {
             const owner = state.participants.find(p => p.id === g.ownerId);
             let ownerName = owner ? owner.name : '?';
@@ -178,18 +192,27 @@ function renderView(state) {
             let stealBadge = `<span class="badge">${g.stealCount}/${max}</span>`;
             if (g.isFrozen) stealBadge = `<span class="badge locked">🔒</span>`;
             
+            // Check for images
+            const hasImages = g.images && g.images.length > 0;
+            const cameraIcon = hasImages ? '📸' : '➕';
+            const cameraClass = hasImages ? 'btn-camera-view' : 'btn-camera-add';
+
+            // Note: Updated Grid Layout to match Header
             return `
-            <li class="${rowClass}" onclick="toggleBookmark('${g.id}')">
-                <div class="col-star"><span class="star-icon">${starChar}</span></div>
-                <div class="col-gift">${giftName}</div>
-                <div class="col-num">${giftNum}</div>
-                <div class="col-held">${ownerName}</div>
-                <div class="col-stl">${stealBadge}</div>
+            <li class="${rowClass}" style="display:grid; grid-template-columns: 30px 1fr 30px 1fr 40px 40px; gap:5px; align-items:center;">
+                <div class="col-star" onclick="toggleBookmark('${g.id}')"><span class="star-icon">${starChar}</span></div>
+                <div class="col-gift" onclick="toggleBookmark('${g.id}')">${giftName}</div>
+                <div class="col-num" onclick="toggleBookmark('${g.id}')">${giftNum}</div>
+                <div class="col-held" onclick="toggleBookmark('${g.id}')">${ownerName}</div>
+                <div class="col-stl" onclick="toggleBookmark('${g.id}')">${stealBadge}</div>
+                <div class="col-cam" style="text-align:center; cursor:pointer;" onclick="initUpload('${g.id}')">
+                    <span class="${cameraClass}">${cameraIcon}</span>
+                </div>
             </li>
             `;
         }).join('');
     } else {
-        // TV Rows
+        // TV Rows (Unchanged)
         html += sortedGifts.map(g => {
             const owner = state.participants.find(p => p.id === g.ownerId);
             let ownerName = owner ? owner.name : 'Unknown';
@@ -217,27 +240,62 @@ function renderView(state) {
     gList.innerHTML = html;
 }
 
+// --- FILE UPLOAD LOGIC ---
+window.initUpload = function(giftId) {
+    currentUploadGiftId = giftId;
+    const input = document.getElementById('hidden-file-input');
+    if(input) input.click(); // Trigger the native file picker
+}
+
+async function handleFileUpload(e) {
+    const file = e.target.files[0];
+    if (!file || !currentUploadGiftId) return;
+
+    // Reset input so same file can be selected again if needed
+    e.target.value = '';
+
+    const formData = new FormData();
+    formData.append('photo', file);
+    formData.append('giftId', currentUploadGiftId);
+    formData.append('uploaderName', 'MobileUser'); // Could add real name logic later
+
+    try {
+        // Visual feedback (optional: add a spinner here)
+        console.log(`Uploading for ${currentUploadGiftId}...`);
+        
+        const res = await fetch(`/api/${currentGameId}/upload`, {
+            method: 'POST',
+            body: formData
+        });
+
+        if (res.ok) {
+            alert('Photo uploaded! 📸'); // Simple feedback
+            refreshState();
+        } else {
+            const err = await res.json();
+            alert('Upload failed: ' + err.error);
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Upload error.');
+    }
+}
+
 // Helper: Determine who is active for the table
 function getActivePlayersList(state) {
     const limit = state.settings.activePlayerCount || 1;
     const active = [];
 
-    // 1. VICTIMS (Fix: Don't rely on state.activeVictimId)
-    // We look for ANYONE who is a victim and waiting for a gift
     state.participants.filter(p => p.isVictim && !p.heldGiftId).forEach(v => {
          active.push({ player: v, type: 'steal' });
     });
 
-    // 2. QUEUE
     const queue = state.participants
         .filter(p => !p.isVictim && !p.heldGiftId && p.number >= state.currentTurn)
         .sort((a,b) => a.number - b.number);
 
-    // Calculate how many queue slots are left after victims
     const victimCount = active.length;
     let slotsAvailable = limit - victimCount;
-    
-    // Safety check (prevent negative slots if lots of victims)
     if (slotsAvailable < 0) slotsAvailable = 0;
 
     let i = 0;

@@ -8,6 +8,9 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const { createClient } = require('redis');
+const fs = require('fs');
+const path = require('path');
+const multer = require('multer');
 
 // Import Logic
 const { getDefaultState, isPlayerActive, updateActiveTimers } = require('./lib/gameEngine');
@@ -21,6 +24,43 @@ const redisClient = createClient({ url: 'redis://redis-db:6379' });
 redisClient.on('error', (err) => console.log('Redis Client Error', err));
 (async () => { await redisClient.connect(); console.log('✅ Connected to Redis'); })();
 
+// --- UPLOAD CONFIGURATION ---
+const uploadDir = path.join(__dirname, 'public/uploads');
+
+// Ensure directory exists
+if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+// Storage Engine
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        // Create a sub-folder per game to keep things tidy
+        const gameId = req.params.gameId;
+        const gameDir = path.join(uploadDir, gameId);
+        if (!fs.existsSync(gameDir)) {
+            fs.mkdirSync(gameDir, { recursive: true });
+        }
+        cb(null, gameDir);
+    },
+    filename: (req, file, cb) => {
+        // Naming: giftId_timestamp_random.jpg
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        const ext = path.extname(file.originalname);
+        cb(null, `img-${uniqueSuffix}${ext}`);
+    }
+});
+
+const upload = multer({ 
+    storage: storage,
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB Limit
+    fileFilter: (req, file, cb) => {
+        if (file.mimetype.startsWith('image/')) cb(null, true);
+        else cb(new Error('Only images are allowed'));
+    }
+});
+
+// --- MIDDLEWARE ---
 app.use(express.static('public'));
 app.use(express.json());
 
@@ -273,6 +313,85 @@ app.put('/api/:gameId/gifts/:giftId', async (req, res) => {
     // Save & Broadcast
     await redisClient.set(key, JSON.stringify(gameState));
     io.to(gameId).emit('stateUpdate', gameState); // <--- This line updates the TV!
+
+    res.json({ success: true });
+});
+
+// 9. UPLOAD IMAGE
+app.post('/api/:gameId/upload', upload.single('photo'), async (req, res) => {
+    const { gameId } = req.params;
+    const { giftId, uploaderName } = req.body;
+    const key = getGameKey(gameId);
+
+    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+
+    let data = await redisClient.get(key);
+    if (!data) return res.status(404).json({ error: "Game not found" });
+    let gameState = JSON.parse(data);
+
+    const gift = gameState.gifts.find(g => g.id === giftId);
+    if (!gift) return res.status(404).json({ error: "Gift not found" });
+
+    // Initialize image array if missing
+    if (!gift.images) gift.images = [];
+
+    // Create Image Object
+    const newImage = {
+        id: `img_${Date.now()}`,
+        filename: req.file.filename,
+        path: `/uploads/${gameId}/${req.file.filename}`, // Web-accessible path
+        uploader: uploaderName || 'Anonymous',
+        timestamp: Date.now()
+    };
+
+    // If first image, make it primary automatically
+    if (gift.images.length === 0) {
+        gift.primaryImageId = newImage.id;
+    }
+
+    gift.images.push(newImage);
+
+    console.log(`📸 New Photo for ${gift.description}: ${newImage.filename}`);
+
+    await redisClient.set(key, JSON.stringify(gameState));
+    io.to(gameId).emit('stateUpdate', gameState);
+
+    res.json({ success: true, image: newImage });
+});
+
+// 10. DELETE IMAGE
+app.delete('/api/:gameId/images/:giftId/:imageId', async (req, res) => {
+    const { gameId, giftId, imageId } = req.params;
+    const key = getGameKey(gameId);
+
+    let data = await redisClient.get(key);
+    if (!data) return res.status(404).json({ error: "Game not found" });
+    let gameState = JSON.parse(data);
+
+    const gift = gameState.gifts.find(g => g.id === giftId);
+    if (!gift || !gift.images) return res.status(404).json({ error: "Gift/Images not found" });
+
+    const imageIndex = gift.images.findIndex(img => img.id === imageId);
+    if (imageIndex === -1) return res.status(404).json({ error: "Image not found" });
+
+    const imageToDelete = gift.images[imageIndex];
+
+    // 1. Remove from Disk
+    const filePath = path.join(uploadDir, gameId, imageToDelete.filename);
+    if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+    }
+
+    // 2. Remove from Data
+    gift.images.splice(imageIndex, 1);
+
+    // 3. Handle Primary Image Logic
+    if (gift.primaryImageId === imageId) {
+        gift.primaryImageId = gift.images.length > 0 ? gift.images[0].id : null;
+    }
+
+    await redisClient.set(key, JSON.stringify(gameState));
+    io.to(gameId).emit('stateUpdate', gameState);
 
     res.json({ success: true });
 });

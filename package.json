@@ -18,6 +18,7 @@
   "homepage": "https://github.com/j2willey/Elephant-Exchange#readme",
   "dependencies": {
     "express": "^5.2.1",
+    "multer": "^2.0.2",
     "redis": "^5.10.0",
     "socket.io": "^4.8.3"
   },

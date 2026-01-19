@@ -237,6 +237,155 @@ body.tv-mode {
 .mobile-view .star-icon { font-size: 1.2rem; cursor: pointer; color: #fbbf24; }
 .highlight-gift { background: rgba(251, 191, 36, 0.1); border-left: 4px solid #fbbf24; }
 
+/* --- VISUAL CATALOG & MODAL --- */
+
+/* Grid Layout */
+.catalog-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+    padding: 20px;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+/* Gift Card */
+.gift-card {
+    background: #1f2937;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    transition: transform 0.2s;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+}
+.gift-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 12px rgba(0,0,0,0.5);
+}
+
+.card-image-container {
+    height: 250px;
+    width: 100%;
+    background: #374151;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.card-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.card-placeholder {
+    font-size: 3rem;
+    color: #4b5563;
+}
+
+.card-details {
+    padding: 15px;
+}
+.card-title {
+    font-size: 1.2rem;
+    font-weight: bold;
+    margin-bottom: 5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.card-meta {
+    display: flex;
+    justify-content: space-between;
+    color: #9ca3af;
+    font-size: 0.9rem;
+}
+.card-badge {
+    background: #3b82f6;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 0.8rem;
+}
+
+/* GALLERY MODAL (Popup) */
+.modal-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.9);
+    z-index: 1000;
+    display: none; /* Hidden by default */
+    align-items: center;
+    justify-content: center;
+}
+.modal-content {
+    background: #111827;
+    width: 95%;
+    max-width: 900px;
+    max-height: 90vh;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+}
+.modal-header {
+    padding: 15px;
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1px solid #374151;
+}
+.modal-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+}
+.modal-hero-img {
+    max-height: 50vh;
+    max-width: 100%;
+    border-radius: 4px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.5);
+}
+.modal-thumbnails {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    width: 100%;
+    padding: 10px 0;
+}
+.thumb {
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 4px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    opacity: 0.6;
+}
+.thumb.active {
+    border-color: #3b82f6;
+    opacity: 1;
+}
+.modal-controls {
+    display: flex;
+    gap: 10px;
+    width: 100%;
+    justify-content: center;
+}
+.close-btn {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 1.5rem;
+    cursor: pointer;
+}
+
 /* Timer Flashing Animations */
 @keyframes flashRed { 0%, 100% { background-color: #111827; } 50% { background-color: #450a0a; } }
 @keyframes flashOrange { 0%, 100% { background-color: #111827; } 50% { background-color: #451a03; } }
