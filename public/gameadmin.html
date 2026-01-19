@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="css/style.css">
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <script src="js/script.js" defer></script>
+    <script src="js/gameadmin.js" defer></script>
 </head>
 <body>
 
@@ -51,6 +51,7 @@
                 <button onclick="clearDb()" class="btn-red" title="Reset Game">⚠️</button>
                 <button onclick="location.reload()" class="btn-gray">Exit</button>
             </div>
+
         </div>
 
         <div class="grid">
@@ -106,6 +107,32 @@
             </label>
             <p class="hint">Always visible to Admin. Optional for the public.</p>
 
+            <hr style="margin: 20px 0; border: 0; border-top: 1px solid #e5e7eb;">
+            
+            <h3 style="margin-top:0;">🎨 Branding</h3>
+
+            <label>Primary Color</label>
+            <div style="display:flex; gap:10px; align-items:center;">
+                <input type="color" id="settingThemeColor" value="#2563eb" style="width:50px; height:40px; padding:0;">
+                <span style="font-size:0.8rem; color:#666;">Main button & accent color</span>
+            </div>
+
+            <label>Background Theme</label>
+            <select id="settingThemeBg" style="width:100%; padding:10px; border-radius:8px;">
+                <option value="">None (Clean)</option>
+                <option value="https://images.unsplash.com/photo-1576618148400-f54bed99fcf8?auto=format&fit=crop&q=80">🎄 Classic Christmas</option>
+                <option value="https://images.unsplash.com/photo-1513297887119-d46091b24bfa?auto=format&fit=crop&q=80">❄️ Winter Snow</option>
+                <option value="https://images.unsplash.com/photo-1533227297402-4603b2205d32?auto=format&fit=crop&q=80">🎉 Party Confetti</option>
+                <option value="https://www.transparenttextures.com/patterns/wood-pattern.png">🪵 Rustic Wood</option>
+            </select>
+
+            <label>Custom Logo</label>
+            <div style="display:flex; gap:10px;">
+                <input type="file" id="themeLogoInput" accept="image/*">
+                <button onclick="uploadLogo()" class="btn-primary" style="padding: 5px 10px;">Upload</button>
+            </div>
+            <p class="hint">Upload applies immediately.</p>
+            
             <div class="modal-actions">
                 <button onclick="cancelSettings()" class="btn-gray">Cancel</button>
                 <button onclick="saveSettings()" class="btn-green">Save Changes</button>

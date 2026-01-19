@@ -10,6 +10,7 @@
         2. Mobile users tap the gift they think is the "Worst."
         3. Top 2 vote-getters are flagged.
         4. Holders of those gifts get to swap for a "Spare Gift" provided by the host.
+- [ ] FAQ, Best Practices, Tips page
 
 ## Infrastructure
 - [ ] Move image storage to AWS S3 / DigitalOcean Spaces (Required for multi-server scaling).

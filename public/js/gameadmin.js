@@ -1,0 +1,553 @@
+/*
+ * ==============================================================================
+ * ELEPHANT EXCHANGE - ADMIN CONTROLLER
+ * ==============================================================================
+ * Manages the Host Dashboard, Game State, and Settings.
+ */
+
+// --- 1. GLOBALS & INIT ---
+let socket;
+let currentGameId = null;
+let stealingPlayerId = null; 
+let currentAdminGiftId = null; // For Image Modal
+
+document.addEventListener('DOMContentLoaded', () => {
+    // UI: Zoom Persistence
+    const scaleSlider = document.getElementById('uiScale');
+    const savedScale = localStorage.getItem('elephantScale');
+    if (savedScale && scaleSlider) {
+        document.body.style.zoom = savedScale;
+        scaleSlider.value = savedScale;
+    }
+    if(scaleSlider) {
+        scaleSlider.addEventListener('input', (e) => {
+            document.body.style.zoom = e.target.value;
+            localStorage.setItem('elephantScale', e.target.value);
+        });
+    }
+
+    // Auth: Auto-Login from URL
+    const params = new URLSearchParams(window.location.search);
+    const urlGameId = params.get('game');
+    if (urlGameId) {
+        document.getElementById('gameIdInput').value = urlGameId;
+        joinGame(urlGameId);
+    }
+
+    // Bind Enter Keys
+    document.getElementById('gameIdInput').addEventListener('keypress', e => e.key === 'Enter' && joinGame());
+    document.getElementById('pName').addEventListener('keypress', e => e.key === 'Enter' && addParticipant());
+});
+
+// --- 2. CONNECTION & STATE ---
+
+async function joinGame(forceId = null) {
+    const inputId = document.getElementById('gameIdInput').value.trim();
+    const gameId = forceId || inputId;
+    if(!gameId) return alert("Please enter a Game ID");
+
+    // Create or Join
+    const res = await fetch('/api/create', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ gameId })
+    });
+
+    if(res.ok) {
+        currentGameId = gameId;
+        
+        // Update URL
+        const newUrl = `${window.location.pathname}?game=${gameId}`;
+        window.history.pushState({path: newUrl}, '', newUrl);
+
+        // Show Dashboard
+        document.getElementById('login-section').classList.add('hidden');
+        document.getElementById('dashboard-section').classList.remove('hidden');
+        document.getElementById('displayGameId').innerText = gameId;
+        
+        initSocket(gameId);
+        refreshState();
+    }
+}
+
+function initSocket(gameId) {
+    if (socket) socket.disconnect();
+    socket = io();
+    
+    socket.on('connect', () => {
+        socket.emit('joinGame', gameId);
+        document.getElementById('displayGameId').style.color = "inherit";
+    });
+
+    socket.on('stateUpdate', (state) => {
+        render(state);
+    });
+}
+
+async function refreshState() {
+    if(!currentGameId) return;
+    try {
+        const res = await fetch(`/api/${currentGameId}/state`);
+        if(res.ok) render(await res.json());
+    } catch(e) { console.error("State fetch failed", e); }
+}
+
+// --- 3. MAIN RENDER LOOP ---
+
+function render(state) {
+    // Safety Check: If thief opened a gift, exit steal mode
+    if (stealingPlayerId) {
+        const thief = state.participants.find(p => p.id === stealingPlayerId);
+        if (!thief || thief.heldGiftId) stealingPlayerId = null;
+    }
+
+    // Header Info
+    document.getElementById('displayGameId').innerHTML = 
+        `${state.id} <span style="font-size:0.6em; color:#666;">(Turn #${state.currentTurn})</span>`;
+
+    renderParticipants(state);
+    renderGifts(state);
+}
+
+function renderParticipants(state) {
+    const pList = document.getElementById('participantList');
+    pList.innerHTML = '';
+
+    const activeIds = getActiveIds(state);
+
+    // Sort: Active > Number
+    const sorted = state.participants.sort((a,b) => {
+        const aActive = activeIds.includes(a.id);
+        const bActive = activeIds.includes(b.id);
+        if (aActive && !bActive) return -1;
+        if (!aActive && bActive) return 1;
+        return a.number - b.number;
+    });
+
+    sorted.forEach(p => {
+        const isActive = activeIds.includes(p.id);
+        const li = document.createElement('li');
+        
+        // Style Active Rows
+        if (isActive) {
+            li.style.border = "2px solid var(--primary)";
+            li.style.background = "#eff6ff";
+            if (p.isVictim) { // Red for victims
+                li.style.borderColor = "#dc2626";
+                li.style.background = "#fef2f2";
+            }
+        }
+
+        // Status Icons
+        let statusIcon = '⏳';
+        if (p.heldGiftId) statusIcon = '🎁';
+        if (isActive) statusIcon = '🔴';
+
+        // Stats Badge
+        let statsBadge = '';
+        if (p.timesStolenFrom > 0) {
+            statsBadge = `<span style="font-size:0.8rem; background:#fee2e2; color:#991b1b; padding:2px 6px; border-radius:4px; margin-left:5px;">💔 ${p.timesStolenFrom}</span>`;
+        }
+
+        // Timer
+        let timerHtml = '';
+        if (isActive) {
+            const duration = state.settings.turnDurationSeconds || 60;
+            const startTime = p.turnStartTime || Date.now(); 
+            timerHtml = ` <span class="player-timer" data-start="${startTime}" data-duration="${duration}" style="font-family:monospace; font-weight:bold; font-size:1.2em; margin-left:10px;">--:--</span>`;
+        }
+
+        // Build HTML
+        let html = `<span><b>#${p.number}</b> ${p.name} ${statsBadge} ${timerHtml}</span>`;
+        
+        // Action Buttons
+        if (isActive && !p.heldGiftId) {
+            if (stealingPlayerId === p.id) {
+                html += `
+                    <div class="action-buttons">
+                        <span style="color:#d97706; font-weight:bold; font-size:0.9em; margin-right:5px;">Select Gift below...</span>
+                        <button onclick="cancelStealMode()" class="btn-gray">Cancel</button>
+                    </div>`;
+            } else if (stealingPlayerId) {
+                html += `<div style="font-size:0.8em; color:#ccc;">Waiting...</div>`;
+            } else {
+                html += `
+                    <div class="action-buttons">
+                        <button onclick="promptOpenGift('${p.id}')" class="btn-green">🎁 Open</button>
+                        <button onclick="enterStealMode('${p.id}')" class="btn-orange">😈 Steal</button>
+                    </div>`;
+            }
+        } else {
+            html += `<span>${statusIcon}</span>`;
+        }
+
+        li.innerHTML = html;
+        pList.appendChild(li);
+    });
+}
+
+function renderGifts(state) {
+    const gList = document.getElementById('giftList');
+    
+    // Sort: Frozen > Steals
+    const sorted = state.gifts.sort((a,b) => {
+        if (a.isFrozen !== b.isFrozen) return a.isFrozen - b.isFrozen;
+        return b.stealCount - a.stealCount;
+    });
+
+    if (sorted.length === 0) {
+        gList.innerHTML = `<li style="color:#ccc; justify-content:center;">No gifts revealed yet</li>`;
+        return;
+    }
+
+    gList.innerHTML = sorted.map(g => {
+        const owner = state.participants.find(p => p.id === g.ownerId);
+        const ownerName = owner ? owner.name : 'Unknown';
+        
+        // Determine Locks
+        let isForbidden = false;
+        if (stealingPlayerId) {
+            const thief = state.participants.find(p => p.id === stealingPlayerId);
+            if (thief && thief.forbiddenGiftId === g.id) isForbidden = true;
+        }
+
+        // Styling
+        const itemStyle = g.isFrozen ? 'opacity: 0.5; background: #f1f5f9;' : '';
+        let statusBadge = '';
+        if (g.isFrozen) statusBadge = `<span class="badge" style="background:#333; color:#fff;">🔒 LOCKED</span>`;
+        else if (isForbidden) statusBadge = `<span class="badge" style="background:#fde68a; color:#92400e;">🚫 NO TAKE-BACKS</span>`;
+        else statusBadge = g.stealCount > 0 ? `<span class="badge stolen">${g.stealCount}/3 Steals</span>` : `<span class="badge">0/3 Steals</span>`;
+
+        // Camera Button Logic
+        const imgCount = (g.images && g.images.length) || 0;
+        const camColor = imgCount > 0 ? '#3b82f6' : '#9ca3af';
+        const camIcon = imgCount > 0 ? `📷 ${imgCount}` : '➕';
+
+        const showStealBtn = stealingPlayerId && !g.isFrozen && !isForbidden;
+
+        return `
+            <li style="${itemStyle}">
+                <div>
+                    <div style="display:flex; align-items:center; gap:5px;">
+                        <span style="font-weight:500;">${g.description}</span>
+                        <button onclick="editGift('${g.id}', '${g.description.replace(/'/g, "\\'")}')" style="background:none; border:none; padding:0; cursor:pointer; font-size:1em;" title="Edit Name">✏️</button>
+                        <button onclick="openImgModal('${g.id}')" style="background:none; border:none; color:${camColor}; cursor:pointer; font-size:0.9em; margin-left:8px;" title="Manage Images">
+                            ${camIcon}
+                        </button>
+                    </div>
+                    <div style="font-size:0.8em; color:#666;">Held by <b>${ownerName}</b></div>
+                </div>
+                <div style="text-align:right;">
+                    ${statusBadge}
+                    ${showStealBtn ? `<button onclick="attemptSteal('${g.id}', '${g.description.replace(/'/g, "\\'")}')" class="btn-orange" style="font-size:0.7em; margin-left:5px;">Select</button>` : ''}
+                </div>
+            </li>
+        `;
+    }).join('');
+}
+
+// --- 4. GAMEPLAY ACTIONS ---
+
+async function addParticipant() {
+    const num = document.getElementById('pNumber').value;
+    const name = document.getElementById('pName').value;
+    if(!name && !num) return;
+    
+    await fetch(`/api/${currentGameId}/participants`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ name, number: num })
+    });
+    
+    document.getElementById('pName').value = '';
+    document.getElementById('pNumber').value = '';
+    document.getElementById('pName').focus();
+}
+
+async function promptOpenGift(playerId) {
+    const description = prompt("What is inside the gift?");
+    if (!description) return;
+    await fetch(`/api/${currentGameId}/open-new`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ description, playerId }) 
+    });
+}
+
+function enterStealMode(playerId) {
+    stealingPlayerId = playerId;
+    refreshState(); 
+}
+
+function cancelStealMode() {
+    stealingPlayerId = null;
+    refreshState();
+}
+
+async function attemptSteal(giftId, description) {
+    if (!stealingPlayerId) return; 
+    if(!confirm(`Confirm steal: ${description}?`)) return;
+
+    try {
+        const res = await fetch(`/api/${currentGameId}/steal`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ giftId, thiefId: stealingPlayerId }) 
+        });
+        if(!res.ok) alert("Error: " + (await res.json()).error);
+    } catch (err) { alert("Steal failed."); } 
+    finally {
+        stealingPlayerId = null;
+        refreshState();
+    }
+}
+
+async function editGift(giftId, currentDesc) {
+    const newDesc = prompt("Update gift description:", currentDesc);
+    if (newDesc && newDesc !== currentDesc) {
+        await fetch(`/api/${currentGameId}/gifts/${giftId}`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ description: newDesc })
+        });
+    }
+}
+
+async function clearDb() {
+    if(!currentGameId) return;
+    if(!confirm("⚠️ DANGER: This will delete ALL players and gifts.\n\nAre you sure?")) return;
+    
+    const res = await fetch(`/api/${currentGameId}/reset`, { method: 'POST' });
+    if(res.ok) location.reload();
+}
+
+// --- 5. SETTINGS & BRANDING ---
+
+function openSettings() {
+    if(!currentGameId) return;
+    fetch(`/api/${currentGameId}/state`)
+        .then(res => res.json())
+        .then(state => {
+            const s = state.settings || {};
+            
+            // Standard
+            document.getElementById('settingDuration').value = s.turnDurationSeconds || 60;
+            document.getElementById('settingMaxSteals').value = s.maxSteals || 3;
+            document.getElementById('settingActiveCount').value = s.activePlayerCount || 1;
+            document.getElementById('settingScrollSpeed').value = (s.scrollSpeed !== undefined) ? s.scrollSpeed : 3;
+            
+            // Checkboxes
+            const sound = document.getElementById('settingSoundTheme');
+            if(sound) sound.value = s.soundTheme || 'standard';
+            
+            const stats = document.getElementById('settingShowVictimStats');
+            if(stats) stats.checked = s.showVictimStats || false;
+
+            // Branding
+            const color = document.getElementById('settingThemeColor');
+            if(color) color.value = s.themeColor || '#2563eb';
+
+            const bg = document.getElementById('settingThemeBg');
+            if(bg) bg.value = s.themeBg || '';
+
+            document.getElementById('settingsModal').classList.remove('hidden');
+        });
+}
+
+async function saveSettings() {
+    // 1. Gather Values
+    const payload = {
+        turnDurationSeconds: document.getElementById('settingDuration').value,
+        maxSteals: document.getElementById('settingMaxSteals').value,
+        activePlayerCount: document.getElementById('settingActiveCount').value,
+        scrollSpeed: document.getElementById('settingScrollSpeed').value,
+        soundTheme: document.getElementById('settingSoundTheme')?.value || 'standard',
+        showVictimStats: document.getElementById('settingShowVictimStats')?.checked || false,
+        themeColor: document.getElementById('settingThemeColor')?.value,
+        themeBg: document.getElementById('settingThemeBg')?.value
+    };
+
+    // 2. Send to Server (PUT)
+    await fetch(`/api/${currentGameId}/settings`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+    });
+    document.getElementById('settingsModal').classList.add('hidden');
+}
+
+function cancelSettings() {
+    document.getElementById('settingsModal').classList.add('hidden');
+}
+
+async function uploadLogo() {
+    const input = document.getElementById('themeLogoInput');
+    const file = input.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('logo', file);
+
+    const res = await fetch(`/api/${currentGameId}/upload-logo`, { method: 'POST', body: formData });
+    if (res.ok) alert("Logo Updated!");
+}
+
+// --- 6. ADMIN IMAGE MODAL ---
+
+window.openImgModal = function(giftId) {
+    fetch(`/api/${currentGameId}/state`)
+        .then(r => r.json())
+        .then(state => {
+            const gift = state.gifts.find(g => g.id === giftId);
+            if (!gift) return;
+
+            currentAdminGiftId = giftId;
+            document.getElementById('imgModalTitle').innerText = `Images: ${gift.description}`;
+            document.getElementById('imageModal').classList.add('active'); 
+            renderAdminImages(gift);
+        });
+}
+
+window.closeImgModal = function() {
+    document.getElementById('imageModal').classList.remove('active');
+    currentAdminGiftId = null;
+}
+
+function renderAdminImages(gift) {
+    const container = document.getElementById('imgList');
+    container.innerHTML = '';
+
+    if (!gift.images || gift.images.length === 0) {
+        container.innerHTML = '<div style="grid-column:1/-1; color:#9ca3af; text-align:center;">No images yet.</div>';
+        return;
+    }
+
+    gift.images.forEach(img => {
+        const isPrimary = img.id === gift.primaryImageId;
+        const heroClass = isPrimary ? 'hero' : '';
+        
+        const div = document.createElement('div');
+        div.className = `admin-img-card ${heroClass}`;
+        div.innerHTML = `
+            <img src="${img.path}">
+            <div class="admin-img-controls">
+                <button onclick="setPrimaryImage('${gift.id}', '${img.id}')" style="color:#10b981; background:none; border:none; cursor:pointer; font-weight:bold;">★ Hero</button>
+                <button onclick="deleteImage('${gift.id}', '${img.id}')" style="color:#ef4444; background:none; border:none; cursor:pointer;">🗑 Del</button>
+            </div>
+            ${isPrimary ? '<div style="position:absolute; top:0; left:0; background:#10b981; color:white; font-size:0.7rem; padding:2px 6px;">HERO</div>' : ''}
+        `;
+        container.appendChild(div);
+    });
+}
+
+window.deleteImage = async function(giftId, imageId) {
+    if (!confirm("Permanently delete this photo?")) return;
+    const res = await fetch(`/api/${currentGameId}/images/${giftId}/${imageId}`, { method: 'DELETE' });
+    if (res.ok) reloadModal(giftId);
+}
+
+window.setPrimaryImage = async function(giftId, imageId) {
+    const res = await fetch(`/api/${currentGameId}/images/${giftId}/primary`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageId })
+    });
+    if (res.ok) reloadModal(giftId);
+}
+
+window.adminUpload = async function() {
+    const input = document.getElementById('adminFileInput');
+    const file = input.files[0];
+    if (!file || !currentAdminGiftId) return;
+
+    const formData = new FormData();
+    formData.append('photo', file);
+    formData.append('giftId', currentAdminGiftId);
+    formData.append('uploaderName', 'Admin');
+
+    const res = await fetch(`/api/${currentGameId}/upload`, { method: 'POST', body: formData });
+    if (res.ok) {
+        input.value = '';
+        reloadModal(currentAdminGiftId);
+    }
+}
+
+function reloadModal(giftId) {
+    fetch(`/api/${currentGameId}/state`)
+        .then(r => r.json())
+        .then(state => {
+            const gift = state.gifts.find(g => g.id === giftId);
+            if(gift) renderAdminImages(gift);
+        });
+}
+
+// --- 7. UTILS & HELPERS ---
+
+function getActiveIds(state) {
+    const victims = state.participants.filter(p => p.isVictim && !p.heldGiftId);
+    const queue = state.participants
+        .filter(p => !p.isVictim && !p.heldGiftId && p.number >= state.currentTurn)
+        .sort((a,b) => a.number - b.number);
+    const limit = state.settings.activePlayerCount || 1;
+    const slots = Math.max(0, limit - victims.length);
+    const active = queue.slice(0, slots);
+    return [...victims, ...active].map(p => p.id);
+}
+
+// Timer Loop
+setInterval(() => {
+    const timers = document.querySelectorAll('.player-timer');
+    timers.forEach(el => {
+        const start = parseInt(el.dataset.start);
+        const duration = parseInt(el.dataset.duration) * 1000;
+        if (!start) return;
+        
+        const remaining = Math.max(0, duration - (Date.now() - start));
+        const seconds = Math.ceil(remaining / 1000);
+        const m = Math.floor(seconds / 60);
+        const s = seconds % 60;
+        el.innerText = `${m}:${s.toString().padStart(2, '0')}`;
+
+        if (seconds <= 10) el.style.color = "#dc2626"; 
+        else if (seconds <= 30) el.style.color = "#d97706"; 
+        else el.style.color = "#2563eb"; 
+    });
+}, 1000);
+
+// TV Remote Control
+function setTvMode(mode) {
+    if(!currentGameId) return;
+    socket.emit('previewSettings', { gameId: currentGameId, settings: { tvMode: mode } });
+}
+function previewScrollSpeed() {
+    const val = document.getElementById('settingScrollSpeed').value;
+    socket.emit('previewSettings', { gameId: currentGameId, settings: { scrollSpeed: val } });
+}
+function showLocalQr() {
+    const url = `${window.location.origin}/scoreboard.html?game=${currentGameId}&mode=mobile`;
+    document.getElementById('qrGameIdDisplay').innerText = currentGameId;
+    document.getElementById('localQrcode').innerHTML = '';
+    new QRCode(document.getElementById('localQrcode'), { text: url, width: 200, height: 200 });
+    
+    // Create/Update link
+    let link = document.getElementById('localQrLink');
+    if(!link) {
+        link = document.createElement('a');
+        link.id = 'localQrLink';
+        link.target = "_blank";
+        link.style.display = "block";
+        link.style.marginTop = "10px";
+        link.style.color = "#2563eb";
+        document.getElementById('localQrcode').parentNode.appendChild(link);
+    }
+    link.href = url;
+    link.innerText = "🔗 Click to Open Link";
+
+    document.getElementById('localQrModal').classList.remove('hidden');
+}
+function closeLocalQr() {
+    document.getElementById('localQrModal').classList.add('hidden');
+}
+window.openCatalog = function() {
+    if(currentGameId) window.open(`/catalog.html?game=${currentGameId}`, '_blank');
+}

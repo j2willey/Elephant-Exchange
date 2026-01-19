@@ -1,123 +1,148 @@
-/* * Elephant Exchange Styles 
- * Combined Admin, Scoreboard (TV), and Mobile View
+/* * ELEPHANT EXCHANGE - MASTER STYLESHEET
+ * Organized by: Base -> Components -> Views -> Modals -> Utilities
  */
 
-:root { --primary: #2563eb; --bg: #f8fafc; --card: #ffffff; }
-body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 1000px; margin: 0 auto; padding: 20px; background: var(--bg); color: #1e293b; }
+/* =========================================
+   1. VARIABLES & RESET
+   ========================================= */
+:root { 
+    --primary: #2563eb; 
+    --bg-color: #f8fafc;
+    --bg-image: none;
+    --card-bg: #ffffff;
+    --text-main: #1e293b;
+    --text-muted: #64748b;
+    --border: #e2e8f0;
+}
 
-/* Layout Utils */
-.hidden { display: none !important; }
-.grid { display: grid; grid-template-columns: 1.5fr 1fr; gap: 24px; margin-top: 20px; }
-.card { background: var(--card); padding: 24px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+body { 
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+    max-width: 1000px; 
+    margin: 0 auto; 
+    padding: 20px; 
+    
+    /* Theming Variables */
+    background-color: var(--bg-color);
+    background-image: var(--bg-image);
+    background-size: cover;
+    background-attachment: fixed;
+    background-position: center;
+    color: var(--text-main); 
+}
 
-/* Typography */
+/* =========================================
+   2. TYPOGRAPHY & FORMS
+   ========================================= */
 h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
-h2 { font-size: 1.25rem; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-top: 0; }
+h2 { font-size: 1.25rem; border-bottom: 2px solid var(--border); padding-bottom: 10px; margin-top: 0; }
 
-/* Forms */
 .input-group { display: flex; gap: 8px; margin-bottom: 16px; }
-input { flex: 1; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; }
-button { cursor: pointer; background: var(--primary); color: white; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 500; transition: opacity 0.2s; }
+
+input, select { 
+    flex: 1; 
+    padding: 8px 12px; 
+    border: 1px solid #cbd5e1; 
+    border-radius: 6px; 
+}
+
+/* =========================================
+   3. BUTTONS & UI COMPONENTS
+   ========================================= */
+button { 
+    cursor: pointer; 
+    background: var(--primary); 
+    color: white; 
+    border: none; 
+    padding: 8px 16px; 
+    border-radius: 6px; 
+    font-weight: 500; 
+    transition: opacity 0.2s; 
+}
 button:hover { opacity: 0.9; }
 
-/* Button Variants */
 .btn-primary { background: #2563eb; }
-.btn-green { background: #16a34a; }
-.btn-red { background: #dc2626; }
-.btn-gray { background: #64748b; }
+.btn-green   { background: #16a34a; }
+.btn-red     { background: #dc2626; }
+.btn-gray    { background: #64748b; }
 
-/* Lists */
+/* Lists & Cards */
+.card { 
+    background: var(--card-bg); 
+    padding: 24px; 
+    border-radius: 12px; 
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1); 
+}
+
 ul { list-style: none; padding: 0; margin: 0; }
-li { padding: 12px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; }
+li { 
+    padding: 12px; 
+    border-bottom: 1px solid #f1f5f9; 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+}
 li:last-child { border-bottom: none; }
 
-/* Participant Status */
-.status-waiting { color: #64748b; }
-.status-done { color: #16a34a; background: #f0fdf4; }
-.status-victim { color: #dc2626; font-weight: bold; background: #fef2f2; border-left: 4px solid #dc2626; }
+/* Status Indicators */
+.badge { 
+    font-size: 0.75rem; 
+    padding: 2px 8px; 
+    border-radius: 999px; 
+    background: #e2e8f0; 
+    color: #475569; 
+    font-weight: 600; 
+}
 
-/* Badges */
-.badge { font-size: 0.75rem; padding: 2px 8px; border-radius: 999px; background: #e2e8f0; color: #475569; font-weight: 600; }
-
-/* Active Player Highlight */
 .active-turn { 
-    background: #eff6ff; border: 2px solid #2563eb; transform: scale(1.02); 
+    background: #eff6ff; 
+    border: 2px solid #2563eb; 
+    transform: scale(1.02); 
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); 
-    border-radius: 8px; margin: 10px 0;
+    border-radius: 8px; 
+    margin: 10px 0;
 }
 
-/* Modal */
-.modal {
-    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0,0,0,0.5);
-    display: flex; justify-content: center; align-items: center; z-index: 1000;
+.game-logo {
+    max-height: 100px;
+    margin-bottom: 20px;
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
 }
-.modal-content {
-    background: white; padding: 30px; border-radius: 12px;
-    width: 90%; max-width: 500px;
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-}
-.modal-content label { display: block; margin-top: 15px; font-weight: 600; margin-bottom: 5px; }
-.modal-content input { width: 100%; box-sizing: border-box; padding: 10px; }
-.modal-actions { margin-top: 25px; display: flex; justify-content: flex-end; gap: 10px; }
-.hint { font-size: 0.85rem; color: #64748b; margin-top: 4px; }
 
+/* =========================================
+   4. LAYOUTS & VIEWS
+   ========================================= */
+.hidden { display: none !important; }
+
+/* Admin Dashboard Grid */
+.grid { 
+    display: grid; 
+    grid-template-columns: 1.5fr 1fr; 
+    gap: 24px; 
+    margin-top: 20px; 
+}
 
 /* --- TV / SCOREBOARD MODE --- */
-/* Applied when <body class="tv-mode"> */
-
 body.tv-mode { 
     background: #111827; 
     color: #f3f4f6; 
     max-width: 100%; 
     padding: 40px; 
     box-sizing: border-box; 
-    overflow: hidden; /* Prevent body scroll, let the card scroll */
+    overflow: hidden; 
 }
 
 .tv-mode .card { 
     background: #1f2937; 
     border: 1px solid #374151; 
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5); 
-    
-    /* Auto-Scroll Container */
     max-width: 1200px; 
     margin: 0 auto; 
     max-height: 70vh; 
-    overflow: hidden; /* Hide scrollbars for TV look */
+    overflow: hidden; 
     position: relative;
 }
-
-/* Gradient Mask at bottom of list */
-.tv-mode .card::after {
-    content: ""; position: absolute; bottom: 0; left: 0; right: 0;
-    height: 60px; 
-    background: linear-gradient(transparent, #1f2937);
-    pointer-events: none;
-}
-
-.tv-mode h1, .tv-mode h2 { color: #e5e7eb; border-color: #374151; }
-
-/* Active Player Banner (Legacy / Wrapper) */
-#activePlayerBanner {
-    background: #374151; color: white;
-    padding: 0; /* Remove padding, let table handle it */
-    border-radius: 16px;
-    text-align: center; font-size: 4rem; font-weight: 800;
-    margin-bottom: 40px;
-    box-shadow: 0 0 40px rgba(0,0,0,0.5);
-    transition: background 0.5s;
-    overflow: hidden;
-}
-
-/* Active Player Table (Multi-User Timer) */
-.active-table { width: 100%; border-collapse: collapse; }
-.active-table td { padding: 15px 25px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); vertical-align: middle; }
-.active-table tr:last-child td { border-bottom: none; }
-.col-active-name { text-align: left; font-size: 2.5rem; font-weight: 700; }
-.col-active-time { text-align: right; font-size: 2.5rem; font-family: monospace; font-weight: 700; color: #fbbf24; }
-.row-steal .col-active-name { color: #f87171; }
-.row-turn .col-active-name { color: #60a5fa; }
 
 /* TV List Styling */
 .tv-mode ul { display: flex; flex-direction: column; gap: 10px; padding-bottom: 50px; }
@@ -128,51 +153,33 @@ body.tv-mode {
     display: grid; 
     grid-template-columns: 2fr 1fr 200px; 
     align-items: center;
-    transform: translateZ(0); /* GPU Fix */
-    will-change: transform;
 }
-
 .tv-mode .owner-col { text-align: right; color: #9ca3af; font-size: 1.5rem; padding-right: 20px; }
 .tv-mode .owner-col b { color: #fbbf24; }
 
-/* OVERLAYS (Rules & QR) */
-.overlay {
-    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0, 0, 0, 0.95);
-    z-index: 2000;
-    display: flex; justify-content: center; align-items: center;
-    animation: fadeIn 0.3s;
+/* Active Player Banner */
+#activePlayerBanner {
+    background: #374151; color: white;
+    padding: 0;
+    border-radius: 16px;
+    text-align: center; font-size: 4rem; font-weight: 800;
+    margin-bottom: 40px;
+    box-shadow: 0 0 40px rgba(0,0,0,0.5);
+    transition: background 0.5s;
+    overflow: hidden;
 }
-
-.overlay-content {
-    background: #1f2937; color: white;
-    padding: 50px; border-radius: 24px;
-    max-width: 1000px; width: 90%;
-    border: 2px solid #374151;
-    box-shadow: 0 0 50px rgba(0,0,0,0.8);
-}
-.overlay-content h1 { text-align: center; font-size: 3.5rem; color: #60a5fa; border-bottom: 2px solid #374151; padding-bottom: 20px; margin-bottom: 30px; }
-.rules-list { list-style: none; padding: 0; font-size: 2.2rem; line-height: 1.6; }
-.rules-list li { margin-bottom: 25px; padding-left: 20px; border-left: 6px solid #4b5563; }
-.rules-list b { color: #fbbf24; }
-@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-
-/* Debug Footer */
-#debugFooter {
-    position: fixed; bottom: 10px; right: 10px;
-    font-family: monospace; font-size: 0.8rem;
-    color: #6b7280; background: rgba(0,0,0,0.8);
-    padding: 5px 10px; border-radius: 4px; pointer-events: none;
-}
+.active-table { width: 100%; border-collapse: collapse; }
+.active-table td { padding: 15px 25px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); vertical-align: middle; }
+.col-active-name { text-align: left; font-size: 2.5rem; font-weight: 700; }
+.col-active-time { text-align: right; font-size: 2.5rem; font-family: monospace; font-weight: 700; color: #fbbf24; }
 
 /* --- MOBILE VIEW --- */
 .mobile-view {
     background: #111827; color: #f3f4f6;
-    overflow: auto; /* ALLOW SCROLLING */
-    padding: 0; /* Full width */
+    overflow: auto; 
+    padding: 0; 
     max-width: 100%;
 }
-
 .mobile-view .card {
     background: #1f2937; 
     max-height: none; 
@@ -180,24 +187,10 @@ body.tv-mode {
     box-shadow: none;
     border: none;
     border-radius: 0;
-    padding: 0; /* Table handles padding */
+    padding: 0;
 }
-
-/* Mobile Active Banner Adjustments */
-.mobile-view #activePlayerBanner {
-    border-radius: 0;
-    margin-bottom: 0;
-}
-.mobile-view .col-active-name, 
-.mobile-view .col-active-time {
-    font-size: 1.2rem; /* Smaller for phone */
-    padding: 10px 15px;
-}
-
-/* Mobile Table Header (Sticky) */
 .mobile-table-header {
     display: grid;
-    /* Columns: Star | Gift Name | Gift # | Holder | Steals */
     grid-template-columns: 30px 1.5fr 40px 1fr 50px; 
     gap: 8px;
     padding: 10px;
@@ -207,12 +200,8 @@ body.tv-mode {
     font-weight: bold;
     text-transform: uppercase;
     border-bottom: 2px solid #374151;
-    position: sticky;
-    top: 0;
-    z-index: 10;
+    position: sticky; top: 0; z-index: 10;
 }
-
-/* Mobile Table Row */
 .mobile-view li {
     display: grid;
     grid-template-columns: 30px 1.5fr 40px 1fr 50px; 
@@ -224,22 +213,136 @@ body.tv-mode {
     line-height: 1.2;
 }
 
-/* Column Styles */
-.col-star { text-align: center; }
-.col-gift { font-weight: 600; color: white; overflow: hidden; text-overflow: ellipsis; }
-.col-num  { text-align: center; color: #6b7280; font-size: 0.8rem; }
-.col-held { text-align: left; color: #fbbf24; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.col-stl  { text-align: center; }
+/* Mobile Controls */
+.mobile-controls {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px; background: #1f2937; border-bottom: 1px solid #374151;
+}
+.btn-sm { padding: 5px 10px; font-size: 0.85rem; border-radius: 4px; text-decoration: none; color: white; }
+.btn-blue { background-color: #3b82f6; }
 
-/* Mobile Badge & Icons */
-.mobile-view .badge { padding: 2px 4px; font-size: 0.75rem; background: #374151; color: white; }
-.mobile-view .badge.locked { background: #b91c1c; }
-.mobile-view .star-icon { font-size: 1.2rem; cursor: pointer; color: #fbbf24; }
-.highlight-gift { background: rgba(251, 191, 36, 0.1); border-left: 4px solid #fbbf24; }
+/* Toggle Switch */
+.toggle-switch { position: relative; display: inline-flex; align-items: center; gap: 10px; cursor: pointer; }
+.toggle-switch input { opacity: 0; width: 0; height: 0; }
+.slider { position: relative; display: inline-block; width: 40px; height: 20px; background-color: #4b5563; border-radius: 20px; transition: .4s; }
+.slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 2px; bottom: 2px; background-color: white; border-radius: 50%; transition: .4s; }
+input:checked + .slider { background-color: #10b981; }
+input:checked + .slider:before { transform: translateX(20px); }
+.toggle-label { font-size: 0.9rem; color: #d1d5db; }
 
-/* --- VISUAL CATALOG & MODAL --- */
+/* =========================================
+   5. MODALS & OVERLAYS
+   ========================================= */
 
-/* Grid Layout */
+/* --- A. STANDARD MODAL (White - For Settings) --- */
+.modal {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.5);
+    display: flex; justify-content: center; align-items: center; z-index: 1000;
+}
+.modal-content {
+    background: white; 
+    padding: 30px; 
+    border-radius: 12px;
+    width: 90%; max-width: 500px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+    
+    /* Scroll Fix */
+    max-height: 85vh;
+    overflow-y: auto;
+    display: flex; flex-direction: column;
+}
+.modal-content label { display: block; margin-top: 15px; font-weight: 600; margin-bottom: 5px; }
+.modal-actions { margin-top: 25px; display: flex; justify-content: flex-end; gap: 10px; }
+
+
+/* --- B. GALLERY MODAL (Dark - For Catalog View) --- */
+.modal-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.9);
+    z-index: 1000;
+    display: none; 
+    align-items: center; justify-content: center;
+}
+.gallery-modal-content {
+    background: #111827;
+    width: 95%; max-width: 900px; max-height: 90vh;
+    border-radius: 8px;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    position: relative;
+    color: white;
+}
+.modal-header { padding: 15px; display: flex; justify-content: space-between; border-bottom: 1px solid #374151; }
+.modal-body { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 20px; }
+.modal-hero-img { max-height: 50vh; max-width: 100%; border-radius: 4px; }
+.modal-thumbnails { display: flex; gap: 10px; overflow-x: auto; width: 100%; padding: 10px 0; }
+.thumb { width: 80px; height: 80px; object-fit: cover; border-radius: 4px; cursor: pointer; border: 2px solid transparent; opacity: 0.6; }
+.thumb.active { border-color: #3b82f6; opacity: 1; }
+.close-btn { background: none; border: none; color: white; font-size: 1.5rem; cursor: pointer; }
+
+
+/* --- C. ADMIN IMAGE MODAL (Dark - For Game Admin) --- */
+.admin-modal-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(17, 24, 39, 0.95);
+    z-index: 3000;
+    display: none; 
+    align-items: center; justify-content: center;
+}
+.admin-modal-overlay.active { display: flex; }
+
+.admin-modal-content {
+    background: #1f2937;
+    width: 90%; max-width: 700px; max-height: 85vh;
+    border-radius: 12px;
+    border: 1px solid #374151;
+    display: flex; flex-direction: column;
+    color: white;
+}
+.admin-modal-header { padding: 20px; border-bottom: 1px solid #374151; display: flex; justify-content: space-between; align-items: center; }
+.admin-modal-body { padding: 20px; overflow-y: auto; }
+.admin-modal-footer { padding: 20px; border-top: 1px solid #374151; background: #111827; }
+
+/* Admin Image Grid */
+.admin-img-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; margin-bottom: 20px; }
+.admin-img-card { position: relative; border-radius: 8px; overflow: hidden; border: 2px solid #4b5563; aspect-ratio: 4/3; }
+.admin-img-card.hero { border-color: #10b981; border-width: 4px; }
+.admin-img-card img { width: 100%; height: 100%; object-fit: cover; }
+.admin-img-controls {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: rgba(0,0,0,0.8); display: flex; justify-content: space-around; padding: 5px;
+    opacity: 0; transition: opacity 0.2s;
+}
+.admin-img-card:hover .admin-img-controls { opacity: 1; }
+.close-modal-btn { background: none; border: none; color: #9ca3af; font-size: 2rem; cursor: pointer; }
+
+
+/* --- D. FULL SCREEN OVERLAYS (Rules & QR) --- */
+.overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.95);
+    z-index: 2000;
+    display: flex; justify-content: center; align-items: center;
+    animation: fadeIn 0.3s;
+}
+.overlay-content {
+    background: #1f2937; color: white;
+    padding: 50px; border-radius: 24px;
+    max-width: 1000px; width: 90%;
+    border: 2px solid #374151;
+    box-shadow: 0 0 50px rgba(0,0,0,0.8);
+}
+.overlay-content h1 { text-align: center; font-size: 3.5rem; color: #60a5fa; border-bottom: 2px solid #374151; padding-bottom: 20px; margin-bottom: 30px; }
+.rules-list { list-style: none; padding: 0; font-size: 2.2rem; line-height: 1.6; }
+.rules-list li { margin-bottom: 25px; padding-left: 20px; border-left: 6px solid #4b5563; }
+.rules-list b { color: #fbbf24; }
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* =========================================
+   6. CATALOG GRID (Visual View)
+   ========================================= */
 .catalog-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -249,7 +352,6 @@ body.tv-mode {
     margin: 0 auto;
 }
 
-/* Gift Card */
 .gift-card {
     background: #1f2937;
     border-radius: 12px;
@@ -257,273 +359,12 @@ body.tv-mode {
     box-shadow: 0 4px 6px rgba(0,0,0,0.3);
     transition: transform 0.2s;
     cursor: pointer;
-    display: flex;
-    flex-direction: column;
-}
-.gift-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 8px 12px rgba(0,0,0,0.5);
-}
-
-.card-image-container {
-    height: 250px;
-    width: 100%;
-    background: #374151;
-    position: relative;
-    overflow: hidden;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-.card-img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-.card-placeholder {
-    font-size: 3rem;
-    color: #4b5563;
-}
-
-.card-details {
-    padding: 15px;
-}
-.card-title {
-    font-size: 1.2rem;
-    font-weight: bold;
-    margin-bottom: 5px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-.card-meta {
-    display: flex;
-    justify-content: space-between;
-    color: #9ca3af;
-    font-size: 0.9rem;
-}
-.card-badge {
-    background: #3b82f6;
-    color: white;
-    padding: 2px 8px;
-    border-radius: 10px;
-    font-size: 0.8rem;
-}
-
-/* GALLERY MODAL (Popup) */
-.modal-overlay {
-    position: fixed;
-    top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0,0,0,0.9);
-    z-index: 1000;
-    display: none; /* Hidden by default */
-    align-items: center;
-    justify-content: center;
-}
-.modal-content {
-    background: #111827;
-    width: 95%;
-    max-width: 900px;
-    max-height: 90vh;
-    border-radius: 8px;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    position: relative;
-}
-.modal-header {
-    padding: 15px;
-    display: flex;
-    justify-content: space-between;
-    border-bottom: 1px solid #374151;
-}
-.modal-body {
-    flex: 1;
-    overflow-y: auto;
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 20px;
-}
-.modal-hero-img {
-    max-height: 50vh;
-    max-width: 100%;
-    border-radius: 4px;
-    box-shadow: 0 0 20px rgba(0,0,0,0.5);
-}
-.modal-thumbnails {
-    display: flex;
-    gap: 10px;
-    overflow-x: auto;
-    width: 100%;
-    padding: 10px 0;
-}
-.thumb {
-    width: 80px;
-    height: 80px;
-    object-fit: cover;
-    border-radius: 4px;
-    cursor: pointer;
-    border: 2px solid transparent;
-    opacity: 0.6;
-}
-.thumb.active {
-    border-color: #3b82f6;
-    opacity: 1;
-}
-.modal-controls {
-    display: flex;
-    gap: 10px;
-    width: 100%;
-    justify-content: center;
-}
-.close-btn {
-    background: none;
-    border: none;
-    color: white;
-    font-size: 1.5rem;
-    cursor: pointer;
-}
-
-/* --- MOBILE CONTROLS --- */
-.mobile-controls {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px;
-    background: #1f2937;
-    border-bottom: 1px solid #374151;
-    margin-bottom: 5px;
-}
-
-.btn-sm {
-    padding: 5px 10px;
-    font-size: 0.85rem;
-    border-radius: 4px;
-    text-decoration: none;
-    color: white;
-}
-.btn-blue { background-color: #3b82f6; }
-
-/* Toggle Switch */
-.toggle-switch {
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    cursor: pointer;
-}
-.toggle-switch input { opacity: 0; width: 0; height: 0; }
-.slider {
-    position: relative;
-    display: inline-block;
-    width: 40px;
-    height: 20px;
-    background-color: #4b5563;
-    border-radius: 20px;
-    transition: .4s;
-}
-.slider:before {
-    position: absolute;
-    content: "";
-    height: 16px;
-    width: 16px;
-    left: 2px;
-    bottom: 2px;
-    background-color: white;
-    border-radius: 50%;
-    transition: .4s;
-}
-input:checked + .slider { background-color: #10b981; }
-input:checked + .slider:before { transform: translateX(20px); }
-.toggle-label { font-size: 0.9rem; color: #d1d5db; }
-
-/* --- ADMIN IMAGE MODAL --- */
-.admin-modal-overlay {
-    position: fixed;
-    top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(17, 24, 39, 0.95);
-    z-index: 3000;
-    display: none; /* Hidden by default */
-    align-items: center;
-    justify-content: center;
-}
-.admin-modal-overlay.active {
-    display: flex;
-}
-.admin-modal-content {
-    background: #1f2937;
-    width: 90%; max-width: 700px; max-height: 85vh;
-    border-radius: 12px;
-    border: 1px solid #374151;
     display: flex; flex-direction: column;
-    color: white;
 }
-.admin-modal-header {
-    padding: 20px;
-    border-bottom: 1px solid #374151;
-    display: flex; justify-content: space-between; align-items: center;
-}
-.admin-modal-body {
-    padding: 20px; overflow-y: auto;
-}
-.admin-img-grid {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; margin-bottom: 20px;
-}
-.admin-img-card {
-    position: relative; border-radius: 8px; overflow: hidden; border: 2px solid #4b5563; aspect-ratio: 4/3;
-}
-.admin-img-card.hero { border-color: #10b981; border-width: 4px; }
-.admin-img-card img { width: 100%; height: 100%; object-fit: cover; }
-.admin-img-controls {
-    position: absolute; bottom: 0; left: 0; right: 0;
-    background: rgba(0,0,0,0.8); display: flex; justify-content: space-around; padding: 5px;
-    opacity: 0; transition: opacity 0.2s;
-}
-.admin-img-card:hover .admin-img-controls { opacity: 1; }
-.admin-modal-footer {
-    padding: 20px; border-top: 1px solid #374151; background: #111827;
-}
-.close-modal-btn { background: none; border: none; color: #9ca3af; font-size: 2rem; cursor: pointer; }
-
-.admin-modal-body {
-    padding: 20px;
-    overflow-y: auto;
-}
-
-.admin-img-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    gap: 15px;
-    margin-bottom: 20px;
-}
-
-.admin-img-card {
-    position: relative;
-    border-radius: 8px;
-    overflow: hidden;
-    border: 2px solid #4b5563;
-    aspect-ratio: 4/3;
-}
-.admin-img-card.hero { border-color: #10b981; border-width: 4px; }
-.admin-img-card img { width: 100%; height: 100%; object-fit: cover; }
-
-.admin-img-controls {
-    position: absolute; bottom: 0; left: 0; right: 0;
-    background: rgba(0,0,0,0.8);
-    display: flex; justify-content: space-around;
-    padding: 5px;
-    opacity: 0; transition: opacity 0.2s;
-}
-.admin-img-card:hover .admin-img-controls { opacity: 1; }
-
-.admin-modal-footer {
-    padding: 20px;
-    border-top: 1px solid #374151;
-    background: #111827;
-}
-
-/* Timer Flashing Animations */
-@keyframes flashRed { 0%, 100% { background-color: #111827; } 50% { background-color: #450a0a; } }
-@keyframes flashOrange { 0%, 100% { background-color: #111827; } 50% { background-color: #451a03; } }
+.gift-card:hover { transform: translateY(-5px); box-shadow: 0 8px 12px rgba(0,0,0,0.5); }
+.card-image-container { height: 250px; width: 100%; background: #374151; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+.card-img { width: 100%; height: 100%; object-fit: cover; }
+.card-placeholder { font-size: 3rem; color: #4b5563; }
+.card-details { padding: 15px; }
+.card-title { font-size: 1.2rem; font-weight: bold; margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: white; }
+.card-meta { display: flex; justify-content: space-between; color: #9ca3af; font-size: 0.9rem; }
