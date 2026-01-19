@@ -92,6 +92,9 @@ async function refreshState() {
 }
 
 function renderView(state) {
+
+    renderTvCatalog(state);
+
     // 1. AUTO SCROLL (TV Only)
     if (!isMobileMode) {
         window.currentScrollSpeed = state.settings.scrollSpeed !== undefined ? state.settings.scrollSpeed : 3;
@@ -271,6 +274,59 @@ function renderView(state) {
     gList.innerHTML = html;
 }
 
+function renderTvCatalog(state) {
+    const grid = document.getElementById('tvCatalogGrid');
+    if (!grid) return; // Safety check
+
+    // Reuse the same sort logic: Photos first, then ID
+    const gifts = state.gifts.sort((a,b) => {
+        const aHas = (a.images && a.images.length > 0) ? 1 : 0;
+        const bHas = (b.images && b.images.length > 0) ? 1 : 0;
+        return bHas - aHas || a.id.localeCompare(b.id);
+    });
+
+    if (gifts.length === 0) {
+        grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; font-size:2rem; color:#6b7280;">No gifts opened yet</div>';
+        return;
+    }
+
+    grid.innerHTML = gifts.map(g => {
+        const owner = state.participants.find(p => p.id === g.ownerId);
+        const ownerName = owner ? owner.name : "Unclaimed";
+        
+        // Image Logic
+        let imgHtml = `<div class="card-placeholder">🐘</div>`;
+        if (g.images && g.images.length > 0) {
+            const heroId = g.primaryImageId || g.images[0].id;
+            const imgObj = g.images.find(i => i.id === heroId) || g.images[0];
+            imgHtml = `<img src="${imgObj.path}" class="card-img" style="height:300px;">`; // Taller for TV
+            
+            if (g.images.length > 1) {
+                imgHtml += `<div style="position:absolute; bottom:15px; right:15px; background:rgba(0,0,0,0.8); color:white; padding:5px 12px; border-radius:20px; font-size:1rem;">📸 ${g.images.length}</div>`;
+            }
+        }
+
+        let statusBadge = '';
+        if (g.isFrozen) statusBadge = `<span class="card-badge" style="background:#374151; font-size:1rem; padding:5px 10px;">🔒 Locked</span>`;
+        else if (g.stealCount > 0) statusBadge = `<span class="card-badge" style="background:#f59e0b; font-size:1rem; padding:5px 10px;">Steals: ${g.stealCount}</span>`;
+
+        return `
+            <div class="gift-card" style="cursor:default;">
+                <div class="card-image-container" style="height:300px;">
+                    ${imgHtml}
+                </div>
+                <div class="card-details">
+                    <div class="card-title" style="font-size:1.5rem;">${g.description}</div>
+                    <div class="card-meta" style="font-size:1.2rem; margin-top:10px;">
+                        <span>👤 ${ownerName}</span>
+                        ${statusBadge}
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
 // --- FILE UPLOAD LOGIC ---
 window.initUpload = function(giftId) {
     currentUploadGiftId = giftId;
@@ -370,8 +426,22 @@ window.toggleBookmark = function(giftId) {
 function handleTvMode(mode) {
     document.getElementById('overlay-rules').classList.add('hidden');
     document.getElementById('overlay-qr').classList.add('hidden');
-    if (mode === 'rules') document.getElementById('overlay-rules').classList.remove('hidden');
-    else if (mode === 'qr') { generateQrCode(); document.getElementById('overlay-qr').classList.remove('hidden'); }
+    
+    // Safety check for catalog element
+    const catalogOverlay = document.getElementById('overlay-catalog');
+    if (catalogOverlay) catalogOverlay.classList.add('hidden');
+
+    if (mode === 'rules') {
+        document.getElementById('overlay-rules').classList.remove('hidden');
+    } else if (mode === 'qr') {
+        generateQrCode();
+        document.getElementById('overlay-qr').classList.remove('hidden');
+    } else if (mode === 'catalog') {
+        if (catalogOverlay) {
+            catalogOverlay.classList.remove('hidden');
+            refreshState(); // Force re-render so photos appear immediately
+        }
+    }
 }
 
 function generateQrCode() {
@@ -400,7 +470,61 @@ function initAutoScroll() {
     }, 30);
 }
 
+// --- TV CATALOG RENDERER ---
+function renderTvCatalog(state) {
+    const grid = document.getElementById('tvCatalogGrid');
+    if (!grid) return; 
+
+    const gifts = state.gifts.sort((a,b) => {
+        const aHas = (a.images && a.images.length > 0) ? 1 : 0;
+        const bHas = (b.images && b.images.length > 0) ? 1 : 0;
+        return bHas - aHas || a.id.localeCompare(b.id);
+    });
+
+    if (gifts.length === 0) {
+        grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; font-size:2rem; color:#6b7280;">No gifts opened yet</div>';
+        return;
+    }
+
+    grid.innerHTML = gifts.map(g => {
+        const owner = state.participants.find(p => p.id === g.ownerId);
+        const ownerName = owner ? owner.name : "Unclaimed";
+        
+        // Image Logic
+        let imgHtml = `<div class="card-placeholder">🐘</div>`;
+        if (g.images && g.images.length > 0) {
+            const heroId = g.primaryImageId || g.images[0].id;
+            const imgObj = g.images.find(i => i.id === heroId) || g.images[0];
+            imgHtml = `<img src="${imgObj.path}" class="card-img" style="height:300px;">`; 
+            
+            if (g.images.length > 1) {
+                imgHtml += `<div style="position:absolute; bottom:15px; right:15px; background:rgba(0,0,0,0.8); color:white; padding:5px 12px; border-radius:20px; font-size:1rem;">📸 ${g.images.length}</div>`;
+            }
+        }
+
+        let statusBadge = '';
+        if (g.isFrozen) statusBadge = `<span class="card-badge" style="background:#374151; font-size:1rem; padding:5px 10px;">🔒 Locked</span>`;
+        else if (g.stealCount > 0) statusBadge = `<span class="card-badge" style="background:#f59e0b; font-size:1rem; padding:5px 10px;">Steals: ${g.stealCount}</span>`;
+
+        return `
+            <div class="gift-card" style="cursor:default;">
+                <div class="card-image-container" style="height:300px;">
+                    ${imgHtml}
+                </div>
+                <div class="card-details">
+                    <div class="card-title" style="font-size:1.5rem;">${g.description}</div>
+                    <div class="card-meta" style="font-size:1.2rem; margin-top:10px;">
+                        <span>👤 ${ownerName}</span>
+                        ${statusBadge}
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
 window.togglePhotoView = function(el) {
     showThumbnails = el.checked;
     refreshState(); // Re-render the list immediately
 }
+

@@ -206,12 +206,22 @@ function render(state) {
 
             const showStealBtn = stealingPlayerId && !g.isFrozen && !isForbidden;
 
+            // --- NEW: Camera Icon Logic ---
+            const imgCount = (g.images && g.images.length) || 0;
+            const camColor = imgCount > 0 ? '#3b82f6' : '#9ca3af'; // Blue if photos exist, Gray if empty
+            const camIcon = imgCount > 0 ? `📷 ${imgCount}` : '➕';
+            // ------------------------------
+
             return `
                 <li style="${itemStyle}">
                     <div>
                         <div style="display:flex; align-items:center; gap:5px;">
                             <span style="font-weight:500;">${g.description}</span>
                             <button onclick="editGift('${g.id}', '${g.description.replace(/'/g, "\\'")}')" style="background:none; border:none; padding:0; cursor:pointer; font-size:1em;" title="Edit Name">✏️</button>
+                            
+                            <button onclick="openImgModal('${g.id}')" style="background:none; border:none; color:${camColor}; cursor:pointer; font-size:0.9em; margin-left:8px;" title="Manage Images">
+                                ${camIcon}
+                            </button>
                         </div>
                         <div style="font-size:0.8em; color:#666;">Held by <b>${ownerName}</b></div>
                     </div>
@@ -221,7 +231,8 @@ function render(state) {
                     </div>
                 </li>
             `;
-        }).join('');
+        }).join('');        
+
     }
 }
 
@@ -442,6 +453,112 @@ function showLocalQr() {
 
 function closeLocalQr() {
     document.getElementById('localQrModal').classList.add('hidden');
+}
+
+// --- ADMIN IMAGE MANAGEMENT ---
+let currentAdminGiftId = null;
+
+window.openImgModal = function(giftId) {
+    // Fetch latest state to ensure we have up-to-date image lists
+    fetch(`/api/${currentGameId}/state`)
+        .then(r => r.json())
+        .then(state => {
+            const gift = state.gifts.find(g => g.id === giftId);
+            if (!gift) return;
+
+            currentAdminGiftId = giftId;
+            document.getElementById('imgModalTitle').innerText = `Images: ${gift.description}`;
+            
+            // USE NEW CSS CLASS
+            document.getElementById('imageModal').classList.add('active'); 
+            
+            renderAdminImages(gift);
+        });
+}
+
+window.closeImgModal = function() {
+    document.getElementById('imageModal').classList.remove('active');
+    currentAdminGiftId = null;
+}
+
+function renderAdminImages(gift) {
+    const container = document.getElementById('imgList');
+    container.innerHTML = '';
+
+    if (!gift.images || gift.images.length === 0) {
+        container.innerHTML = '<div style="grid-column:1/-1; color:#9ca3af; text-align:center;">No images yet.</div>';
+        return;
+    }
+
+    gift.images.forEach(img => {
+        const isPrimary = img.id === gift.primaryImageId;
+        const heroClass = isPrimary ? 'hero' : '';
+        
+        const div = document.createElement('div');
+        div.className = `admin-img-card ${heroClass}`;
+        
+        div.innerHTML = `
+            <img src="${img.path}">
+            <div class="admin-img-controls">
+                <button onclick="setPrimaryImage('${gift.id}', '${img.id}')" style="color:#10b981; background:none; border:none; cursor:pointer; font-weight:bold;">★ Hero</button>
+                <button onclick="deleteImage('${gift.id}', '${img.id}')" style="color:#ef4444; background:none; border:none; cursor:pointer;">🗑 Del</button>
+            </div>
+            ${isPrimary ? '<div style="position:absolute; top:0; left:0; background:#10b981; color:white; font-size:0.7rem; padding:2px 6px;">HERO</div>' : ''}
+        `;
+        container.appendChild(div);
+    });
+}
+
+window.deleteImage = async function(giftId, imageId) {
+    if (!confirm("Permanently delete this photo?")) return;
+    try {
+        const res = await fetch(`/api/${currentGameId}/images/${giftId}/${imageId}`, { method: 'DELETE' });
+        if (res.ok) reloadModal(giftId);
+    } catch (e) { console.error(e); }
+}
+
+window.setPrimaryImage = async function(giftId, imageId) {
+    try {
+        const res = await fetch(`/api/${currentGameId}/images/${giftId}/primary`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ imageId })
+        });
+        if (res.ok) reloadModal(giftId);
+    } catch(e) { console.error(e); }
+}
+
+window.adminUpload = async function() {
+    const input = document.getElementById('adminFileInput');
+    const file = input.files[0];
+    if (!file || !currentAdminGiftId) return;
+
+    const formData = new FormData();
+    formData.append('photo', file);
+    formData.append('giftId', currentAdminGiftId);
+    formData.append('uploaderName', 'Admin');
+
+    try {
+        const res = await fetch(`/api/${currentGameId}/upload`, { method: 'POST', body: formData });
+        if (res.ok) {
+            input.value = '';
+            reloadModal(currentAdminGiftId);
+        }
+    } catch (e) { console.error(e); }
+}
+
+window.openCatalog = function() {
+    if(currentGameId) window.open(`/catalog.html?game=${currentGameId}`, '_blank');
+    else alert("Please join a game first.");
+}
+
+function reloadModal(giftId) {
+    fetch(`/api/${currentGameId}/state`)
+        .then(r => r.json())
+        .then(state => {
+            const gift = state.gifts.find(g => g.id === giftId);
+            if(gift) renderAdminImages(gift);
+        });
 }
 
 // --- EVENT BINDINGS ---

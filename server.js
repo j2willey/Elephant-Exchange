@@ -466,6 +466,30 @@ app.post('/api/:gameId/move', async (req, res) => {
     res.json({ success: true });
 });
 
+// 11. SET PRIMARY IMAGE
+app.put('/api/:gameId/images/:giftId/primary', async (req, res) => {
+    const { gameId, giftId } = req.params;
+    const { imageId } = req.body;
+    const key = getGameKey(gameId);
+
+    let data = await redisClient.get(key);
+    if (!data) return res.status(404).json({ error: "Game not found" });
+    let gameState = JSON.parse(data);
+
+    const gift = gameState.gifts.find(g => g.id === giftId);
+    if (!gift) return res.status(404).json({ error: "Gift not found" });
+
+    // Verify image exists
+    const exists = gift.images.find(img => img.id === imageId);
+    if (!exists) return res.status(404).json({ error: "Image not found" });
+
+    gift.primaryImageId = imageId;
+
+    await redisClient.set(key, JSON.stringify(gameState));
+    io.to(gameId).emit('stateUpdate', gameState);
+
+    res.json({ success: true });
+});
 
 // --- SOCKET.IO ---
 io.on('connection', (socket) => {
