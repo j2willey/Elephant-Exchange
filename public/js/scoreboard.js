@@ -99,21 +99,18 @@ async function refreshState() {
 // --- MAIN RENDER ENGINE ---
 
 function renderView(state) {
-    // 1. Apply Theme (Shared Library)
     if(window.applyTheme) applyTheme(state.settings);
-    
-    // 2. Render Overlay (Catalog/Rules/QR)
-    renderTvCatalog(state); // The grid overlay
+    renderTvCatalog(state); 
 
-    // 3. TV Specifics
+    // 1. UPDATE BANNER (Fixes Mobile "Connecting..." bug)
+    // Runs for BOTH Mobile and TV
+    renderActiveBanner(state); 
+
     if (!isMobileMode) {
         window.currentScrollSpeed = state.settings.scrollSpeed !== undefined ? state.settings.scrollSpeed : 3;
         if (!scrollInterval && window.currentScrollSpeed > 0) initAutoScroll();
-        
     }
-    renderActiveBanner(state);
     
-    // 4. Render the Main List (Mobile & TV)
     renderGiftList(state);
 }
 
@@ -172,30 +169,27 @@ function renderActiveBanner(state) {
 
 // B. UPDATE THIS FUNCTION (Enables Photos in Voting Mode)
 function renderGiftList(state) {
-    const gList = document.getElementById('giftList');
+const gList = document.getElementById('giftList');
     const isVoting = state.phase === 'voting';
     const isResults = state.phase === 'results';
 
-    // --- A. MOBILE VOTING VIEW (Fixed) ---
+    // 1. USE SHARED SORT (Handles Votes & Mobile Bookmarks)
+    const sorted = (window.sortGifts) ? sortGifts(state.gifts, state, isMobileMode, myBookmarks) : state.gifts;
+
+    // --- A. MOBILE VOTING (Thumbs) ---
     if (isMobileMode && isVoting) {
-        gList.innerHTML = state.gifts.map(g => {
+        gList.innerHTML = sorted.map(g => {
             const votes = g.downvotes || [];
-            const myId = getMyVoterId(); 
-            const isVoted = votes.includes(myId);
-            
-            // Icons
+            const isVoted = votes.includes(getMyVoterId());
             const thumbOutline = `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transform: scaleY(-1);"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path></svg>`;
             const thumbFilled = `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="#ef4444" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transform: scaleY(-1);"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path></svg>`;
-
             const icon = isVoted ? thumbFilled : thumbOutline;
-            const btnStyle = isVoted ? 'opacity:1;' : 'opacity:0.5; color:#9ca3af;';
-
-            // --- PHOTO LOGIC (NEW) ---
+            
+            // Photo Toggle Logic
             let thumbHtml = '';
             if (showThumbnails && g.images && g.images.length > 0) {
-                const heroId = g.primaryImageId || g.images[0].id;
-                const imgObj = g.images.find(i => i.id === heroId) || g.images[0];
-                thumbHtml = `<div style="grid-column: 1/-1; padding: 5px 0 10px 0;"><img src="${imgObj.path}" style="height:120px; border-radius:4px;"></div>`;
+                 const imgObj = g.images.find(i => i.id === g.primaryImageId) || g.images[0];
+                 thumbHtml = `<div style="grid-column:1/-1; padding:5px 0 10px 0;"><img src="${imgObj.path}" style="height:120px; border-radius:4px;"></div>`;
             }
 
             return `
@@ -204,9 +198,7 @@ function renderGiftList(state) {
                     <div class="gift-name" style="font-size:1.1rem; font-weight:bold;">${g.description}</div>
                     <div class="gift-owner" style="font-size:0.9rem; color:#888;">${getOwnerName(state, g.ownerId)}</div>
                 </div>
-                <button onclick="castVote('${g.id}')" style="background:none; border:none; cursor:pointer; ${btnStyle}">
-                    ${icon}
-                </button>
+                <button onclick="castVote('${g.id}')" style="background:none; border:none; cursor:pointer;">${icon}</button>
                 ${thumbHtml}
             </li>`;
         }).join('');
@@ -218,8 +210,7 @@ function renderGiftList(state) {
     
     // --- B. TV VOTING VIEW (Keep existing) ---
     if (!isMobileMode && isVoting) {
-        const sorted = state.gifts.sort((a,b) => (b.downvotes?.length || 0) - (a.downvotes?.length || 0));
-        gList.innerHTML = sorted.map(g => {
+        gList.innerHTML = sortedGifts.map(g => {
             const count = g.downvotes?.length || 0;
             const percent = Math.min(100, count * 5); 
             return `

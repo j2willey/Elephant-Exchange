@@ -5,7 +5,11 @@
  * Common logic for Admin and Scoreboard
  */
 
-// 1. Calculate best text color (Black/White) for a given background
+/*
+ * ELEPHANT EXCHANGE - SHARED LIBRARY
+ */
+
+// 1. THEME ENGINE
 function getContrastColor(hex) {
     if (!hex || hex.length < 7) return '#ffffff';
     const r = parseInt(hex.substr(1, 2), 16);
@@ -15,22 +19,17 @@ function getContrastColor(hex) {
     return (yiq >= 128) ? '#000000' : '#ffffff';
 }
 
-// 2. Apply Theme to the current page
 function applyTheme(settings) {
     if (!settings) return;
-
     const root = document.documentElement;
     const primary = settings.themeColor || '#2563eb';
     const bg = settings.themeBg || '';
 
-    // A. Set Variables
     root.style.setProperty('--primary', primary);
     root.style.setProperty('--bg-image', bg ? `url('${bg}')` : 'none');
-
-    // B. Calculate Contrast
+    
     const textCol = getContrastColor(primary);
 
-    // C. Inject Dynamic CSS (Covers Buttons, Active Rows, and Mobile)
     let styleTag = document.getElementById('dynamic-theme-style');
     if (!styleTag) {
         styleTag = document.createElement('style');
@@ -39,47 +38,68 @@ function applyTheme(settings) {
     }
 
     styleTag.innerHTML = `
-        /* Buttons */
         .btn-primary, .btn-blue, .btn-sm, .btn-green, .btn-orange { 
             background-color: ${primary} !important; 
             color: ${textCol} !important; 
         }
-        
-        /* Active Player Row (Admin) & Active Turn (TV) */
         .active-row, .active-turn { 
             border: 2px solid ${primary} !important; 
-            background-color: ${primary}15 !important; /* 10% opacity hex */
+            background-color: ${primary}15 !important; 
         }
-        
-        /* Mobile Camera Button */
-        .btn-camera-add {
-            background-color: ${primary};
-            color: ${textCol};
-        }
-
-        /* Victim Exception (Always Red) */
-        .victim-row {
-            border-color: #dc2626 !important;
-            background-color: #fef2f2 !important;
-        }
+        .btn-camera-add { background-color: ${primary}; color: ${textCol}; }
+        .victim-row, .status-victim { border-color: #dc2626 !important; background-color: #fef2f2 !important; }
     `;
 
-    // D. Handle Logo (Safe check for existence)
     const titleEl = document.querySelector('h1');
     const existingLogo = document.getElementById('customGameLogo');
-    
     if (settings.themeLogo) {
         if (!existingLogo && titleEl) {
             const img = document.createElement('img');
             img.src = settings.themeLogo;
             img.id = 'customGameLogo';
             img.className = 'game-logo';
-            // Insert before the H1 or Banner
-            const banner = document.getElementById('activePlayerBanner');
-            const target = banner || titleEl;
+            const target = document.getElementById('activePlayerBanner') || titleEl;
             target.parentNode.insertBefore(img, target);
         } else if (existingLogo) {
             existingLogo.src = settings.themeLogo;
         }
     }
+}
+
+// 2. ACTIVE PLAYER LOGIC
+function getActiveIds(state) {
+    if (!state || !state.participants) return [];
+    const victims = state.participants.filter(p => p.isVictim && !p.heldGiftId);
+    const queue = state.participants
+        .filter(p => !p.isVictim && !p.heldGiftId && p.number >= state.currentTurn)
+        .sort((a,b) => a.number - b.number);
+    const limit = state.settings.activePlayerCount || 1;
+    const slots = Math.max(0, limit - victims.length);
+    return [...victims, ...queue.slice(0, slots)].map(p => p.id);
+}
+
+// 3. SMART SORTING (NEW!)
+// Handles Voting, Mobile Bookmarks, and Standard Steal counts
+function sortGifts(gifts, state, isMobile = false, bookmarks = new Set()) {
+    return [...gifts].sort((a, b) => {
+        // A. Voting Phase: High Votes Top
+        if (state.phase === 'voting' || state.phase === 'results') {
+            const votesA = a.downvotes?.length || 0;
+            const votesB = b.downvotes?.length || 0;
+            if (votesA === votesB) return a.id.localeCompare(b.id);
+            return votesB - votesA;
+        }
+        
+        // B. Mobile Bookmarks
+        if (isMobile) {
+            const aStarred = bookmarks.has(a.id);
+            const bStarred = bookmarks.has(b.id);
+            if (aStarred && !bStarred) return -1;
+            if (!aStarred && bStarred) return 1;
+        }
+
+        // C. Standard Game Phase
+        if (a.isFrozen !== b.isFrozen) return a.isFrozen - b.isFrozen;
+        return b.stealCount - a.stealCount;
+    });
 }
