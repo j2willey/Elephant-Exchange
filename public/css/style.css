@@ -341,9 +341,47 @@ input:checked + .slider:before { transform: translateX(20px); }
 
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
+/* VOTING STYLES */
+.voting-row {
+    position: relative;
+    overflow: hidden;
+    padding: 15px 25px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+.vote-bar {
+    position: absolute;
+    top: 0; left: 0; bottom: 0;
+    background: rgba(239, 68, 68, 0.3); /* Red tint */
+    transition: width 0.5s ease;
+    z-index: 1;
+}
+.vote-content {
+    z-index: 2; 
+    position: relative; 
+    display: flex; 
+    justify-content: space-between;
+    font-size: 1.5rem;
+}
+.btn-vote-active { background-color: #ef4444 !important; color: white !important; }
+
+/* THUMBS DOWN BUTTON */
+.btn-red { background: #ef4444; color: white; border: none; padding: 10px; border-radius: 8px; }
+.btn-gray { background: #374151; color: #9ca3af; border: none; padding: 10px; border-radius: 8px; opacity: 0.5; }
+
 /* =========================================
    6. CATALOG GRID (Visual View)
    ========================================= */
+body { overflow-y: auto !important; }
+.fab-back {
+    position: fixed; bottom: 20px; right: 20px;
+    background: #2563eb; color: white;
+    padding: 15px 25px; border-radius: 50px;
+    font-weight: bold; text-decoration: none;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    z-index: 9999; border: 2px solid white;
+}
+.fab-back:hover { transform: scale(1.05); }
+
 .catalog-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));

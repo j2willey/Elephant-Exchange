@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Elephant Super Admin</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="js/siteadmin.js" defer></script>
+</head>
+<body style="background:#0f172a; color:#f8fafc;">
+
+    <div style="max-width:1000px; margin:0 auto; padding:40px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:40px;">
+            <h1 style="color:#60a5fa; font-size:2.5rem; margin:0;">🐘 Site Admin</h1>
+            <button onclick="refreshList()" class="btn-blue">🔄 Refresh</button>
+        </div>
+
+        <div class="card" style="background:#1e293b; border:1px solid #334155;">
+            <div style="display:flex; justify-content:space-between; margin-bottom:20px;">
+                <h2>Active Games</h2>
+                <button onclick="nukeAll()" class="btn-red" style="padding:5px 15px; font-size:0.8rem;">☢️ DELETE ALL GAMES</button>
+            </div>
+            
+            <table style="width:100%; border-collapse:collapse; color:white;">
+                <thead>
+                    <tr style="text-align:left; border-bottom:2px solid #475569;">
+                        <th style="padding:10px;">Game ID</th>
+                        <th>Players</th>
+                        <th>Gifts</th>
+                        <th>Status</th>
+                        <th>Last Activity</th>
+                        <th style="text-align:right;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="gameTableBody">
+                    <tr><td colspan="6" style="padding:20px; text-align:center; color:#94a3b8;">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</body>
+</html>

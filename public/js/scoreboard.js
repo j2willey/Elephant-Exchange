@@ -1,11 +1,8 @@
 /*
- * ==============================================================================
- * ELEPHANT EXCHANGE - SCOREBOARD / MOBILE
- * ==============================================================================
- * Handles the "Big Screen" view and the Mobile Guest view.
+ * ELEPHANT EXCHANGE - SCOREBOARD / MOBILE VIEW
+ * Handles the TV display and Mobile Guest interface
  */
 
-// --- 1. GLOBALS & INIT ---
 let socket;
 let currentGameId = null;
 let isMobileMode = false;
@@ -21,7 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const gameId = params.get('game');
     const mode = params.get('mode');
 
-    // Determine Mode
+    // 1. Determine Mode
     if (mode === 'mobile') {
         isMobileMode = true;
         document.body.classList.add('mobile-view');
@@ -30,6 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.classList.add('tv-mode');
     }
 
+    // 2. Auto-Join if URL has game ID
     if (gameId) {
         document.getElementById('gameIdInput').value = gameId;
         joinGame(gameId);
@@ -46,7 +44,7 @@ function createHiddenFileInput() {
     document.body.appendChild(input);
 }
 
-// --- 2. CONNECTION & STATE ---
+// --- CONNECTION & STATE ---
 
 function joinGame(urlGameId = null) {
     const inputId = document.getElementById('gameIdInput').value.trim();
@@ -56,7 +54,7 @@ function joinGame(urlGameId = null) {
     currentGameId = gameId;
     if (isMobileMode) loadBookmarks(gameId);
 
-    // Switch View
+    // Switch View from Login to Dashboard
     document.getElementById('login-section').classList.add('hidden');
     document.getElementById('dashboard-section').classList.remove('hidden');
     
@@ -98,66 +96,158 @@ async function refreshState() {
     } catch(e) { console.error(e); }
 }
 
-// --- 3. MAIN RENDER ENGINE ---
+// --- MAIN RENDER ENGINE ---
 
 function renderView(state) {
-    // A. APPLY BRANDING / THEME (Priority 1)
-    applyTheme(state.settings);
+    // 1. Apply Theme (Shared Library)
+    if(window.applyTheme) applyTheme(state.settings);
     
-    // B. RENDER COMPONENTS
-    renderTvCatalog(state); // The overlay grid
-    
-    if (!isMobileMode) {
-        renderTvAutoScroll(state);
-        renderActiveBanner(state);
-    }
+    // 2. Render Overlay (Catalog/Rules/QR)
+    renderTvCatalog(state); // The grid overlay
 
+    // 3. TV Specifics
+    if (!isMobileMode) {
+        window.currentScrollSpeed = state.settings.scrollSpeed !== undefined ? state.settings.scrollSpeed : 3;
+        if (!scrollInterval && window.currentScrollSpeed > 0) initAutoScroll();
+        
+    }
+    renderActiveBanner(state);
+    
+    // 4. Render the Main List (Mobile & TV)
     renderGiftList(state);
 }
 
-// --- 4. SUB-RENDERERS ---
+// --- SUB-RENDERERS ---
 
+// A. UPDATE THIS FUNCTION (Fixes "Waiting..." confusion)
 function renderActiveBanner(state) {
     const banner = document.getElementById('activePlayerBanner');
-    const activeList = getActivePlayersList(state);
     
-    if (activeList.length > 0) {
+    // 1. Handle Phases first
+    if (state.phase === 'voting') {
+        banner.innerHTML = "<div style='padding:20px; font-size:2.5rem;'>🗳️ Voting in Progress!</div>";
+        banner.style.background = "#d97706"; // Gold
+        return;
+    }
+    if (state.phase === 'results') {
+        banner.innerHTML = "<div style='padding:20px; font-size:2.5rem;'>🏆 The Results</div>";
+        banner.style.background = "#16a34a"; // Green
+        return;
+    }
+
+    // 2. Handle Active Game (Standard Logic)
+    const activeIds = (window.getActiveIds) ? getActiveIds(state) : [];
+    
+    if (activeIds.length > 0) {
         banner.dataset.active = "true";
         banner.style.background = "#1f2937"; 
 
         let tableHtml = `<table class="active-table">`;
-        tableHtml += activeList.map(item => {
-            const p = item.player;
-            const isSteal = item.type === 'steal';
+        activeIds.forEach(id => {
+            const p = state.participants.find(x => x.id === id);
+            if(!p) return;
+            
+            const isSteal = p.isVictim;
             const rowClass = isSteal ? 'row-steal' : 'row-turn';
             const label = isSteal ? `🚨 ${p.name}` : `${p.name} (#${p.number})`;
             const startTime = p.turnStartTime || Date.now(); 
             const duration = state.settings.turnDurationSeconds || 60;
 
-            return `
+            tableHtml += `
                 <tr class="${rowClass}">
                     <td class="col-active-name">${label}</td>
                     <td class="col-active-time">
                         <span class="dynamic-timer" data-start="${startTime}" data-duration="${duration}">--:--</span>
                     </td>
                 </tr>`;
-        }).join('');
+        });
         tableHtml += `</table>`;
         banner.innerHTML = tableHtml;
     } else {
-        banner.innerHTML = "<div style='padding:20px;'>Waiting...</div>";
+        // Only show "Waiting" if phase is active but no one is up (e.g. Game Over before Voting starts)
+        banner.innerHTML = "<div style='padding:20px;'>Waiting for Admin...</div>";
         banner.style.background = "#374151";
     }
 }
 
+// B. UPDATE THIS FUNCTION (Enables Photos in Voting Mode)
 function renderGiftList(state) {
     const gList = document.getElementById('giftList');
+    const isVoting = state.phase === 'voting';
+    const isResults = state.phase === 'results';
+
+    // --- A. MOBILE VOTING VIEW (Fixed) ---
+    if (isMobileMode && isVoting) {
+        gList.innerHTML = state.gifts.map(g => {
+            const votes = g.downvotes || [];
+            const myId = getMyVoterId(); 
+            const isVoted = votes.includes(myId);
+            
+            // Icons
+            const thumbOutline = `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transform: scaleY(-1);"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path></svg>`;
+            const thumbFilled = `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="#ef4444" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transform: scaleY(-1);"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path></svg>`;
+
+            const icon = isVoted ? thumbFilled : thumbOutline;
+            const btnStyle = isVoted ? 'opacity:1;' : 'opacity:0.5; color:#9ca3af;';
+
+            // --- PHOTO LOGIC (NEW) ---
+            let thumbHtml = '';
+            if (showThumbnails && g.images && g.images.length > 0) {
+                const heroId = g.primaryImageId || g.images[0].id;
+                const imgObj = g.images.find(i => i.id === heroId) || g.images[0];
+                thumbHtml = `<div style="grid-column: 1/-1; padding: 5px 0 10px 0;"><img src="${imgObj.path}" style="height:120px; border-radius:4px;"></div>`;
+            }
+
+            return `
+            <li style="display:grid; grid-template-columns: 1fr 60px; align-items:center; padding:15px;">
+                <div>
+                    <div class="gift-name" style="font-size:1.1rem; font-weight:bold;">${g.description}</div>
+                    <div class="gift-owner" style="font-size:0.9rem; color:#888;">${getOwnerName(state, g.ownerId)}</div>
+                </div>
+                <button onclick="castVote('${g.id}')" style="background:none; border:none; cursor:pointer; ${btnStyle}">
+                    ${icon}
+                </button>
+                ${thumbHtml}
+            </li>`;
+        }).join('');
+        return;
+    }
+
+    // ... (Keep existing TV Voting, Results, and Standard Views) ...
+    // Note: Ensure you keep the 'else' blocks from the previous version for TV/Results
     
-    // Sorting Logic
+    // --- B. TV VOTING VIEW (Keep existing) ---
+    if (!isMobileMode && isVoting) {
+        const sorted = state.gifts.sort((a,b) => (b.downvotes?.length || 0) - (a.downvotes?.length || 0));
+        gList.innerHTML = sorted.map(g => {
+            const count = g.downvotes?.length || 0;
+            const percent = Math.min(100, count * 5); 
+            return `
+            <li class="voting-row">
+                <div class="vote-bar" style="width:${percent}%;"></div>
+                <div class="vote-content">
+                    <span>${g.description}</span>
+                    <span style="font-weight:bold; color:#ef4444;">${count} 👎</span>
+                </div>
+            </li>`;
+        }).join('');
+        return;
+    }
+
+    // --- C. RESULTS VIEW (Keep existing) ---
+    if (!isMobileMode && isResults) {
+        renderPodium(state);
+        return;
+    }
+
+    // --- D. STANDARD VIEW (Keep existing) ---
+    // (Copy the Standard View logic from previous turn here)
+    // ...
+    
+    // Sort Logic (Standard)
     const sortedGifts = state.gifts.sort((a,b) => {
         if (a.isFrozen !== b.isFrozen) return a.isFrozen - b.isFrozen;
         if (isMobileMode) {
-            // Starred items float to top on mobile
             const aStarred = myBookmarks.has(a.id);
             const bStarred = myBookmarks.has(b.id);
             if (aStarred && !bStarred) return -1;
@@ -166,7 +256,6 @@ function renderGiftList(state) {
         return b.stealCount - a.stealCount;
     });
 
-    // Mobile Header Injection
     let html = '';
     if (isMobileMode) {
         renderMobileControls();
@@ -182,33 +271,20 @@ function renderGiftList(state) {
         return; 
     }
 
-    // Render Rows
     html += sortedGifts.map(g => {
-        const owner = state.participants.find(p => p.id === g.ownerId);
-        let ownerName = owner ? owner.name : 'Unknown';
+        const ownerName = getOwnerName(state, g.ownerId);
         
-        // Stats
-        if (state.settings.showVictimStats && owner && owner.timesStolenFrom > 0) {
-            ownerName += ` <span style="color:#ef4444; font-size:0.8em;">💔${owner.timesStolenFrom}</span>`;
-        }
-
-        // --- MOBILE RENDER ---
         if (isMobileMode) {
             const isStarred = myBookmarks.has(g.id);
             const rowClass = isStarred ? 'highlight-gift' : '';
             const starChar = isStarred ? '⭐' : '☆';
-            
-            // Steal Badge
             const max = state.settings.maxSteals || 3;
             let stealBadge = `<span class="badge">${g.stealCount}/${max}</span>`;
             if (g.isFrozen) stealBadge = `<span class="badge locked">🔒</span>`;
-
-            // Camera Button
             const hasImages = g.images && g.images.length > 0;
             const cameraIcon = hasImages ? '📸' : '➕';
             const cameraClass = hasImages ? 'btn-camera-view' : 'btn-camera-add';
 
-            // Thumbnail
             let thumbHtml = '';
             if (showThumbnails && hasImages) {
                 const heroId = g.primaryImageId || g.images[0].id;
@@ -228,11 +304,9 @@ function renderGiftList(state) {
                 </div>
                 ${thumbHtml} 
             </li>`;
-        } 
-        
-        // --- TV RENDER ---
-        else {
-            let badge = '';
+        } else {
+            // TV Row
+             let badge = '';
             if (g.isFrozen) badge = '<span class="badge" style="background:#374151;">🔒 LOCKED</span>';
             else badge = `<span class="badge">${g.stealCount}/3 Steals</span>`;
             
@@ -254,7 +328,6 @@ function renderTvCatalog(state) {
     const grid = document.getElementById('tvCatalogGrid');
     if (!grid) return; 
 
-    // Catalog Sort: Photos first
     const gifts = state.gifts.sort((a,b) => {
         const aHas = (a.images && a.images.length > 0) ? 1 : 0;
         const bHas = (b.images && b.images.length > 0) ? 1 : 0;
@@ -267,16 +340,13 @@ function renderTvCatalog(state) {
     }
 
     grid.innerHTML = gifts.map(g => {
-        const owner = state.participants.find(p => p.id === g.ownerId);
-        const ownerName = owner ? owner.name : "Unclaimed";
+        const ownerName = getOwnerName(state, g.ownerId);
         
-        // Image Logic
         let imgHtml = `<div class="card-placeholder">🐘</div>`;
         if (g.images && g.images.length > 0) {
             const heroId = g.primaryImageId || g.images[0].id;
             const imgObj = g.images.find(i => i.id === heroId) || g.images[0];
             imgHtml = `<img src="${imgObj.path}" class="card-img" style="height:300px;">`;
-            
             if (g.images.length > 1) {
                 imgHtml += `<div style="position:absolute; bottom:15px; right:15px; background:rgba(0,0,0,0.8); color:white; padding:5px 12px; border-radius:20px; font-size:1rem;">📸 ${g.images.length}</div>`;
             }
@@ -302,12 +372,38 @@ function renderTvCatalog(state) {
     }).join('');
 }
 
-// --- 5. MOBILE & UTILS ---
+function renderPodium(state) {
+    const sorted = state.gifts.sort((a,b) => (b.downvotes?.length || 0) - (a.downvotes?.length || 0));
+    const top5 = sorted.slice(0, 5);
+    const msg = state.settings.endMessage || "Thanks for playing! See you next year! 🐘";
+
+    let html = `<div style="text-align:center; padding:50px;">
+        <h1 style="font-size:4rem; margin-bottom:40px;">🏆 WORST GIFTS 🏆</h1>`;
+
+    top5.forEach((g, i) => {
+        const size = 3 - (i * 0.4); 
+        const count = g.downvotes?.length || 0;
+        let img = '';
+        if(g.images?.length && i === 0) {
+            img = `<img src="${g.images[0].path}" style="max-height:300px; border-radius:10px; margin:20px;">`;
+        }
+
+        html += `
+        <div style="font-size:${size}rem; margin-bottom:20px; color:${i===0 ? '#ef4444' : 'inherit'};">
+            #${i+1}: <b>${g.description}</b> (${count} votes)
+            ${img}
+        </div>`;
+    });
+
+    html += `<h2 style="margin-top:50px; color:var(--primary);">${msg}</h2></div>`;
+    document.getElementById('giftList').innerHTML = html;
+}
+
+// --- UTILS & HELPERS ---
 
 function renderMobileControls() {
     let controls = document.getElementById('mobile-controls');
     if (controls) return;
-    
     controls = document.createElement('div');
     controls.id = 'mobile-controls';
     controls.className = 'mobile-controls';
@@ -326,12 +422,6 @@ function renderMobileControls() {
 window.togglePhotoView = function(el) {
     showThumbnails = el.checked;
     refreshState();
-}
-
-// Auto Scroll (TV)
-function renderTvAutoScroll(state) {
-    window.currentScrollSpeed = state.settings.scrollSpeed !== undefined ? state.settings.scrollSpeed : 3;
-    if (!scrollInterval && window.currentScrollSpeed > 0) initAutoScroll();
 }
 
 function initAutoScroll() {
@@ -354,7 +444,6 @@ function initAutoScroll() {
     }, 30);
 }
 
-// File Upload
 window.initUpload = function(giftId) {
     currentUploadGiftId = giftId;
     const input = document.getElementById('hidden-file-input');
@@ -373,12 +462,8 @@ async function handleFileUpload(e) {
 
     try {
         const res = await fetch(`/api/${currentGameId}/upload`, { method: 'POST', body: formData });
-        if (res.ok) {
-            alert('Photo uploaded! 📸'); 
-            refreshState();
-        } else {
-            alert('Upload failed: ' + (await res.json()).error);
-        }
+        if (res.ok) { alert('Photo uploaded! 📸'); refreshState(); }
+        else { alert('Upload failed: ' + (await res.json()).error); }
     } catch (err) { console.error(err); alert('Upload error.'); }
 }
 
@@ -397,29 +482,29 @@ setInterval(() => {
     });
 }, 100);
 
-// Helpers
-function getActivePlayersList(state) {
-    const limit = state.settings.activePlayerCount || 1;
-    const active = [];
+// --- HELPERS ---
 
-    // Victims get priority
-    state.participants.filter(p => p.isVictim && !p.heldGiftId).forEach(v => {
-         active.push({ player: v, type: 'steal' });
-    });
+function getOwnerName(state, ownerId) {
+    const p = state.participants.find(p => p.id === ownerId);
+    return p ? p.name : "Unclaimed";
+}
 
-    // Then Queue
-    const queue = state.participants
-        .filter(p => !p.isVictim && !p.heldGiftId && p.number >= state.currentTurn)
-        .sort((a,b) => a.number - b.number);
-
-    let slots = Math.max(0, limit - active.length);
-    let i = 0;
-    while (slots > 0 && i < queue.length) {
-        active.push({ player: queue[i], type: 'turn' });
-        slots--;
-        i++;
+function getMyVoterId() {
+    let id = localStorage.getItem('voterId');
+    if(!id) {
+        id = 'v_' + Date.now() + Math.random();
+        localStorage.setItem('voterId', id);
     }
-    return active;
+    return id;
+}
+
+async function castVote(giftId) {
+    const voterId = getMyVoterId();
+    await fetch(`/api/${currentGameId}/vote`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ giftId, voterId })
+    });
 }
 
 function loadBookmarks(gameId) {
@@ -436,13 +521,11 @@ window.toggleBookmark = function(giftId) {
 function handleTvMode(mode) {
     document.getElementById('overlay-rules').classList.add('hidden');
     document.getElementById('overlay-qr').classList.add('hidden');
-    
     const catalogOverlay = document.getElementById('overlay-catalog');
     if (catalogOverlay) catalogOverlay.classList.add('hidden');
 
-    if (mode === 'rules') {
-        document.getElementById('overlay-rules').classList.remove('hidden');
-    } else if (mode === 'qr') {
+    if (mode === 'rules') document.getElementById('overlay-rules').classList.remove('hidden');
+    else if (mode === 'qr') {
         const url = window.location.href; 
         document.getElementById('joinUrlDisplay').innerText = url;
         const container = document.getElementById('qrcode');
@@ -450,9 +533,6 @@ function handleTvMode(mode) {
         new QRCode(container, { text: url, width: 256, height: 256 });
         document.getElementById('overlay-qr').classList.remove('hidden');
     } else if (mode === 'catalog') {
-        if (catalogOverlay) {
-            catalogOverlay.classList.remove('hidden');
-            refreshState();
-        }
+        if (catalogOverlay) { catalogOverlay.classList.remove('hidden'); refreshState(); }
     }
 }

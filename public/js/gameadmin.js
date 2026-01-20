@@ -9,7 +9,8 @@
 let socket;
 let currentGameId = null;
 let stealingPlayerId = null; 
-let currentAdminGiftId = null; // For Image Modal
+let currentAdminGiftId = null;
+let votingInterval = null;
 
 document.addEventListener('DOMContentLoaded', () => {
     // UI: Zoom Persistence
@@ -95,7 +96,9 @@ async function refreshState() {
 // --- 3. MAIN RENDER LOOP ---
 
 function render(state) {
-    applyTheme(state.settings);
+    if (window.applyTheme) applyTheme(state.settings);
+
+    renderPhaseControls(state); 
 
     // --- GHOST BUSTER PROTOCOL (Existing code) ---
     if (stealingPlayerId) {
@@ -251,6 +254,71 @@ function renderGifts(state) {
             </li>
         `;
     }).join('');
+}
+
+
+function renderPhaseControls(state) {
+    const container = document.getElementById('phaseControls');
+    if (!container) return;
+
+    const phase = state.phase || 'active'; 
+
+    // CLEANUP: If not voting, kill the timer
+    if (phase !== 'voting' && votingInterval) {
+        clearInterval(votingInterval);
+        votingInterval = null;
+    }
+
+    if (phase === 'active') {
+        container.innerHTML = `
+            <h3 style="margin:0 0 10px 0;">🎁 Game in Progress</h3>
+            <button onclick="triggerVoting()" class="btn-red" style="font-size:1.1rem; padding:10px 30px;">
+                🛑 End Game & Start Voting
+            </button>
+        `;
+    } 
+    else if (phase === 'voting') {
+        // STATE 2: VOTING LIVE
+        const now = Date.now();
+        const endsAt = state.votingEndsAt || 0;
+        let remaining = Math.max(0, Math.ceil((endsAt - now) / 1000));
+        
+        container.innerHTML = `
+            <h3 style="margin:0 0 10px 0; color:#d97706;">🗳️ Voting in Progress</h3>
+            <div id="votingTimerDisplay" style="font-size:2rem; font-weight:bold; font-family:monospace; margin-bottom:10px;">
+                ${remaining}s
+            </div>
+            <button onclick="endVoting()" class="btn-gray">
+                Skip Timer & Show Results ➡️
+            </button>
+        `;
+
+        // START TIMER LOOP (If not already running)
+        if (!votingInterval) {
+            votingInterval = setInterval(() => {
+                const el = document.getElementById('votingTimerDisplay');
+                if (!el) return;
+                
+                const currentRemaining = Math.max(0, Math.ceil((endsAt - Date.now()) / 1000));
+                el.innerText = `${currentRemaining}s`;
+                
+                // Auto-refresh when time hits 0 to show results
+                if (currentRemaining <= 0) {
+                    clearInterval(votingInterval);
+                    refreshState(); 
+                }
+            }, 1000);
+        }
+    } 
+    else if (phase === 'results') {
+        container.innerHTML = `
+            <h3 style="margin:0 0 10px 0; color:#16a34a;">🏆 Results are Live!</h3>
+            <div style="display:flex; gap:10px; justify-content:center;">
+                <button onclick="triggerVoting()" class="btn-gray">Re-open Voting</button>
+                <button onclick="resetGame()" class="btn-red">💣 Reset Game</button>
+            </div>
+        `;
+    }
 }
 
 // --- 4. GAMEPLAY ACTIONS ---
@@ -520,6 +588,30 @@ setInterval(() => {
         else el.style.color = "#2563eb"; 
     });
 }, 1000);
+
+// --- VOTING CONTROLS ---
+
+async function triggerVoting() {
+    // Default 3 mins
+    const duration = prompt("How many seconds for voting?", "180");
+    if (!duration) return;
+
+    await fetch(`/api/${currentGameId}/phase/voting`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ durationSeconds: parseInt(duration) })
+    });
+}
+
+async function endVoting() {
+    if(!confirm("Close voting and show the Podium?")) return;
+    await fetch(`/api/${currentGameId}/phase/results`, { method: 'POST' });
+}
+
+// Update the render() function to show the right button based on state.phase
+// If phase == 'active' -> Show "Start Voting"
+// If phase == 'voting' -> Show "End Voting" (and timer)
+// If phase == 'results' -> Show "Restart?"
 
 // TV Remote Control
 function setTvMode(mode) {

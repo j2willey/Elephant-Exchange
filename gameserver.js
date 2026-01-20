@@ -86,8 +86,13 @@ app.post('/api/create', async (req, res) => {
     const exists = await redisClient.exists(key);
     if (!exists) {
         console.log(`✨ Creating new game: ${gameId}`);
-        await redisClient.set(key, JSON.stringify(getDefaultState(gameId)));
-    }
+        const newState = getDefaultState(gameId);
+        
+        // ADD TIMESTAMPS
+        newState.createdAt = Date.now();
+        newState.lastActivity = Date.now();
+        
+        await redisClient.set(key, JSON.stringify(newState));    }
     res.json({ success: true, gameId });
 });
 
@@ -423,6 +428,124 @@ app.put('/api/:gameId/images/:giftId/primary', async (req, res) => {
     io.to(gameId).emit('stateUpdate', gameState);
     res.json({ success: true });
 });
+
+// --- SECTION F: WORST GIFT VOTING ---
+
+// 13. Start Voting Phase
+app.post('/api/:gameId/phase/voting', async (req, res) => {
+    const { gameId } = req.params;
+    const { durationSeconds } = req.body; // Default 180
+    const key = getGameKey(gameId);
+
+    let data = await redisClient.get(key);
+    if (!data) return res.status(404).json({ error: "Game not found" });
+    let state = JSON.parse(data);
+
+    state.phase = 'voting';
+    state.votingEndsAt = Date.now() + (durationSeconds * 1000);
+    
+    // Clear old votes if restarting? Or keep them? Let's reset for fairness.
+    // state.gifts.forEach(g => g.downvotes = []); 
+
+    await redisClient.set(key, JSON.stringify(state));
+    io.to(gameId).emit('stateUpdate', state);
+    res.json({ success: true });
+});
+
+// 14. Cast Vote (Toggle)
+app.post('/api/:gameId/vote', async (req, res) => {
+    const { gameId } = req.params;
+    const { giftId, voterId } = req.body; // voterId can be a random string from localStorage
+    const key = getGameKey(gameId);
+
+    let data = await redisClient.get(key);
+    if (!data) return res.status(404).json({ error: "Game not found" });
+    let state = JSON.parse(data);
+
+    if (state.phase !== 'voting') return res.status(400).json({ error: "Voting not active" });
+
+    const gift = state.gifts.find(g => g.id === giftId);
+    if (!gift) return res.status(404).json({ error: "Gift not found" });
+
+    if (!gift.downvotes) gift.downvotes = [];
+
+    // Toggle logic
+    const idx = gift.downvotes.indexOf(voterId);
+    if (idx > -1) {
+        gift.downvotes.splice(idx, 1); // Remove vote
+    } else {
+        gift.downvotes.push(voterId); // Add vote
+    }
+    state.lastActivity = Date.now();
+
+    await redisClient.set(key, JSON.stringify(state));
+    // Emit 'voteUpdate' for lighter bandwidth, or just full state
+    io.to(gameId).emit('stateUpdate', state);
+    res.json({ success: true });
+});
+
+// 15. End Game / Show Results
+app.post('/api/:gameId/phase/results', async (req, res) => {
+    const { gameId } = req.params;
+    const key = getGameKey(gameId);
+
+    let data = await redisClient.get(key);
+    if (!data) return res.status(404).json({ error: "Game not found" });
+    let state = JSON.parse(data);
+
+    state.phase = 'results';
+    state.votingEndsAt = null;
+
+    await redisClient.set(key, JSON.stringify(state));
+    io.to(gameId).emit('stateUpdate', state);
+    res.json({ success: true });
+});
+
+// --- SECTION G: SITE ADMIN (SUPER USER) ---
+
+// 16. List All Games (with Metadata)
+app.get('/api/admin/games', async (req, res) => {
+    // NOTE: In production, you would password protect this route!
+    const keys = await redisClient.keys('game:*');
+    const games = [];
+
+    for (const key of keys) {
+        const data = await redisClient.get(key);
+        if (data) {
+            const state = JSON.parse(data);
+            games.push({
+                id: state.id,
+                players: state.participants ? state.participants.length : 0,
+                gifts: state.gifts ? state.gifts.length : 0,
+                createdAt: state.createdAt || 0,
+                lastActivity: state.lastActivity || 0,
+                phase: state.phase || 'active'
+            });
+        }
+    }
+    
+    // Sort by most recently active
+    games.sort((a,b) => b.lastActivity - a.lastActivity);
+    res.json(games);
+});
+
+// 17. Delete Specific Game
+app.delete('/api/admin/games/:gameId', async (req, res) => {
+    const { gameId } = req.params;
+    await redisClient.del(getGameKey(gameId));
+    // Also delete uploads? For now, we leave them or you can implement fs.rm
+    console.log(`🗑️ Super Admin deleted game: ${gameId}`);
+    res.json({ success: true });
+});
+
+// 18. Delete ALL Games (Nuclear)
+app.delete('/api/admin/flush', async (req, res) => {
+    const keys = await redisClient.keys('game:*');
+    if (keys.length > 0) await redisClient.del(keys);
+    console.log(`☢️ Super Admin flushed ${keys.length} games`);
+    res.json({ success: true, count: keys.length });
+});
+
 
 // --- SECTION E: SOCKET.IO ---
 io.on('connection', (socket) => {
