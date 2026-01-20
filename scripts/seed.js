@@ -16,11 +16,14 @@ async function seed() {
     const state = {
         id: gameId,
         currentTurn: 3, // Simulate mid-game
+        phase: 'active', // CRITICAL: New Phase Logic
         activeVictimId: null,
         participants: [],
         gifts: [],
         history: ["Game seeded by script"],
         settings: {
+            partyName: "Mid-Game Test", // NEW
+            tagline: "Testing in progress...", // NEW
             maxSteals: 3,
             turnDurationSeconds: 60,
             activePlayerCount: 1,
@@ -28,8 +31,8 @@ async function seed() {
             scrollSpeed: 3,
             soundTheme: 'standard',
             showVictimStats: true,
-            themeColor: '#d97706', // Gold Theme
-            themeBg: 'https://images.unsplash.com/photo-1513297887119-d46091b24bfa?auto=format&fit=crop&q=80' // Snow
+            themeColor: '#d97706', 
+            themeBg: 'https://images.unsplash.com/photo-1513297887119-d46091b24bfa?auto=format&fit=crop&q=80' 
         }
     };
 
@@ -50,13 +53,15 @@ async function seed() {
     // 3. Add Gifts
     const g1 = {
         id: 'g_101', description: 'Espresso Machine', ownerId: 'p_1',
-        stealCount: 0, isFrozen: false, images: [], primaryImageId: null
+        stealCount: 0, isFrozen: false, images: [], primaryImageId: null,
+        downvotes: [] // CRITICAL
     };
     state.participants[0].heldGiftId = g1.id;
 
     const g2 = {
         id: 'g_102', description: 'Lava Lamp', ownerId: 'p_2',
-        stealCount: 1, isFrozen: false, images: [], primaryImageId: null
+        stealCount: 1, isFrozen: false, images: [], primaryImageId: null,
+        downvotes: [] // CRITICAL
     };
     state.participants[1].heldGiftId = g2.id;
 

@@ -2,6 +2,7 @@
  * Organized by: Base -> Components -> Views -> Modals -> Utilities
  */
 
+
 /* =========================================
    1. VARIABLES & RESET
    ========================================= */
@@ -31,6 +32,7 @@ body {
     transition: background 0.5s ease;
 }
 
+
 /* =========================================
    2. TYPOGRAPHY & FORMS
    ========================================= */
@@ -45,6 +47,7 @@ input, select {
     border: 1px solid #cbd5e1; 
     border-radius: 6px; 
 }
+
 
 /* =========================================
    3. BUTTONS & UI COMPONENTS
@@ -84,6 +87,7 @@ li {
 }
 li:last-child { border-bottom: none; }
 
+
 /* Status Indicators */
 .badge { 
     font-size: 0.75rem; 
@@ -111,6 +115,7 @@ li:last-child { border-bottom: none; }
     margin-right: auto;
 }
 
+
 /* =========================================
    4. LAYOUTS & VIEWS
    ========================================= */
@@ -123,6 +128,7 @@ li:last-child { border-bottom: none; }
     gap: 24px; 
     margin-top: 20px; 
 }
+
 
 /* --- TV / SCOREBOARD MODE --- */
 body.tv-mode { 
@@ -174,6 +180,7 @@ body.tv-mode {
 .col-active-name { text-align: left; font-size: 2.5rem; font-weight: 700; }
 .col-active-time { text-align: right; font-size: 2.5rem; font-family: monospace; font-weight: 700; color: #fbbf24; }
 
+
 /* --- MOBILE VIEW --- */
 .mobile-view {
     background: #111827; color: #f3f4f6;
@@ -222,6 +229,7 @@ body.tv-mode {
 .btn-sm { padding: 5px 10px; font-size: 0.85rem; border-radius: 4px; text-decoration: none; color: white; }
 .btn-blue { background-color: #3b82f6; }
 
+
 /* Toggle Switch */
 .toggle-switch { position: relative; display: inline-flex; align-items: center; gap: 10px; cursor: pointer; }
 .toggle-switch input { opacity: 0; width: 0; height: 0; }
@@ -230,6 +238,7 @@ body.tv-mode {
 input:checked + .slider { background-color: #10b981; }
 input:checked + .slider:before { transform: translateX(20px); }
 .toggle-label { font-size: 0.9rem; color: #d1d5db; }
+
 
 /* =========================================
    5. MODALS & OVERLAYS
@@ -327,6 +336,7 @@ input:checked + .slider:before { transform: translateX(20px); }
     display: flex; justify-content: center; align-items: center;
     animation: fadeIn 0.3s;
 }
+
 .overlay-content {
     background: #1f2937; color: white;
     padding: 50px; border-radius: 24px;
@@ -334,10 +344,31 @@ input:checked + .slider:before { transform: translateX(20px); }
     border: 2px solid #374151;
     box-shadow: 0 0 50px rgba(0,0,0,0.8);
 }
+
+.overlay-header {
+    text-align: center;
+    border-bottom: 2px solid #374151;
+    padding-bottom: 20px;
+    margin-bottom: 30px;
+}
 .overlay-content h1 { text-align: center; font-size: 3.5rem; color: #60a5fa; border-bottom: 2px solid #374151; padding-bottom: 20px; margin-bottom: 30px; }
-.rules-list { list-style: none; padding: 0; font-size: 2.2rem; line-height: 1.6; }
-.rules-list li { margin-bottom: 25px; padding-left: 20px; border-left: 6px solid #4b5563; }
-.rules-list b { color: #fbbf24; }
+
+/* 3-Column Grid for Rules */
+.rules-list { 
+    list-style: none; padding: 0; margin: 0;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr); /* 3 Columns */
+    gap: 30px;
+}
+.rules-list li { 
+    padding: 20px; 
+    background: #374151; 
+    border-radius: 12px;
+    border-left: 6px solid var(--primary, #2563eb);
+    font-size: 1.5rem; 
+    line-height: 1.5;
+}
+.rules-list b { display: block; margin-bottom: 10px; color: #fbbf24; font-size: 1.1em; }
 
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
@@ -367,6 +398,7 @@ input:checked + .slider:before { transform: translateX(20px); }
 /* THUMBS DOWN BUTTON */
 .btn-red { background: #ef4444; color: white; border: none; padding: 10px; border-radius: 8px; }
 .btn-gray { background: #374151; color: #9ca3af; border: none; padding: 10px; border-radius: 8px; opacity: 0.5; }
+
 
 /* =========================================
    6. CATALOG GRID (Visual View)
@@ -407,3 +439,97 @@ body { overflow-y: auto !important; }
 .card-details { padding: 15px; }
 .card-title { font-size: 1.2rem; font-weight: bold; margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: white; }
 .card-meta { display: flex; justify-content: space-between; color: #9ca3af; font-size: 0.9rem; }
+
+
+/* =========================================
+   7. ADMIN LAYOUT & CONTROLS
+   ========================================= */
+
+/* Force Side-by-Side Layout */
+.main-layout {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start; /* Prevents stretching */
+    padding-bottom: 80px;    /* Space for footer */
+}
+
+.sidebar {
+    width: 350px;       /* Fixed width for Participants */
+    flex-shrink: 0;     /* Don't let it shrink */
+}
+
+.content {
+    flex-grow: 1;       /* Gifts take up remaining space */
+    min-width: 0;       /* Prevents flexbox overflow bugs */
+}
+
+/* Responsive: Stack on tablets/phones */
+@media (max-width: 900px) {
+    .main-layout { flex-direction: column; }
+    .sidebar { width: 100%; }
+}
+
+
+/* TV Remote Toggle Buttons */
+/* NOTE: Colors are handled by gamelib.js theme engine */
+.btn-toggle {
+    font-weight: 500;
+    height: 36px;                  /* Enforce uniform height */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 15px;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    border-radius: 6px;
+    text-decoration: none; /* For <a> tags */
+    /* Remove default borders and backgrounds so theme engine takes over */
+    border: none;
+}
+
+/* =========================================
+   8. RULES LIST (Vertical Layout)
+   ========================================= */
+
+/* Ensure the overlay content is centered and contained */
+.overlay-content {
+    max-width: 900px; /* Narrower for better reading */
+    width: 95%;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Force List Layout (Not Grid) */
+ul.rules-list { 
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 20px;
+    padding: 0 20px 20px 20px;
+}
+
+/* Card Style for each Rule */
+ul.rules-list li { 
+    display: block !important;
+    background: #374151; 
+    border-radius: 12px;
+    border-left: 6px solid var(--primary, #2563eb);
+    padding: 20px 25px;
+    font-size: 1.6rem; 
+    line-height: 1.4;
+    color: #f3f4f6;
+    border-bottom: none !important;
+    text-align: left;
+}
+
+/* The Rule Title (e.g., "Turn 1:") */
+ul.rules-list b { 
+    display: inline-block;
+    color: #fbbf24; /* Amber/Gold */
+    font-weight: 800;
+    margin-right: 15px;
+    text-transform: uppercase;
+    min-width: 220px; /* Aligns text nicely */
+}
+
+/* Hide the injected banner if it still exists in DOM */
+.overlay-header { display: none !important; }

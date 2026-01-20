@@ -5,55 +5,65 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Elephant Exchange</title>
     <link rel="stylesheet" href="css/style.css">
-    <style>
-        /* Landing Page Specific Styles */
-        body.landing { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; background: #f8fafc; }
-        .hero { text-align: center; max-width: 800px; padding: 20px; }
-        .role-cards { display: flex; gap: 30px; justify-content: center; margin-top: 50px; flex-wrap: wrap; }
-        .role-card { 
-            background: white; padding: 40px; border-radius: 16px; width: 280px; 
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1); 
-            text-align: center; transition: all 0.2s ease;
-            text-decoration: none; color: inherit; border: 1px solid transparent;
-        }
-        .role-card:hover { transform: translateY(-8px); border-color: var(--primary); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15); }
-        .icon { font-size: 4rem; margin-bottom: 20px; display: block; }
-        .btn-link { margin-top: 20px; width: 100%; }
-        h1 { font-size: 3.5rem; color: #1e293b; margin-bottom: 10px; }
-        p.subtitle { font-size: 1.25rem; color: #64748b; line-height: 1.6; }
-    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
 </head>
-<body class="landing">
-    <div class="hero">
-        <h1>🐘 Elephant Exchange</h1>
-        <p class="subtitle">The chaotic, real-time manager for your<br>White Elephant or Yankee Swap party.</p>
-        
-        <div class="role-cards">
-            <a href="gameadmin.html" class="role-card">
-                <span class="icon">👑</span>
-                <h2>Host a Game</h2>
-                <p>For the Game Keeper. Create a room, manage turns, and control the TV.</p>
-                <button class="btn-primary btn-link">Login as Host</button>
-            </a>
+<body class="landing-page">
 
-            <a href="scoreboard.html" class="role-card">
-                <span class="icon">📺</span>
-                <h2>Room TV</h2>
-                <p>Put this on the big screen. Shows the gift history and active player.</p>
-                <button class="btn-gray btn-link">Launch Scoreboard</button>
-            </a>
+    <header class="hero-section">
+        <div class="hero-content">
+            <h1>🐘 Elephant Exchange</h1>
+            <p class="subtitle">The logistical backbone for large-scale gift exchanges.</p>
+            
+            <div class="hero-actions">
+                <div class="input-group">
+                    <input type="text" id="gameIdInput" placeholder="Enter Game ID (e.g. troop2026)" />
+                    <button onclick="joinGame()" class="btn-primary">Host / Join Game</button>
+                </div>
+                <div class="sub-links">
+                    <a href="/faq.html" class="link-light">📖 Host's Playbook & Tips</a>
+                </div>
+            </div>
+        </div>
+    </header>
 
-            <a href="catalog.html" class="role-card">
-                <span class="icon">🖼️</span>
-                <h2>Visual Catalog</h2>
-                <p>Browse all the opened gifts in a beautiful photo grid.</p>
-                <button class="btn-blue btn-link" style="background:#8b5cf6;">View Gallery</button>
-            </a>
+    <main class="info-section">
+        <div class="container">
+            <h2>Enhance the Fun, Don't Replace It.</h2>
+            <p class="intro-text">
+                Elephant Exchange is designed for <strong>large groups (20-50+ people)</strong> where the traditional "White Elephant" game often breaks down into chaos or drags on for hours.
+            </p>
+
+            <div class="features-grid">
+                <div class="feature-card">
+                    <h3>⚡ Speed Up the Game</h3>
+                    <p>No more walking around the room to see what gifts are available. The <strong>TV Scoreboard</strong> shows every gift, who has it, and how many times it's been stolen. Turns take seconds, not minutes.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>👀 Keep Everyone Engaged</h3>
+                    <p>In large parties, people in the back can't see small items. With <strong>Mobile Photos</strong>, guests can upload close-ups of their gifts so everyone sees exactly what they are fighting for.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>⚖️ Fair & Automated Rules</h3>
+                    <p>The system automatically enforces the confusing rules: <strong>"3-Steal Cap"</strong> and <strong>"No Immediate Take-Backs."</strong> No more arguments about whether a gift is dead or alive.</p>
+                </div>
+            </div>
         </div>
-        
-        <div style="margin-top: 60px; color: #94a3b8; font-size: 0.9rem;">
-            Elephant Exchange &copy; 2026 Jim Willey
-        </div>
-    </div>
+    </main>
+
+    <footer class="landing-footer">
+        <p>Built for the chaos of real life. Open Source & Free.</p>
+        <p><a href="https://github.com/j2willey/Elephant-Exchange" target="_blank">View Source on GitHub</a></p>
+    </footer>
+
+    <script>
+        function joinGame() {
+            const gameId = document.getElementById('gameIdInput').value.trim().toLowerCase();
+            if (gameId) window.location.href = `/gameadmin.html?game=${gameId}`;
+            else alert("Please enter a Game ID to start!");
+        }
+        document.getElementById('gameIdInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') joinGame();
+        });
+    </script>
 </body>
 </html>

@@ -1,20 +1,15 @@
 /*
- * ==============================================================================
  * ELEPHANT EXCHANGE - ADMIN CONTROLLER
- * ==============================================================================
- * Manages the Host Dashboard, Game State, Phase Logic, and Settings.
- * Dependencies: gamelib.js (Shared Logic), socket.io
  */
 
 // --- 1. GLOBALS & INIT ---
 let socket;
 let currentGameId = null;
 let stealingPlayerId = null; 
-let currentAdminGiftId = null; // REQUIRED: Tracks gift for Image Modal
-let votingInterval = null;     // REQUIRED: Tracks countdown timer
+let currentAdminGiftId = null; 
+let votingInterval = null;     
 
 document.addEventListener('DOMContentLoaded', () => {
-    // UI: Zoom Persistence
     const scaleSlider = document.getElementById('uiScale');
     const savedScale = localStorage.getItem('elephantScale');
     if (savedScale && scaleSlider) {
@@ -28,7 +23,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Auth: Auto-Login from URL
     const params = new URLSearchParams(window.location.search);
     const urlGameId = params.get('game');
     if (urlGameId) {
@@ -36,15 +30,13 @@ document.addEventListener('DOMContentLoaded', () => {
         joinGame(urlGameId);
     }
 
-    // Bind Enter Keys
     document.getElementById('gameIdInput').addEventListener('keypress', e => e.key === 'Enter' && joinGame());
     document.getElementById('pName').addEventListener('keypress', e => e.key === 'Enter' && addParticipant());
 });
 
 // --- 2. CONNECTION & STATE ---
-
 async function joinGame(forceId = null) {
-    const inputId = document.getElementById('gameIdInput').value.trim();
+    const inputId = document.getElementById('gameIdInput').value.trim().toLowerCase();
     const gameId = forceId || inputId;
     if(!gameId) return alert("Please enter a Game ID");
 
@@ -56,12 +48,9 @@ async function joinGame(forceId = null) {
 
     if(res.ok) {
         currentGameId = gameId;
-        
-        // Update URL
         const newUrl = `${window.location.pathname}?game=${gameId}`;
         window.history.pushState({path: newUrl}, '', newUrl);
 
-        // Show Dashboard
         document.getElementById('login-section').classList.add('hidden');
         document.getElementById('dashboard-section').classList.remove('hidden');
         document.getElementById('displayGameId').innerText = gameId;
@@ -74,12 +63,10 @@ async function joinGame(forceId = null) {
 function initSocket(gameId) {
     if (socket) socket.disconnect();
     socket = io();
-    
     socket.on('connect', () => {
         socket.emit('joinGame', gameId);
         document.getElementById('displayGameId').style.color = "inherit";
     });
-
     socket.on('stateUpdate', (state) => {
         render(state);
     });
@@ -94,23 +81,20 @@ async function refreshState() {
 }
 
 // --- 3. MAIN RENDER LOOP ---
-
 function render(state) {
-    // 1. Theme (from gamelib.js)
     if (window.applyTheme) applyTheme(state.settings);
 
-    // 2. Phase Controls
-    renderPhaseControls(state); 
+    const title = state.settings?.partyName || state.id || "Elephant Exchange";
+    const tagline = state.settings?.tagline || "";
+    document.getElementById('bannerTitle').innerText = title;
+    document.getElementById('bannerTagline').innerText = tagline;
 
-    // 3. Ghost Protocol: Clear stale steal state
+    renderPhaseControls(state);
+
     if (stealingPlayerId) {
         const thief = state.participants.find(p => p.id === stealingPlayerId);
         if (!thief || thief.heldGiftId) stealingPlayerId = null;
     }
-
-    // 4. Header
-    document.getElementById('displayGameId').innerHTML = 
-        `${state.id} <span style="font-size:0.6em; color:#666;">(Turn #${state.currentTurn})</span>`;
 
     renderParticipants(state);
     renderGifts(state);
@@ -120,7 +104,6 @@ function renderParticipants(state) {
     const pList = document.getElementById('participantList');
     pList.innerHTML = '';
 
-    // LOGIC: Use Shared Function from gamelib.js
     const activeIds = (window.getActiveIds) ? getActiveIds(state) : [];
 
     const sorted = state.participants.sort((a,b) => {
@@ -135,7 +118,6 @@ function renderParticipants(state) {
         const isActive = activeIds.includes(p.id);
         const li = document.createElement('li');
         
-        // CSS Classes handled by gamelib theme engine
         if (isActive) {
             li.classList.add('active-row');
             if (p.isVictim) { 
@@ -174,6 +156,7 @@ function renderParticipants(state) {
             } else {
                 html += `
                     <div class="action-buttons">
+                        <button onclick="resetTimer('${p.id}')" class="btn-gray" title="Reset Timer" style="margin-right:5px;">🕒 Reset</button>
                         <button onclick="promptOpenGift('${p.id}')" class="btn-green">🎁 Open</button>
                         <button onclick="enterStealMode('${p.id}')" class="btn-orange">😈 Steal</button>
                     </div>`;
@@ -189,8 +172,6 @@ function renderParticipants(state) {
 
 function renderGifts(state) {
     const gList = document.getElementById('giftList');
-    
-    // LOGIC: Use Shared Sort from gamelib.js
     const sorted = (window.sortGifts) ? sortGifts(state.gifts, state) : state.gifts;
 
     if (sorted.length === 0) {
@@ -204,7 +185,6 @@ function renderGifts(state) {
         const owner = state.participants.find(p => p.id === g.ownerId);
         const ownerName = owner ? owner.name : 'Unknown';
         
-        // A. VOTING VIEW
         if (isVoting) {
             const count = g.downvotes?.length || 0;
             const highlight = count > 0 ? "font-weight:bold; color:#ef4444;" : "color:#9ca3af;";
@@ -218,7 +198,6 @@ function renderGifts(state) {
             </li>`;
         }
 
-        // B. STANDARD VIEW
         let isForbidden = (stealingPlayerId && state.participants.find(p => p.id === stealingPlayerId)?.forbiddenGiftId === g.id);
         const itemStyle = g.isFrozen ? 'opacity: 0.5; background: #f1f5f9;' : '';
         let statusBadge = '';
@@ -257,31 +236,29 @@ function renderPhaseControls(state) {
 
     const phase = state.phase || 'active'; 
 
-    // Cleanup Timer
     if (phase !== 'voting' && votingInterval) {
         clearInterval(votingInterval);
         votingInterval = null;
     }
 
     if (phase === 'active') {
-        container.innerHTML = `
-            <h3 style="margin:0 0 10px 0;">🎁 Game in Progress</h3>
-            <button onclick="triggerVoting()" class="btn-red" style="font-size:1.1rem; padding:10px 30px;">
-                🛑 End Game & Start Voting
-            </button>
-        `;
+        container.innerHTML = ''; 
+        container.style.display = 'none'; 
     } 
     else if (phase === 'voting') {
+        container.style.display = 'block';
         const now = Date.now();
         const endsAt = state.votingEndsAt || 0;
         let remaining = Math.max(0, Math.ceil((endsAt - now) / 1000));
         
         container.innerHTML = `
-            <h3 style="margin:0 0 10px 0; color:#d97706;">🗳️ Voting in Progress</h3>
-            <div id="votingTimerDisplay" style="font-size:2rem; font-weight:bold; font-family:monospace; margin-bottom:10px;">
-                ${remaining}s
+            <div style="background:#fff7ed; border:2px solid #f97316; padding:15px; border-radius:8px; text-align:center; margin-bottom:20px;">
+                <h3 style="margin:0 0 10px 0; color:#d97706;">🗳️ Voting in Progress</h3>
+                <div id="votingTimerDisplay" style="font-size:2.5rem; font-weight:bold; font-family:monospace; color:#9a3412; margin-bottom:10px;">
+                    ${remaining}s
+                </div>
+                <button onclick="endVoting()" class="btn-gray">Skip Timer & Show Results ➡️</button>
             </div>
-            <button onclick="endVoting()" class="btn-gray">Skip Timer & Show Results ➡️</button>
         `;
 
         if (!votingInterval) {
@@ -298,18 +275,20 @@ function renderPhaseControls(state) {
         }
     } 
     else if (phase === 'results') {
+        container.style.display = 'block';
         container.innerHTML = `
-            <h3 style="margin:0 0 10px 0; color:#16a34a;">🏆 Results are Live!</h3>
-            <div style="display:flex; gap:10px; justify-content:center;">
-                <button onclick="triggerVoting()" class="btn-gray">Re-open Voting</button>
-                <button onclick="resetGame()" class="btn-red">💣 Reset Game</button>
+            <div style="background:#f0fdf4; border:2px solid #16a34a; padding:15px; border-radius:8px; text-align:center; margin-bottom:20px;">
+                <h3 style="margin:0 0 10px 0; color:#16a34a;">🏆 Results are Live!</h3>
+                <div style="display:flex; gap:10px; justify-content:center;">
+                    <button onclick="triggerVoting()" class="btn-gray">Re-open Voting</button>
+                    <button onclick="resetGame()" class="btn-red">💣 Reset Game</button>
+                </div>
             </div>
         `;
     }
 }
 
 // --- 4. GAMEPLAY ACTIONS ---
-
 async function addParticipant() {
     const num = document.getElementById('pNumber').value;
     const name = document.getElementById('pName').value;
@@ -324,6 +303,16 @@ async function addParticipant() {
     document.getElementById('pName').value = '';
     document.getElementById('pNumber').value = '';
     document.getElementById('pName').focus();
+}
+
+async function resetTimer(playerId) {
+    if(!confirm("Restart the timer for this player?")) return;
+    
+    await fetch(`/api/${currentGameId}/participants/${playerId}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ turnStartTime: Date.now() })
+    });
 }
 
 async function promptOpenGift(playerId) {
@@ -384,15 +373,20 @@ async function clearDb() {
 }
 
 // --- 5. PHASE & SETTINGS ---
-
-async function triggerVoting() {
-    const duration = prompt("Start Voting Phase?\n\nEnter seconds:", "180");
-    if (!duration) return;
-    await fetch(`/api/${currentGameId}/phase/voting`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ durationSeconds: parseInt(duration) })
-    });
+async function confirmEndGame() {
+    const enableVoting = confirm("Would you like to enable 'Worst Gift Voting'?\n\nOK = Yes, Start Voting Phase.\nCancel = No, just end the game.");
+    
+    if (enableVoting) {
+        const duration = prompt("How many seconds for voting?", "180");
+        if (!duration) return;
+        await fetch(`/api/${currentGameId}/phase/voting`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ durationSeconds: parseInt(duration) })
+        });
+    } else {
+        await fetch(`/api/${currentGameId}/phase/results`, { method: 'POST' });
+    }
 }
 
 async function endVoting() {
@@ -412,6 +406,8 @@ function openSettings() {
         .then(state => {
             const s = state.settings || {};
             
+            document.getElementById('settingPartyName').value = s.partyName || '';
+            document.getElementById('settingTagline').value = s.tagline || '';
             document.getElementById('settingDuration').value = s.turnDurationSeconds || 60;
             document.getElementById('settingMaxSteals').value = s.maxSteals || 3;
             document.getElementById('settingActiveCount').value = s.activePlayerCount || 1;
@@ -420,29 +416,25 @@ function openSettings() {
             const sound = document.getElementById('settingSoundTheme');
             if(sound) sound.value = s.soundTheme || 'standard';
             
-            const stats = document.getElementById('settingShowVictimStats');
-            if(stats) stats.checked = s.showVictimStats || false;
-
             const color = document.getElementById('settingThemeColor');
             if(color) color.value = s.themeColor || '#2563eb';
 
-            const bg = document.getElementById('settingThemeBg');
-            if(bg) bg.value = s.themeBg || '';
-
-            document.getElementById('settingsModal').classList.remove('hidden');
+            const modal = document.getElementById('settingsModal');
+            modal.classList.add('active');
+            modal.classList.remove('hidden');
         });
 }
 
 async function saveSettings() {
     const payload = {
+        partyName: document.getElementById('settingPartyName').value, 
+        tagline: document.getElementById('settingTagline').value,
         turnDurationSeconds: document.getElementById('settingDuration').value,
         maxSteals: document.getElementById('settingMaxSteals').value,
         activePlayerCount: document.getElementById('settingActiveCount').value,
         scrollSpeed: document.getElementById('settingScrollSpeed').value,
         soundTheme: document.getElementById('settingSoundTheme')?.value || 'standard',
-        showVictimStats: document.getElementById('settingShowVictimStats')?.checked || false,
-        themeColor: document.getElementById('settingThemeColor')?.value,
-        themeBg: document.getElementById('settingThemeBg')?.value
+        themeColor: document.getElementById('settingThemeColor')?.value
     };
 
     await fetch(`/api/${currentGameId}/settings`, {
@@ -450,11 +442,15 @@ async function saveSettings() {
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(payload)
     });
-    document.getElementById('settingsModal').classList.add('hidden');
+    const modal = document.getElementById('settingsModal');
+    modal.classList.remove('active');
+    modal.classList.add('hidden');
 }
 
 function cancelSettings() {
-    document.getElementById('settingsModal').classList.add('hidden');
+    const modal = document.getElementById('settingsModal');
+    modal.classList.remove('active');
+    modal.classList.add('hidden');
 }
 
 async function uploadLogo() {
@@ -470,7 +466,6 @@ async function uploadLogo() {
 }
 
 // --- 6. ADMIN IMAGE MODAL ---
-
 window.openImgModal = function(giftId) {
     fetch(`/api/${currentGameId}/state`)
         .then(r => r.json())
@@ -559,8 +554,6 @@ function reloadModal(giftId) {
 }
 
 // --- 7. UTILS & REMOTES ---
-
-// Timer Loop
 setInterval(() => {
     const timers = document.querySelectorAll('.player-timer');
     timers.forEach(el => {
@@ -580,20 +573,27 @@ setInterval(() => {
     });
 }, 1000);
 
-// TV Remote Control
 function setTvMode(mode) {
     if(!currentGameId) return;
     socket.emit('previewSettings', { gameId: currentGameId, settings: { tvMode: mode } });
+    document.querySelectorAll('.menu-bar .btn-toggle').forEach(btn => btn.classList.remove('active'));
+    if (mode === 'rules') document.getElementById('btnTvRules').classList.add('active');
+    else if (mode === 'qr') document.getElementById('btnTvQr').classList.add('active');
+    else if (mode === 'catalog') document.getElementById('btnTvGrid').classList.add('active');
+    else document.getElementById('btnTvList').classList.add('active'); 
 }
+
 function previewScrollSpeed() {
     const val = document.getElementById('settingScrollSpeed').value;
     socket.emit('previewSettings', { gameId: currentGameId, settings: { scrollSpeed: val } });
 }
+
 function showLocalQr() {
     const url = `${window.location.origin}/scoreboard.html?game=${currentGameId}&mode=mobile`;
     document.getElementById('qrGameIdDisplay').innerText = currentGameId;
-    document.getElementById('localQrcode').innerHTML = '';
-    new QRCode(document.getElementById('localQrcode'), { text: url, width: 200, height: 200 });
+    const container = document.getElementById('localQrcode');
+    container.innerHTML = '';
+    new QRCode(container, { text: url, width: 200, height: 200 });
     
     let link = document.getElementById('localQrLink');
     if(!link) {
@@ -603,16 +603,22 @@ function showLocalQr() {
         link.style.display = "block";
         link.style.marginTop = "10px";
         link.style.color = "#2563eb";
-        document.getElementById('localQrcode').parentNode.appendChild(link);
+        container.parentNode.appendChild(link);
     }
     link.href = url;
     link.innerText = "🔗 Click to Open Link";
 
-    document.getElementById('localQrModal').classList.remove('hidden');
+    const modal = document.getElementById('localQrModal');
+    modal.classList.add('active');
+    modal.classList.remove('hidden');
 }
+
 function closeLocalQr() {
-    document.getElementById('localQrModal').classList.add('hidden');
+    const modal = document.getElementById('localQrModal');
+    modal.classList.remove('active');
+    modal.classList.add('hidden');
 }
+
 window.openCatalog = function() {
     if(currentGameId) window.open(`/catalog.html?game=${currentGameId}`, '_blank');
 }

@@ -1,6 +1,5 @@
 /*
  * ELEPHANT EXCHANGE - SCOREBOARD / MOBILE VIEW
- * Handles the TV display and Mobile Guest interface
  */
 
 let socket;
@@ -18,7 +17,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const gameId = params.get('game');
     const mode = params.get('mode');
 
-    // 1. Determine Mode
     if (mode === 'mobile') {
         isMobileMode = true;
         document.body.classList.add('mobile-view');
@@ -27,7 +25,6 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.classList.add('tv-mode');
     }
 
-    // 2. Auto-Join if URL has game ID
     if (gameId) {
         document.getElementById('gameIdInput').value = gameId;
         joinGame(gameId);
@@ -44,8 +41,6 @@ function createHiddenFileInput() {
     document.body.appendChild(input);
 }
 
-// --- CONNECTION & STATE ---
-
 function joinGame(urlGameId = null) {
     const inputId = document.getElementById('gameIdInput').value.trim();
     const gameId = urlGameId || inputId;
@@ -54,11 +49,9 @@ function joinGame(urlGameId = null) {
     currentGameId = gameId;
     if (isMobileMode) loadBookmarks(gameId);
 
-    // Switch View from Login to Dashboard
     document.getElementById('login-section').classList.add('hidden');
     document.getElementById('dashboard-section').classList.remove('hidden');
     
-    // Connect Socket
     if (socket) socket.disconnect();
     socket = io();
     
@@ -73,14 +66,15 @@ function joinGame(urlGameId = null) {
         renderView(state);
     });
 
-    // TV-Specific Listeners
     if (!isMobileMode) {
         socket.on('settingsPreview', (settings) => {
             if (settings.scrollSpeed !== undefined) {
                 window.currentScrollSpeed = parseInt(settings.scrollSpeed);
                 if (!scrollInterval && window.currentScrollSpeed > 0) initAutoScroll();
             }
-            if (settings.tvMode) handleTvMode(settings.tvMode);
+            if (settings.tvMode !== undefined) {
+                handleTvMode(settings.tvMode);
+            }
         });
         socket.on('tvMode', handleTvMode);
     }
@@ -96,14 +90,29 @@ async function refreshState() {
     } catch(e) { console.error(e); }
 }
 
-// --- MAIN RENDER ENGINE ---
-
 function renderView(state) {
     if(window.applyTheme) applyTheme(state.settings);
-    renderTvCatalog(state); 
+    
+    const title = state.settings?.partyName;
+    const tagline = state.settings?.tagline;
+    
+    let header = document.getElementById('tvHeader');
+    if (!header && !isMobileMode) {
+        header = document.createElement('div');
+        header.id = 'tvHeader';
+        header.style.textAlign = 'center';
+        header.style.padding = '20px';
+        header.style.background = 'var(--primary, #2563eb)';
+        header.style.color = 'white';
+        header.style.marginBottom = '20px';
+        document.body.prepend(header);
+    }
 
-    // 1. UPDATE BANNER (Fixes Mobile "Connecting..." bug)
-    // Runs for BOTH Mobile and TV
+    if (header) {
+        header.innerHTML = `<h1 style='margin:0; font-size:3rem;'>${title || 'Elephant Exchange'}</h1>`;
+        if (tagline) header.innerHTML += `<div style='font-size:1.5rem; opacity:0.8;'>${tagline}</div>`;
+    }
+    renderTvCatalog(state); 
     renderActiveBanner(state); 
 
     if (!isMobileMode) {
@@ -114,13 +123,9 @@ function renderView(state) {
     renderGiftList(state);
 }
 
-// --- SUB-RENDERERS ---
-
-// A. UPDATE THIS FUNCTION (Fixes "Waiting..." confusion)
 function renderActiveBanner(state) {
     const banner = document.getElementById('activePlayerBanner');
     
-    // 1. Voting / Results Phase (Keep existing)
     if (state.phase === 'voting') {
         banner.innerHTML = "<div style='padding:20px; font-size:2.5rem;'>🗳️ Voting in Progress!</div>";
         banner.style.background = "#d97706"; 
@@ -132,24 +137,44 @@ function renderActiveBanner(state) {
         return;
     }
 
-    // 2. Active Players
     const activeIds = (window.getActiveIds) ? getActiveIds(state) : [];
     
     if (activeIds.length > 0) {
-        // ... (Existing table rendering logic) ...
-        // ... (Keep your tableHtml generation here) ...
+        const html = activeIds.map(id => {
+            const p = state.participants.find(x => x.id === id);
+            if (!p) return '';
+            
+            const duration = state.settings.turnDurationSeconds || 60;
+            let timerHtml = `<span style="font-size:1.5rem; opacity:0.8;">Active</span>`;
+
+            if (p.turnStartTime) {
+                 timerHtml = `<span class="player-timer dynamic-timer" data-start="${p.turnStartTime}" data-duration="${duration}">--:--</span>`;
+            }
+
+            return `
+                <table class="active-table">
+                    <tr>
+                        <td class="col-active-name" style="width: 50%;">
+                            <span style="font-size:0.4em; text-transform:uppercase; color:white; opacity:0.7; display:block;">Current Turn</span>
+                            ${p.name}
+                        </td>
+                        <td class="col-active-time">
+                            ${timerHtml}
+                        </td>
+                    </tr>
+                </table>
+            `;
+        }).join('');
+
         banner.dataset.active = "true";
-        banner.style.background = "#1f2937";
-        banner.innerHTML = tableHtml; // Assuming you kept the variable logic
+        banner.style.background = "var(--primary, #2563eb)";
+        banner.innerHTML = html; 
     } else {
-        // 3. THE FIX: Distinguish "Not Started" vs "Game Over"
         const totalPlayers = state.participants.length;
-        
         if (state.participants.length === 0) {
              banner.innerHTML = "<div style='padding:20px;'>Waiting for Players...</div>";
         } 
         else if (state.currentTurn > totalPlayers) {
-             // GAME OVER (Pre-Voting)
              banner.innerHTML = `
                 <div style='padding:20px; animation: pulse 2s infinite;'>
                     <div style="font-size:2.5rem; margin-bottom:10px;">🎁 All Gifts Opened!</div>
@@ -158,23 +183,19 @@ function renderActiveBanner(state) {
              banner.style.background = "#4b5563"; 
         } 
         else {
-             // Generic Waiting (Mid-game pause?)
              banner.innerHTML = "<div style='padding:20px;'>Waiting for Host...</div>";
              banner.style.background = "#374151";
         }
     }
 }
 
-// B. UPDATE THIS FUNCTION (Enables Photos in Voting Mode)
 function renderGiftList(state) {
-const gList = document.getElementById('giftList');
+    const gList = document.getElementById('giftList');
     const isVoting = state.phase === 'voting';
     const isResults = state.phase === 'results';
 
-    // 1. USE SHARED SORT (Handles Votes & Mobile Bookmarks)
     const sorted = (window.sortGifts) ? sortGifts(state.gifts, state, isMobileMode, myBookmarks) : state.gifts;
 
-    // --- A. MOBILE VOTING (Thumbs) ---
     if (isMobileMode && isVoting) {
         gList.innerHTML = sorted.map(g => {
             const votes = g.downvotes || [];
@@ -183,7 +204,6 @@ const gList = document.getElementById('giftList');
             const thumbFilled = `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="#ef4444" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transform: scaleY(-1);"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path></svg>`;
             const icon = isVoted ? thumbFilled : thumbOutline;
             
-            // Photo Toggle Logic
             let thumbHtml = '';
             if (showThumbnails && g.images && g.images.length > 0) {
                  const imgObj = g.images.find(i => i.id === g.primaryImageId) || g.images[0];
@@ -203,14 +223,11 @@ const gList = document.getElementById('giftList');
         return;
     }
 
-    // ... (Keep existing TV Voting, Results, and Standard Views) ...
-    // Note: Ensure you keep the 'else' blocks from the previous version for TV/Results
-    
-    // --- B. TV VOTING VIEW (Keep existing) ---
     if (!isMobileMode && isVoting) {
-        gList.innerHTML = sortedGifts.map(g => {
+        gList.innerHTML = sorted.map(g => {
             const count = g.downvotes?.length || 0;
-            const percent = Math.min(100, count * 5); 
+            const maxVotes = Math.max(...sorted.map(x => x.downvotes?.length || 0)) || 1;
+            const percent = (count / maxVotes) * 100;
             return `
             <li class="voting-row">
                 <div class="vote-bar" style="width:${percent}%;"></div>
@@ -223,17 +240,11 @@ const gList = document.getElementById('giftList');
         return;
     }
 
-    // --- C. RESULTS VIEW (Keep existing) ---
     if (!isMobileMode && isResults) {
         renderPodium(state);
         return;
     }
 
-    // --- D. STANDARD VIEW (Keep existing) ---
-    // (Copy the Standard View logic from previous turn here)
-    // ...
-    
-    // Sort Logic (Standard)
     const sortedGifts = state.gifts.sort((a,b) => {
         if (a.isFrozen !== b.isFrozen) return a.isFrozen - b.isFrozen;
         if (isMobileMode) {
@@ -294,7 +305,6 @@ const gList = document.getElementById('giftList');
                 ${thumbHtml} 
             </li>`;
         } else {
-            // TV Row
              let badge = '';
             if (g.isFrozen) badge = '<span class="badge" style="background:#374151;">🔒 LOCKED</span>';
             else badge = `<span class="badge">${g.stealCount}/3 Steals</span>`;
@@ -388,8 +398,6 @@ function renderPodium(state) {
     document.getElementById('giftList').innerHTML = html;
 }
 
-// --- UTILS & HELPERS ---
-
 function renderMobileControls() {
     let controls = document.getElementById('mobile-controls');
     if (controls) return;
@@ -456,7 +464,6 @@ async function handleFileUpload(e) {
     } catch (err) { console.error(err); alert('Upload error.'); }
 }
 
-// Timer Loop
 setInterval(() => {
     const timers = document.querySelectorAll('.dynamic-timer');
     timers.forEach(el => {
@@ -470,8 +477,6 @@ setInterval(() => {
         if(remaining <= 0) el.innerText = "TIME'S UP!";
     });
 }, 100);
-
-// --- HELPERS ---
 
 function getOwnerName(state, ownerId) {
     const p = state.participants.find(p => p.id === ownerId);
@@ -513,9 +518,10 @@ function handleTvMode(mode) {
     const catalogOverlay = document.getElementById('overlay-catalog');
     if (catalogOverlay) catalogOverlay.classList.add('hidden');
 
-    if (mode === 'rules') document.getElementById('overlay-rules').classList.remove('hidden');
-    else if (mode === 'qr') {
-        const url = window.location.href; 
+    if (mode === 'rules') {
+        document.getElementById('overlay-rules').classList.remove('hidden');
+    } else if (mode === 'qr') {
+        const url = `${window.location.origin}${window.location.pathname}?game=${currentGameId}&mode=mobile`;
         document.getElementById('joinUrlDisplay').innerText = url;
         const container = document.getElementById('qrcode');
         container.innerHTML = '';

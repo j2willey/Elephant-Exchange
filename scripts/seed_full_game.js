@@ -5,7 +5,7 @@ const path = require('path');
 // Configuration
 const GAME_ID = 'demo-party';
 const UPLOAD_DIR = path.join(__dirname, '../public/uploads', GAME_ID);
-const SOURCE_DIR = path.join(__dirname, '../tests/images'); // Adjust if your images are elsewhere
+const SOURCE_DIR = path.join(__dirname, '../tests/images'); 
 
 // Database Connection
 const redisUrl = process.env.REDIS_URL || 'redis://redis-db:6379'; 
@@ -21,7 +21,7 @@ const GIFTS = [
     { desc: "Vintage Lava Lamp", img: "gift2.webp" },
     { desc: "Mystery Box", img: "Gift3.jpg" },
     { desc: "Bluetooth Speaker", img: "Gift4.jpg" },
-    { desc: "Scented Candle Set", img: "Gift.webp" }, // Reusing images for demo
+    { desc: "Scented Candle Set", img: "Gift.webp" },
     { desc: "Board Game Bundle", img: "gift2.webp" },
     { desc: "Electric Blanket", img: "Gift3.jpg" },
     { desc: "Fancy Cheese Knives", img: "Gift4.jpg" },
@@ -48,11 +48,11 @@ async function seed() {
         name: name,
         number: i + 1,
         status: 'done', // Everyone has gone
-        heldGiftId: null, // Will assign below
+        heldGiftId: null, 
         forbiddenGiftId: null,
         isVictim: false,
         turnStartTime: null,
-        timesStolenFrom: Math.floor(Math.random() * 2) // Fake some stats
+        timesStolenFrom: Math.floor(Math.random() * 2) 
     }));
 
     const gifts = GIFTS.map((g, i) => {
@@ -83,7 +83,7 @@ async function seed() {
             isFrozen: false,
             images: imageEntry,
             primaryImageId: imageEntry.length > 0 ? imageEntry[0].id : null,
-            downvotes: [] // Ready for voting
+            downvotes: [] // CRITICAL: Required for voting phase
         };
     });
 
@@ -96,6 +96,8 @@ async function seed() {
         gifts: gifts,
         history: ["Game fully seeded with 10 players."],
         settings: {
+            partyName: "Acme Holiday 2026",      // NEW: Branding
+            tagline: "It's going to be a gas!",   // NEW: Branding
             maxSteals: 3,
             turnDurationSeconds: 60,
             activePlayerCount: 1,
@@ -104,7 +106,7 @@ async function seed() {
             soundTheme: 'standard',
             showVictimStats: true,
             themeColor: '#d97706',
-            themeBg: 'https://images.unsplash.com/photo-1576618148400-f54bed99fcf8?auto=format&fit=crop&q=80' // Christmas Tree
+            themeBg: 'https://images.unsplash.com/photo-1576618148400-f54bed99fcf8?auto=format&fit=crop&q=80' 
         }
     };
 
