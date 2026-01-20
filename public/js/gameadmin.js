@@ -6,16 +6,15 @@
  * Dependencies: gamelib.js (Shared Logic), socket.io
  */
 
-// --- 1. GLOBALS & CONFIG ---
+// --- 1. GLOBALS & INIT ---
 let socket;
 let currentGameId = null;
 let stealingPlayerId = null; 
-let currentAdminGiftId = null; // Tracks which gift is being edited in the modal
-let votingInterval = null;     // Tracks the countdown timer loop
+let currentAdminGiftId = null; // REQUIRED: Tracks gift for Image Modal
+let votingInterval = null;     // REQUIRED: Tracks countdown timer
 
-// --- 2. INITIALIZATION ---
 document.addEventListener('DOMContentLoaded', () => {
-    // A. UI: Restore Zoom Preference
+    // UI: Zoom Persistence
     const scaleSlider = document.getElementById('uiScale');
     const savedScale = localStorage.getItem('elephantScale');
     if (savedScale && scaleSlider) {
@@ -29,7 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // B. Auth: Auto-Login from URL param
+    // Auth: Auto-Login from URL
     const params = new URLSearchParams(window.location.search);
     const urlGameId = params.get('game');
     if (urlGameId) {
@@ -37,19 +36,18 @@ document.addEventListener('DOMContentLoaded', () => {
         joinGame(urlGameId);
     }
 
-    // C. Bind Enter Keys for convenience
+    // Bind Enter Keys
     document.getElementById('gameIdInput').addEventListener('keypress', e => e.key === 'Enter' && joinGame());
     document.getElementById('pName').addEventListener('keypress', e => e.key === 'Enter' && addParticipant());
 });
 
-// --- 3. CONNECTION & STATE MANAGEMENT ---
+// --- 2. CONNECTION & STATE ---
 
 async function joinGame(forceId = null) {
     const inputId = document.getElementById('gameIdInput').value.trim();
     const gameId = forceId || inputId;
     if(!gameId) return alert("Please enter a Game ID");
 
-    // Create or Join Game via API
     const res = await fetch('/api/create', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -59,11 +57,11 @@ async function joinGame(forceId = null) {
     if(res.ok) {
         currentGameId = gameId;
         
-        // Update Browser URL (clean history)
+        // Update URL
         const newUrl = `${window.location.pathname}?game=${gameId}`;
         window.history.pushState({path: newUrl}, '', newUrl);
 
-        // Switch Views
+        // Show Dashboard
         document.getElementById('login-section').classList.add('hidden');
         document.getElementById('dashboard-section').classList.remove('hidden');
         document.getElementById('displayGameId').innerText = gameId;
@@ -82,7 +80,6 @@ function initSocket(gameId) {
         document.getElementById('displayGameId').style.color = "inherit";
     });
 
-    // Real-time update listener
     socket.on('stateUpdate', (state) => {
         render(state);
     });
@@ -96,105 +93,36 @@ async function refreshState() {
     } catch(e) { console.error("State fetch failed", e); }
 }
 
-// --- 4. RENDER LOGIC (THE VIEW) ---
+// --- 3. MAIN RENDER LOOP ---
 
 function render(state) {
-    // A. Apply Theme (from gamelib.js)
-    if(window.applyTheme) applyTheme(state.settings);
+    // 1. Theme (from gamelib.js)
+    if (window.applyTheme) applyTheme(state.settings);
 
-    // B. Render Phase Controls (Active vs Voting vs Results)
-    renderPhaseControls(state);
+    // 2. Phase Controls
+    renderPhaseControls(state); 
 
-    // C. Ghost Protocol: Clear stale steal state
+    // 3. Ghost Protocol: Clear stale steal state
     if (stealingPlayerId) {
         const thief = state.participants.find(p => p.id === stealingPlayerId);
-        // If thief is done or holding a gift, they can't be stealing anymore
         if (!thief || thief.heldGiftId) stealingPlayerId = null;
     }
 
-    // D. Update Header Info
+    // 4. Header
     document.getElementById('displayGameId').innerHTML = 
         `${state.id} <span style="font-size:0.6em; color:#666;">(Turn #${state.currentTurn})</span>`;
 
-    // E. Render Lists
     renderParticipants(state);
     renderGifts(state);
-}
-
-function renderPhaseControls(state) {
-    const container = document.getElementById('phaseControls');
-    if (!container) return;
-
-    const phase = state.phase || 'active'; 
-
-    // Cleanup: Kill timer if not in voting phase
-    if (phase !== 'voting' && votingInterval) {
-        clearInterval(votingInterval);
-        votingInterval = null;
-    }
-
-    // State 1: Active Game
-    if (phase === 'active') {
-        container.innerHTML = `
-            <h3 style="margin:0 0 10px 0;">🎁 Game in Progress</h3>
-            <button onclick="triggerVoting()" class="btn-red" style="font-size:1.1rem; padding:10px 30px;">
-                🛑 End Game & Start Voting
-            </button>
-        `;
-    } 
-    // State 2: Voting Live
-    else if (phase === 'voting') {
-        const now = Date.now();
-        const endsAt = state.votingEndsAt || 0;
-        let remaining = Math.max(0, Math.ceil((endsAt - now) / 1000));
-        
-        container.innerHTML = `
-            <h3 style="margin:0 0 10px 0; color:#d97706;">🗳️ Voting in Progress</h3>
-            <div id="votingTimerDisplay" style="font-size:2rem; font-weight:bold; font-family:monospace; margin-bottom:10px;">
-                ${remaining}s
-            </div>
-            <button onclick="endVoting()" class="btn-gray">
-                Skip Timer & Show Results ➡️
-            </button>
-        `;
-
-        // Start Local Countdown Loop
-        if (!votingInterval) {
-            votingInterval = setInterval(() => {
-                const el = document.getElementById('votingTimerDisplay');
-                if (!el) return;
-                
-                const currentRemaining = Math.max(0, Math.ceil((endsAt - Date.now()) / 1000));
-                el.innerText = `${currentRemaining}s`;
-                
-                // Auto-refresh when time hits 0
-                if (currentRemaining <= 0) {
-                    clearInterval(votingInterval);
-                    refreshState(); 
-                }
-            }, 1000);
-        }
-    } 
-    // State 3: Game Over / Podium
-    else if (phase === 'results') {
-        container.innerHTML = `
-            <h3 style="margin:0 0 10px 0; color:#16a34a;">🏆 Results are Live!</h3>
-            <div style="display:flex; gap:10px; justify-content:center;">
-                <button onclick="triggerVoting()" class="btn-gray">Re-open Voting</button>
-                <button onclick="resetGame()" class="btn-red">💣 Reset Game</button>
-            </div>
-        `;
-    }
 }
 
 function renderParticipants(state) {
     const pList = document.getElementById('participantList');
     pList.innerHTML = '';
 
-    // Logic: Use Shared Function from gamelib.js
+    // LOGIC: Use Shared Function from gamelib.js
     const activeIds = (window.getActiveIds) ? getActiveIds(state) : [];
 
-    // Sort: Active Players > Queue Number
     const sorted = state.participants.sort((a,b) => {
         const aActive = activeIds.includes(a.id);
         const bActive = activeIds.includes(b.id);
@@ -207,7 +135,7 @@ function renderParticipants(state) {
         const isActive = activeIds.includes(p.id);
         const li = document.createElement('li');
         
-        // Apply CSS Classes (Styled by gamelib theme engine)
+        // CSS Classes handled by gamelib theme engine
         if (isActive) {
             li.classList.add('active-row');
             if (p.isVictim) { 
@@ -216,18 +144,15 @@ function renderParticipants(state) {
             }
         }
 
-        // Status Icons
         let statusIcon = '⏳';
         if (p.heldGiftId) statusIcon = '🎁';
         if (isActive) statusIcon = '🔴';
 
-        // Stats Badge (if stolen from)
         let statsBadge = '';
         if (p.timesStolenFrom > 0) {
             statsBadge = `<span style="font-size:0.8rem; background:#fee2e2; color:#991b1b; padding:2px 6px; border-radius:4px; margin-left:5px;">💔 ${p.timesStolenFrom}</span>`;
         }
 
-        // Timer
         let timerHtml = '';
         if (isActive) {
             const duration = state.settings.turnDurationSeconds || 60;
@@ -235,10 +160,8 @@ function renderParticipants(state) {
             timerHtml = ` <span class="player-timer" data-start="${startTime}" data-duration="${duration}" style="font-family:monospace; font-weight:bold; font-size:1.2em; margin-left:10px;">--:--</span>`;
         }
 
-        // Build HTML
         let html = `<span><b>#${p.number}</b> ${p.name} ${statsBadge} ${timerHtml}</span>`;
         
-        // Action Buttons (Open/Steal)
         if (isActive && !p.heldGiftId) {
             if (stealingPlayerId === p.id) {
                 html += `
@@ -267,19 +190,21 @@ function renderParticipants(state) {
 function renderGifts(state) {
     const gList = document.getElementById('giftList');
     
-    // 1. USE SHARED SORT (Handles Votes logic from gamelib.js)
+    // LOGIC: Use Shared Sort from gamelib.js
     const sorted = (window.sortGifts) ? sortGifts(state.gifts, state) : state.gifts;
-    const isVoting = state.phase === 'voting' || state.phase === 'results';
 
     if (sorted.length === 0) {
         gList.innerHTML = `<li style="color:#ccc; justify-content:center;">No gifts revealed yet</li>`;
         return;
     }
 
+    const isVoting = state.phase === 'voting' || state.phase === 'results';
+
     gList.innerHTML = sorted.map(g => {
-        const ownerName = state.participants.find(p => p.id === g.ownerId)?.name || 'Unknown';
+        const owner = state.participants.find(p => p.id === g.ownerId);
+        const ownerName = owner ? owner.name : 'Unknown';
         
-        // A. VOTING VIEW (Shows Vote Counts)
+        // A. VOTING VIEW
         if (isVoting) {
             const count = g.downvotes?.length || 0;
             const highlight = count > 0 ? "font-weight:bold; color:#ef4444;" : "color:#9ca3af;";
@@ -293,9 +218,8 @@ function renderGifts(state) {
             </li>`;
         }
 
-        // B. STANDARD VIEW (Shows Steal Buttons)
+        // B. STANDARD VIEW
         let isForbidden = (stealingPlayerId && state.participants.find(p => p.id === stealingPlayerId)?.forbiddenGiftId === g.id);
-        
         const itemStyle = g.isFrozen ? 'opacity: 0.5; background: #f1f5f9;' : '';
         let statusBadge = '';
         if (g.isFrozen) statusBadge = `<span class="badge" style="background:#333; color:#fff;">🔒 LOCKED</span>`;
@@ -323,12 +247,68 @@ function renderGifts(state) {
                     ${statusBadge}
                     ${showStealBtn ? `<button onclick="attemptSteal('${g.id}', '${g.description.replace(/'/g, "\\'")}')" class="btn-orange" style="font-size:0.7em; margin-left:5px;">Select</button>` : ''}
                 </div>
-            </li>
-        `;
+            </li>`;
     }).join('');
 }
 
-// --- 5. GAMEPLAY ACTIONS ---
+function renderPhaseControls(state) {
+    const container = document.getElementById('phaseControls');
+    if (!container) return;
+
+    const phase = state.phase || 'active'; 
+
+    // Cleanup Timer
+    if (phase !== 'voting' && votingInterval) {
+        clearInterval(votingInterval);
+        votingInterval = null;
+    }
+
+    if (phase === 'active') {
+        container.innerHTML = `
+            <h3 style="margin:0 0 10px 0;">🎁 Game in Progress</h3>
+            <button onclick="triggerVoting()" class="btn-red" style="font-size:1.1rem; padding:10px 30px;">
+                🛑 End Game & Start Voting
+            </button>
+        `;
+    } 
+    else if (phase === 'voting') {
+        const now = Date.now();
+        const endsAt = state.votingEndsAt || 0;
+        let remaining = Math.max(0, Math.ceil((endsAt - now) / 1000));
+        
+        container.innerHTML = `
+            <h3 style="margin:0 0 10px 0; color:#d97706;">🗳️ Voting in Progress</h3>
+            <div id="votingTimerDisplay" style="font-size:2rem; font-weight:bold; font-family:monospace; margin-bottom:10px;">
+                ${remaining}s
+            </div>
+            <button onclick="endVoting()" class="btn-gray">Skip Timer & Show Results ➡️</button>
+        `;
+
+        if (!votingInterval) {
+            votingInterval = setInterval(() => {
+                const el = document.getElementById('votingTimerDisplay');
+                if (!el) return;
+                const curr = Math.max(0, Math.ceil((endsAt - Date.now()) / 1000));
+                el.innerText = `${curr}s`;
+                if (curr <= 0) {
+                    clearInterval(votingInterval);
+                    refreshState(); 
+                }
+            }, 1000);
+        }
+    } 
+    else if (phase === 'results') {
+        container.innerHTML = `
+            <h3 style="margin:0 0 10px 0; color:#16a34a;">🏆 Results are Live!</h3>
+            <div style="display:flex; gap:10px; justify-content:center;">
+                <button onclick="triggerVoting()" class="btn-gray">Re-open Voting</button>
+                <button onclick="resetGame()" class="btn-red">💣 Reset Game</button>
+            </div>
+        `;
+    }
+}
+
+// --- 4. GAMEPLAY ACTIONS ---
 
 async function addParticipant() {
     const num = document.getElementById('pNumber').value;
@@ -403,7 +383,7 @@ async function clearDb() {
     if(res.ok) location.reload();
 }
 
-// --- 6. VOTING ACTIONS (Phase Management) ---
+// --- 5. PHASE & SETTINGS ---
 
 async function triggerVoting() {
     const duration = prompt("Start Voting Phase?\n\nEnter seconds:", "180");
@@ -425,8 +405,6 @@ async function resetGame() {
     await fetch(`/api/${currentGameId}/reset`, { method: 'POST' });
 }
 
-// --- 7. SETTINGS & BRANDING ---
-
 function openSettings() {
     if(!currentGameId) return;
     fetch(`/api/${currentGameId}/state`)
@@ -434,20 +412,17 @@ function openSettings() {
         .then(state => {
             const s = state.settings || {};
             
-            // Standard
             document.getElementById('settingDuration').value = s.turnDurationSeconds || 60;
             document.getElementById('settingMaxSteals').value = s.maxSteals || 3;
             document.getElementById('settingActiveCount').value = s.activePlayerCount || 1;
             document.getElementById('settingScrollSpeed').value = (s.scrollSpeed !== undefined) ? s.scrollSpeed : 3;
             
-            // Checkboxes
             const sound = document.getElementById('settingSoundTheme');
             if(sound) sound.value = s.soundTheme || 'standard';
             
             const stats = document.getElementById('settingShowVictimStats');
             if(stats) stats.checked = s.showVictimStats || false;
 
-            // Branding
             const color = document.getElementById('settingThemeColor');
             if(color) color.value = s.themeColor || '#2563eb';
 
@@ -494,7 +469,7 @@ async function uploadLogo() {
     if (res.ok) alert("Logo Updated!");
 }
 
-// --- 8. ADMIN IMAGE MODAL LOGIC ---
+// --- 6. ADMIN IMAGE MODAL ---
 
 window.openImgModal = function(giftId) {
     fetch(`/api/${currentGameId}/state`)
@@ -503,7 +478,7 @@ window.openImgModal = function(giftId) {
             const gift = state.gifts.find(g => g.id === giftId);
             if (!gift) return;
 
-            currentAdminGiftId = giftId; // GLOBAL USED HERE
+            currentAdminGiftId = giftId;
             document.getElementById('imgModalTitle').innerText = `Images: ${gift.description}`;
             document.getElementById('imageModal').classList.add('active'); 
             renderAdminImages(gift);
@@ -583,7 +558,7 @@ function reloadModal(giftId) {
         });
 }
 
-// --- 9. UTILS & REMOTES ---
+// --- 7. UTILS & REMOTES ---
 
 // Timer Loop
 setInterval(() => {

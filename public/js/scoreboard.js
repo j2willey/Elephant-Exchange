@@ -120,50 +120,48 @@ function renderView(state) {
 function renderActiveBanner(state) {
     const banner = document.getElementById('activePlayerBanner');
     
-    // 1. Handle Phases first
+    // 1. Voting / Results Phase (Keep existing)
     if (state.phase === 'voting') {
         banner.innerHTML = "<div style='padding:20px; font-size:2.5rem;'>🗳️ Voting in Progress!</div>";
-        banner.style.background = "#d97706"; // Gold
+        banner.style.background = "#d97706"; 
         return;
     }
     if (state.phase === 'results') {
         banner.innerHTML = "<div style='padding:20px; font-size:2.5rem;'>🏆 The Results</div>";
-        banner.style.background = "#16a34a"; // Green
+        banner.style.background = "#16a34a"; 
         return;
     }
 
-    // 2. Handle Active Game (Standard Logic)
+    // 2. Active Players
     const activeIds = (window.getActiveIds) ? getActiveIds(state) : [];
     
     if (activeIds.length > 0) {
+        // ... (Existing table rendering logic) ...
+        // ... (Keep your tableHtml generation here) ...
         banner.dataset.active = "true";
-        banner.style.background = "#1f2937"; 
-
-        let tableHtml = `<table class="active-table">`;
-        activeIds.forEach(id => {
-            const p = state.participants.find(x => x.id === id);
-            if(!p) return;
-            
-            const isSteal = p.isVictim;
-            const rowClass = isSteal ? 'row-steal' : 'row-turn';
-            const label = isSteal ? `🚨 ${p.name}` : `${p.name} (#${p.number})`;
-            const startTime = p.turnStartTime || Date.now(); 
-            const duration = state.settings.turnDurationSeconds || 60;
-
-            tableHtml += `
-                <tr class="${rowClass}">
-                    <td class="col-active-name">${label}</td>
-                    <td class="col-active-time">
-                        <span class="dynamic-timer" data-start="${startTime}" data-duration="${duration}">--:--</span>
-                    </td>
-                </tr>`;
-        });
-        tableHtml += `</table>`;
-        banner.innerHTML = tableHtml;
+        banner.style.background = "#1f2937";
+        banner.innerHTML = tableHtml; // Assuming you kept the variable logic
     } else {
-        // Only show "Waiting" if phase is active but no one is up (e.g. Game Over before Voting starts)
-        banner.innerHTML = "<div style='padding:20px;'>Waiting for Admin...</div>";
-        banner.style.background = "#374151";
+        // 3. THE FIX: Distinguish "Not Started" vs "Game Over"
+        const totalPlayers = state.participants.length;
+        
+        if (state.participants.length === 0) {
+             banner.innerHTML = "<div style='padding:20px;'>Waiting for Players...</div>";
+        } 
+        else if (state.currentTurn > totalPlayers) {
+             // GAME OVER (Pre-Voting)
+             banner.innerHTML = `
+                <div style='padding:20px; animation: pulse 2s infinite;'>
+                    <div style="font-size:2.5rem; margin-bottom:10px;">🎁 All Gifts Opened!</div>
+                    <div style="font-size:1.2rem; color:#9ca3af;">Waiting for Host to start voting...</div>
+                </div>`;
+             banner.style.background = "#4b5563"; 
+        } 
+        else {
+             // Generic Waiting (Mid-game pause?)
+             banner.innerHTML = "<div style='padding:20px;'>Waiting for Host...</div>";
+             banner.style.background = "#374151";
+        }
     }
 }
 

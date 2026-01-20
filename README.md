@@ -1,50 +1,65 @@
 # 🐘 Elephant Exchange
-**A Real-time White Elephant Gift Exchange Manager**
+**A Real-time, White-Label Gift Exchange Platform**
 
-Copyright (c) 2026 Jim Willey. Licensed under the MIT License.
+Elephant Exchange is a modern, full-stack web application designed to digitize and manage the chaos of "White Elephant" or "Yankee Swap" gift exchanges. It features a synchronized state machine that coordinates three distinct interfaces (Admin Dashboard, TV Scoreboard, and Mobile Guest View) in real-time.
 
-## Overview
-Elephant Exchange is a modern, real-time web application designed to manage the chaos of a "White Elephant" or "Yankee Swap" gift exchange. Built for large groups (Scouts, Office Parties, Family Reunions), it handles the complex rules of turn management, gift stealing, and "No Take-Back" enforcement so the host can focus on the fun.
+![Elephant Exchange Dashboard](tests/images/dashboard_preview.png)
 
-## Features
-* **Real-Time Sync:** Using Socket.io, the dashboard updates instantly on all connected devices (Projector + Admin Laptop).
-* **Smart Turn Management:** Automatically tracks whose turn it is, handling the "Steal Interrupt" logic where a victim immediately becomes the active player.
-* **Rule Enforcement:**
-    * Tracks "Steal Counts" per gift (locks after 3 steals).
-    * Enforces "No Take-Backs" (prevents immediate re-stealing).
-* **Dynamic Gift Creation:** Gifts are added to the system as they are opened, speeding up gameplay.
-* **Admin Tools:** Edit gift descriptions on the fly (e.g., when a "Mystery Box" is revealed to be a Blender).
+## 🚀 Key Features
 
-## Tech Stack
-* **Backend:** Node.js, Express
-* **Database:** Redis (for speed and simple state management)
-* **Real-time:** Socket.io
-* **Frontend:** Vanilla JS / HTML5 (No build step required)
-* **Infrastructure:** Docker & Docker Compose
+### 📡 Real-Time State Synchronization
+* **Socket.io Architecture:** Instant state propagation across all devices. When the Admin clicks "Steal", the TV updates, the Victim's phone buzzes, and the Turn Timer resets simultaneously.
+* **Multi-View System:**
+    * **Admin Console:** Full control over game flow, gift edits, and player management.
+    * **TV Scoreboard:** A cinematic, auto-scrolling display for the living room.
+    * **Mobile Guest View:** Allows players to upload photos of their gifts and vote.
 
-## Quick Start
+### 🎨 White-Label Branding Engine
+* **Dynamic Theming:** Hosts can customize primary colors, background images, and logos on the fly.
+* **Contrast Calculation:** Automatically calculates YIQ contrast ratios to ensure text remains legible (Black vs. White) regardless of the chosen theme color.
 
-### Prerequisites
-* Docker & Docker Compose
+### 🗳️ "Worst Gift" Voting System
+* **Multi-Phase Logic:** The application transitions through distinct states: `Active` → `Voting` → `Results`.
+* **Live Polls:** Once the game ends, players use their phones to downvote the "Worst Gift". The TV updates a bar chart in real-time.
+* **The Podium:** Automatically calculates and displays the winners (losers?) with a dynamic size hierarchy.
 
-### Running the App
-1.  Clone the repository:
+## 🛠️ Tech Stack
+
+* **Backend:** Node.js, Express, Socket.io
+* **Data Store:** Redis (chosen for sub-millisecond latency and simple key-value state management)
+* **Frontend:** Vanilla JavaScript (ES6+), CSS3 Variables
+* **Infrastructure:** Docker, Docker Compose
+
+## 📦 Architecture
+
+The application uses a **Singleton State Pattern** stored in Redis.
+1.  **Clients** (Admin/TV) connect via WebSockets.
+2.  **Mutations** (Open/Steal/Vote) are sent to the REST API.
+3.  **Server** updates Redis and emits a `stateUpdate` event.
+4.  **Clients** receive the new state and re-render efficiently using a virtual-DOM-lite approach.
+
+## 🏃‍♂️ Quick Start (Docker)
+
+1.  **Clone the Repo:**
     ```bash
     git clone [https://github.com/j2willey/Elephant-Exchange.git](https://github.com/j2willey/Elephant-Exchange.git)
     cd Elephant-Exchange
     ```
 
-2.  Start the containers:
+2.  **Launch:**
     ```bash
     docker compose up -d
     ```
 
-3.  Open your browser:
-    * Go to `http://localhost:3000`
+3.  **Access:**
+    * **Admin:** `http://localhost:3000`
+    * **Mobile Test:** `http://localhost:3000/scoreboard.html?mode=mobile`
 
-### How to Play
-1.  Enter a **Game ID** (e.g., `troop-55`) to start a room.
-2.  Add **Participants** (Names and/or Numbers).
-3.  The highlighted **Active Player** can:
-    * **Open New:** Creates a new gift entry.
-    * **Steal:** Selects a gift from the history (if allowed).
+## 🧪 Testing
+The project includes a robust seeding script to simulate a full 10-player game for UI testing.
+    ```bash
+    docker compose exec app node scripts/seed_full_game.js
+    ```
+
+Copyright (c) 2026 Jim Willey. Licensed under the MIT License.
+
