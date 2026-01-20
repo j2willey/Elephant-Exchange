@@ -1,0 +1,32 @@
+services:
+  app:
+    build: .
+    restart: always
+    environment:
+      - REDIS_URL=redis://redis-db:6379
+    depends_on:
+      - redis-db
+
+  redis-db:
+    image: redis:alpine
+    restart: always
+    volumes:
+      - redis-data:/data
+
+  caddy:
+    image: caddy:alpine
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+
+volumes:
+  redis-data:
+  caddy_data:
+  caddy_config:

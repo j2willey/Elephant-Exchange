@@ -1,0 +1,4 @@
+# Replace with your future domain (e.g., elephant.jwilley.com)
+http://localhost:80 {
+    reverse_proxy app:3000
+}
