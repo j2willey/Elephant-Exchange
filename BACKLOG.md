@@ -1,16 +1,22 @@
 # Product Backlog
 
 ## Future Features
-- [ ] **The "Worst Gift" Safety Net**
-    - **Context:** Some guests bring low-effort gifts (e.g., cigarettes/beer) which ruins the mood.
-    - **Mechanic:** Host provides "Spare Gifts."
-    - **Phase:** Post-Game (after all turns).
-    - **Interaction:**
-        1. Admin triggers "Vote Mode."
-        2. Mobile users tap the gift they think is the "Worst."
-        3. Top 2 vote-getters are flagged.
-        4. Holders of those gifts get to swap for a "Spare Gift" provided by the host.
-- [ ] FAQ, Best Practices, Tips page
+- [ ] Support Randomizing Players.
+    - Assume players are assigned continuos numbers starting with 1.  Allow
+      Game keep to enter count on setup.  
+      Randomly draw numbers to keep suspense.
+    - Support Game Admin writing names in before game.  
+      Randomly draw names to keep suspense.
+- [ ] Add an "On Deck" to Scoreboard
+- [ ] Support changes to players during game.
+      - Add delete button in case a player left early 
+      - consider adding a skip button for player who's in the bathroom
+      - support increasing number, or adding a player by name who came late.
+          randomize them within the remaining players.
+- [ ] consider supporting  Twits... Tweets within the game.  
+      - people adding character limited (140?) comments to a gift in addition to pics.
+      - perhaps a scrolling ticker tape at bottom of scoreboard with twits... 
+
 
 ## Infrastructure
 - [ ] Move image storage to AWS S3 / DigitalOcean Spaces (Required for multi-server scaling).
