@@ -4,101 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Elephant Exchange - Host</title>
+    
     <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/gameadmin.css">
+
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="js/gamelib.js" defer></script>
     <script src="js/gameadmin.js" defer></script>
-    <style>
-        /* --- 1. GLOBAL RESET & LAYOUT --- */
-        * { box-sizing: border-box; } 
-
-        body { 
-            /* Minimized padding for maximum screen usage */
-            padding: 5px 5px 80px 5px; 
-            margin: 0;
-            width: 100vw;      
-            max-width: 100% !important; 
-            overflow-x: hidden; 
-        }
-        
-        .admin-banner {
-            background-color: var(--primary, #2563eb);
-            color: white;
-            padding: 10px 15px;
-            text-align: center;
-            border-radius: 6px 6px 0 0;
-        }
-        .admin-banner h1 { margin: 0; font-size: 1.5rem; }
-        .admin-banner .tagline { font-size: 0.8rem; opacity: 0.9; font-style: italic; margin-top: 3px; }
-
-        .menu-bar {
-            background: #f3f4f6;
-            padding: 8px 15px;
-            border-bottom: 1px solid #e5e7eb;
-            display: flex;
-            justify-content: flex-end;
-            gap: 10px;
-            align-items: center;
-            border-radius: 0 0 6px 6px;
-            margin-bottom: 10px;
-        }
-
-        .admin-footer {
-            position: fixed; bottom: 0; left: 0; right: 0;
-            background: white; border-top: 1px solid #e5e7eb;
-            padding: 10px 20px;
-            display: flex; justify-content: space-between; align-items: center;
-            z-index: 100; box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
-        }
-
-        /* --- 2. FLUID DASHBOARD GRID --- */
-        .main-layout {
-            display: flex;
-            gap: 10px;       
-            align-items: flex-start;
-            width: 100%;
-        }
-
-        .sidebar {
-            /* Takes 30% of space, but floor is 450px */
-            flex: 3; 
-            min-width: 450px;
-        }
-
-        .content {
-            /* Takes 70% of space */
-            flex: 7;
-            min-width: 0; 
-        }
-
-        /* --- 3. ACTIVE PLAYER BUTTONS --- */
-        .action-buttons {
-            display: flex;
-            gap: 5px;
-            margin-top: 5px;
-        }
-        .action-buttons button {
-            padding: 8px 4px;
-            font-size: 0.85rem;
-            white-space: nowrap; 
-            flex: 1; 
-        }
-
-        /* --- 4. RESPONSIVE BREAKPOINT --- */
-        @media (max-width: 850px) {
-            .main-layout { flex-direction: column; }
-            .sidebar, .content { 
-                width: 100%; 
-                flex: none; 
-                min-width: 0;
-            }
-            .sidebar { margin-bottom: 20px; }
-        }
-        
-        #displayGameId { display: none; }
-        .menu-label { font-size: 0.85rem; font-weight: 600; color: #6b7280; margin-right: 5px; text-transform: uppercase; }
-    </style>
 </head>
 <body>
 
@@ -164,7 +77,6 @@
 
         <footer class="admin-footer">
             <button onclick="confirmEndGame()" class="btn-red" title="End Game">🛑 End Game</button>
-            
             <div class="scale-control">
                 <span>UI Size:</span>
                 <input type="range" id="uiScale" min="0.5" max="1.5" step="0.1" value="1" style="width:80px;">
@@ -173,53 +85,60 @@
     </div>
 
     <div id="settingsModal" class="admin-modal-overlay hidden">
-        <div class="admin-modal-content">
-            <h3>Game Settings</h3>
+        <div class="admin-modal-content" style="max-width: 600px;">
+            <h3 id="settingsModalTitle" style="margin-top:0; border-bottom:1px solid #eee; padding-bottom:10px;">Game Settings</h3>
             
-            <div class="setting-row">
-                <label>Party Name (Banner)</label>
-                <input type="text" id="settingPartyName">
-            </div>
-            <div class="setting-row">
-                <label>Tagline</label>
-                <input type="text" id="settingTagline">
-            </div>
+            <div class="settings-grid">
+                <div class="setting-label-group">
+                    <label>Party Name</label>
+                    <span class="info-icon" data-tooltip="This appears at the top of the TV Scoreboard.">i</span>
+                </div>
+                <input type="text" id="settingPartyName" placeholder="e.g. Smith Family Xmas">
 
-            <hr style="margin: 15px 0; border:0; border-top:1px solid #eee;">
+                <div class="setting-label-group">
+                    <label>Tagline</label>
+                    <span class="info-icon" data-tooltip="A fun subtitle under the main banner.">i</span>
+                </div>
+                <input type="text" id="settingTagline" placeholder="e.g. 2026 Edition">
 
-            <div class="setting-row">
-                <label>Turn Duration (Seconds)</label>
-                <input type="number" id="settingDuration">
-            </div>
-            <div class="setting-row">
-                <label>Max Steals per Gift</label>
-                <input type="number" id="settingMaxSteals">
-            </div>
-            <div class="setting-row">
-                <label>Active Players at Once</label>
-                <input type="number" id="settingActiveCount">
-            </div>
-            <div class="setting-row">
-                <label>TV Scroll Speed</label>
-                <input type="range" id="settingScrollSpeed" min="0" max="10">
-            </div>
-            <div class="setting-row">
-                <label>Sound Theme</label>
-                <select id="settingSoundTheme">
-                    <option value="standard">Standard</option>
-                    <option value="fun">Fun / Cartoon</option>
-                    <option value="minimal">Minimal</option>
-                </select>
-            </div>
-            
-            <div class="setting-row" style="margin-top:20px;">
-                <label>Theme Color</label>
+                <div class="setting-label-group">
+                    <label>Theme Color</label>
+                    <span class="info-icon" data-tooltip="Primary color for banners and buttons.">i</span>
+                </div>
                 <input type="color" id="settingThemeColor">
             </div>
-            
-            <div style="margin-top:20px; text-align:right;">
-                <button onclick="cancelSettings()" class="btn-gray">Cancel</button>
-                <button onclick="saveSettings()" class="btn-primary">Save Changes</button>
+
+            <hr style="margin: 20px 0; border:0; border-top:1px solid #eee;">
+            <div style="margin-bottom: 15px;">
+                <h4 style="margin:0; color:#111827; font-size:1rem; text-transform:uppercase; letter-spacing:0.05em;">Gameplay & Pacing</h4>
+                <p style="margin:5px 0 0 0; font-size:0.85rem; color:#6b7280; font-style:italic;">
+                    Use these settings to speed up or slow down your event.
+                </p>
+            </div>
+
+            <div class="settings-grid">
+                <div class="setting-label-group">
+                    <label>Turn Duration</label>
+                    <span class="info-icon" data-tooltip="Time (seconds) a player has to open or steal.">i</span>
+                </div>
+                <input type="number" id="settingDuration">
+
+                <div class="setting-label-group">
+                    <label>Max Steals</label>
+                    <span class="info-icon" data-tooltip="How many times a single gift can be stolen before it is Locked.">i</span>
+                </div>
+                <input type="number" id="settingMaxSteals">
+
+                <div class="setting-label-group">
+                    <label>Active Players</label>
+                    <span class="info-icon" data-tooltip="How many people take a turn at the same time? Usually 1.">i</span>
+                </div>
+                <input type="number" id="settingActiveCount">
+            </div>
+
+            <div style="margin-top:20px; text-align:right; display:flex; justify-content:flex-end; gap:10px;">
+                <button id="btnCancelSettings" onclick="cancelSettings()" class="btn-gray">Cancel</button>
+                <button id="btnSaveSettings" onclick="saveSettings()" class="btn-primary">Save Changes</button>
             </div>
         </div>
     </div>

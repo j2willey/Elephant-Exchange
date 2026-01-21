@@ -40,6 +40,9 @@ async function joinGame(forceId = null) {
     const gameId = forceId || inputId;
     if(!gameId) return alert("Please enter a Game ID");
 
+    // Check if this is a "Fresh" load (for the defaults popup)
+    const isNewSession = !forceId; 
+
     const res = await fetch('/api/create', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -56,7 +59,15 @@ async function joinGame(forceId = null) {
         document.getElementById('displayGameId').innerText = gameId;
         
         initSocket(gameId);
-        refreshState();
+        
+        // --- NEW FLOW ---
+        // If the user manually typed an ID and hit Enter, show the "Defaults" popup
+        // If the user refreshed the page (forceId exists), skip it.
+        if (isNewSession) {
+             openSettings('defaults'); // Trigger the "Defaults" mode
+        } else {
+             refreshState();
+        }
     }
 }
 
@@ -399,8 +410,24 @@ async function resetGame() {
     await fetch(`/api/${currentGameId}/reset`, { method: 'POST' });
 }
 
-function openSettings() {
+function openSettings(mode = 'edit') {
     if(!currentGameId) return;
+    
+    // UI: Defaults vs Edit Mode
+    const title = document.getElementById('settingsModalTitle');
+    const btnSave = document.getElementById('btnSaveSettings');
+    const btnCancel = document.getElementById('btnCancelSettings');
+
+    if (mode === 'defaults') {
+        title.innerText = "Setup Game Defaults";
+        btnSave.innerText = "Start Game 🚀";
+        btnCancel.style.display = 'none'; // Can't cancel setup
+    } else {
+        title.innerText = "Game Settings";
+        btnSave.innerText = "Save Changes";
+        btnCancel.style.display = 'inline-block';
+    }
+
     fetch(`/api/${currentGameId}/state`)
         .then(res => res.json())
         .then(state => {
@@ -411,14 +438,11 @@ function openSettings() {
             document.getElementById('settingDuration').value = s.turnDurationSeconds || 60;
             document.getElementById('settingMaxSteals').value = s.maxSteals || 3;
             document.getElementById('settingActiveCount').value = s.activePlayerCount || 1;
-            document.getElementById('settingScrollSpeed').value = (s.scrollSpeed !== undefined) ? s.scrollSpeed : 3;
-            
-            const sound = document.getElementById('settingSoundTheme');
-            if(sound) sound.value = s.soundTheme || 'standard';
             
             const color = document.getElementById('settingThemeColor');
             if(color) color.value = s.themeColor || '#2563eb';
 
+            // Show Modal
             const modal = document.getElementById('settingsModal');
             modal.classList.add('active');
             modal.classList.remove('hidden');
