@@ -123,9 +123,12 @@ function renderView(state) {
     renderGiftList(state);
 }
 
+// REPLACE the renderActiveBanner function with this version:
+
 function renderActiveBanner(state) {
     const banner = document.getElementById('activePlayerBanner');
     
+    // 1. Voting / Results Phase
     if (state.phase === 'voting') {
         banner.innerHTML = "<div style='padding:20px; font-size:2.5rem;'>🗳️ Voting in Progress!</div>";
         banner.style.background = "#d97706"; 
@@ -140,6 +143,24 @@ function renderActiveBanner(state) {
     const activeIds = (window.getActiveIds) ? getActiveIds(state) : [];
     
     if (activeIds.length > 0) {
+        // --- NEW: Determine "On Deck" Player ---
+        // Look for the first player whose number is > currentTurn
+        // (This logic assumes sequential turns for now, but works for the backlog feature)
+        const nextPlayer = state.participants
+            .filter(p => p.number > state.currentTurn && !p.isVictim)
+            .sort((a,b) => a.number - b.number)[0];
+
+        let onDeckHtml = '';
+        if (nextPlayer) {
+            onDeckHtml = `
+                <div style="background:rgba(0,0,0,0.2); padding:5px 15px; font-size:1rem; color:#e5e7eb; display:flex; justify-content:space-between; align-items:center;">
+                    <span><span style="opacity:0.6; text-transform:uppercase; font-size:0.8em; margin-right:5px;">On Deck:</span> <b>${nextPlayer.name}</b></span>
+                    <span style="opacity:0.6;">#${nextPlayer.number}</span>
+                </div>
+            `;
+        }
+        // ----------------------------------------
+
         const html = activeIds.map(id => {
             const p = state.participants.find(x => x.id === id);
             if (!p) return '';
@@ -152,7 +173,7 @@ function renderActiveBanner(state) {
             }
 
             return `
-                <table class="active-table">
+                <table class="active-table" style="margin-bottom:0;">
                     <tr>
                         <td class="col-active-name" style="width: 50%;">
                             <span style="font-size:0.4em; text-transform:uppercase; color:white; opacity:0.7; display:block;">Current Turn</span>
@@ -163,13 +184,14 @@ function renderActiveBanner(state) {
                         </td>
                     </tr>
                 </table>
-            `;
+                ${onDeckHtml} `;
         }).join('');
 
         banner.dataset.active = "true";
         banner.style.background = "var(--primary, #2563eb)";
         banner.innerHTML = html; 
     } else {
+        // ... (Keep existing Waiting/Game Over logic) ...
         const totalPlayers = state.participants.length;
         if (state.participants.length === 0) {
              banner.innerHTML = "<div style='padding:20px;'>Waiting for Players...</div>";
