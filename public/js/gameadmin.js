@@ -157,7 +157,7 @@ function renderParticipants(state) {
                 html += `
                     <div class="action-buttons">
                         <button onclick="resetTimer('${p.id}')" class="btn-gray" title="Reset Timer" style="margin-right:5px;">🕒 Reset</button>
-                        <button onclick="promptOpenGift('${p.id}')" class="btn-green">🎁 Open</button>
+                        <button onclick="promptOpenGift('${p.id}')" class="btn-green" title="Open Gift">🎁 Open</button>
                         <button onclick="enterStealMode('${p.id}')" class="btn-orange" title="Steal Gift">😈 Steal</button>
                     </div>`;
             }
