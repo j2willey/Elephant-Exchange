@@ -158,7 +158,7 @@ function renderParticipants(state) {
                     <div class="action-buttons">
                         <button onclick="resetTimer('${p.id}')" class="btn-gray" title="Reset Timer" style="margin-right:5px;">🕒 Reset</button>
                         <button onclick="promptOpenGift('${p.id}')" class="btn-green">🎁 Open</button>
-                        <button onclick="enterStealMode('${p.id}')" class="btn-orange">😈 Steal</button>
+                        <button onclick="enterStealMode('${p.id}')" class="btn-orange" title="Steal Gift">😈 Steal</button>
                     </div>`;
             }
         } else {
@@ -281,7 +281,7 @@ function renderPhaseControls(state) {
                 <h3 style="margin:0 0 10px 0; color:#16a34a;">🏆 Results are Live!</h3>
                 <div style="display:flex; gap:10px; justify-content:center;">
                     <button onclick="triggerVoting()" class="btn-gray">Re-open Voting</button>
-                    <button onclick="resetGame()" class="btn-red">💣 Reset Game</button>
+                    <button onclick="resetGame()" class="btn-red" title="Reset Game">💣 Reset Game</button>
                 </div>
             </div>
         `;
