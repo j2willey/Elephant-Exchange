@@ -10,7 +10,14 @@ test('Feature Check: Reset Timer and On Deck', async ({ browser }) => {
     await adminPage.goto(`http://localhost:3000/gameadmin.html`);
     await adminPage.fill('#gameIdInput', gameId);
     await adminPage.press('#gameIdInput', 'Enter');
-    
+
+    // This is the "Start Game 🚀" button
+    const startBtn = adminPage.locator('#btnSaveSettings');
+    if (await startBtn.isVisible()) {
+        await startBtn.click();
+        await expect(adminPage.locator('#settingsModal')).toBeHidden();
+    }
+
     // Add 2 Players
     // Add Alice
     await adminPage.fill('#pName', 'Alice');
@@ -34,13 +41,13 @@ test('Feature Check: Reset Timer and On Deck', async ({ browser }) => {
     // 3. Test "Reset Timer" Button
     // Capture time, click reset, ensure no error
     await expect(adminPage.locator('button[title="Reset Timer"]')).toBeVisible();
-    
+
     // Handle the "Are you sure?" alert
     adminPage.on('dialog', dialog => dialog.accept());
     await adminPage.click('button[title="Reset Timer"]');
-    
+
     // Verify it didn't crash
     await expect(adminPage.locator('#participantList')).not.toBeEmpty();
-    
+
     console.log('✅ Timer Reset and On Deck features verified');
 });
