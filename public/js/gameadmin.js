@@ -8,7 +8,7 @@ let currentGameId = null;
 let stealingPlayerId = null;
 let currentAdminGiftId = null;
 let votingInterval = null;
-
+let pendingLateName = null;
 
 document.addEventListener('DOMContentLoaded', () => {
     // 1. Handle UI Scaling (Existing)
@@ -422,19 +422,81 @@ function renderPhaseControls(state) {
 
 // --- 4. GAMEPLAY ACTIONS ---
 async function addParticipant() {
-    const num = document.getElementById('pNumber').value;
-    const name = document.getElementById('pName').value;
-    if(!name && !num) return;
+    const nameInput = document.getElementById('pName');
+    const numInput = document.getElementById('pNumber');
 
-    await fetch(`/api/${currentGameId}/participants`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ name, number: num })
-    });
+    const name = nameInput.value.trim();
+    if (!name) return alert("Enter a name");
 
-    document.getElementById('pName').value = '';
-    document.getElementById('pNumber').value = '';
-    document.getElementById('pName').focus();
+    const manualNum = numInput.value.trim();
+
+    // 1. CHECK LATE ARRIVAL (Game started + No manual number)
+    const hasPlayers = document.querySelectorAll('#participantList li').length > 0;
+
+    if (!manualNum && hasPlayers) {
+        // OPEN CUSTOM MODAL instead of confirm()
+        pendingLateName = name;
+        document.getElementById('latePlayerName').innerText = name;
+
+        const modal = document.getElementById('lateArrivalModal');
+        modal.classList.remove('hidden');
+        modal.classList.add('active');
+        return; // Stop here, wait for modal click
+    }
+
+    // 2. NORMAL ADD (Start of game or Manual Number)
+    await executeAddPlayer(name, manualNum, false);
+}
+
+function closeLateModal() {
+    document.getElementById('lateArrivalModal').classList.remove('active');
+    document.getElementById('lateArrivalModal').classList.add('hidden');
+    pendingLateName = null;
+}
+
+async function confirmLateAdd(mode) {
+    if (!pendingLateName) return;
+
+    const isRandom = (mode === 'random');
+
+    // Execute the add
+    await executeAddPlayer(pendingLateName, null, isRandom);
+    pendingLateName = null;
+
+    // Close modal
+    closeLateModal();
+}
+
+// SHARED HELPER: Actually calls the API
+async function executeAddPlayer(name, manualNum, insertRandomly) {
+    try {
+        const payload = { name, insertRandomly };
+        if (manualNum) payload.number = manualNum;
+
+        const res = await fetch(`/api/${currentGameId}/participants`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+            // Clear inputs
+            document.getElementById('pName').value = '';
+            document.getElementById('pNumber').value = '';
+            document.getElementById('pName').focus();
+
+            if (insertRandomly) {
+                alert(`🎲 ${name} was assigned Number #${data.player.number}!`);
+            }
+        } else {
+            alert(data.error);
+        }
+    } catch (e) {
+        console.error(e);
+        alert("Server error adding player.");
+    }
 }
 
 async function deleteParticipant(participantId, name) {

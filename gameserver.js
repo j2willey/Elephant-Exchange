@@ -67,6 +67,10 @@ async function saveGameState(gameId, state) {
     await redisClient.set(getGameKey(gameId), JSON.stringify(state));
 }
 
+// Helper to generate simple IDs
+function generateId(index = 'late_add') {
+    return `p_${Date.now()}_${index}`;
+}
 
 // ==============================================================================
 // API ROUTES
@@ -139,7 +143,7 @@ app.put('/api/:gameId/settings', async (req, res) => {
         // Create Participants from Shuffled List
         // WARNING: This replaces existing participants to prevent duplicates during setup
         state.participants = shuffled.map((name, index) => ({
-            id: `p_${Date.now()}_${index}`,
+            id: generateId(),
             name: name,
             number: index + 1, // Assign turn order 1..N based on shuffle
             heldGiftId: null,
@@ -211,34 +215,97 @@ app.post('/api/:gameId/phase/results', async (req, res) => {
 
 // --- SECTION C: PARTICIPANTS ---
 
-// 8. Add Participant
+// 8. ADD PARTICIPANT (With Late Arrival Logic)
 app.post('/api/:gameId/participants', async (req, res) => {
     const { gameId } = req.params;
-    const { name, number } = req.body;
+    const { name, number, insertRandomly } = req.body; // <--- Added insertRandomly
+
+    if (!name) return res.status(400).json({ error: "Name is required" });
 
     const state = await getGameState(gameId);
     if (!state) return res.status(404).json({ error: "Game not found" });
 
-    const num = parseInt(number) || (state.participants.length + 1);
+    // Determine the new player's number
+    let newNumber;
+
+    if (number) {
+        // Manual override provided
+        newNumber = parseInt(number);
+    }
+    else if (insertRandomly && state.participants.length > 0) {
+        // --- LATE ARRIVAL LOGIC ---
+        // Find the range of "Future Turns"
+        // 1. Find the highest number currently in the game
+        const maxNum = state.participants.reduce((max, p) => Math.max(max, p.number), 0);
+
+        // 2. Find the "High Water Mark" (highest number that has already started/finished)
+        //    (Players with a gift or the currently active player)
+        //    We calculate this by looking at everyone.
+        //    Actually, simpler: Find the lowest number that hasn't played yet?
+        //    Let's just assume we insert between (ActiveNumber + 1) and (MaxNum + 1).
+
+        // Find current active number (or 0 if game hasn't started)
+        // We estimate "Active" as the lowest number that doesn't have a heldGift?
+        // Or we rely on the client knowing the state.
+        // Let's rely on "Max Held Gift Number".
+        const maxPlayedNum = state.participants
+            .filter(p => p.heldGiftId)
+            .reduce((max, p) => Math.max(max, p.number), 0);
+
+        const minInsert = maxPlayedNum + 1;
+        const maxInsert = maxNum + 1;
+
+        if (minInsert > maxInsert) {
+             // Edge case: everyone finished. Just append.
+             newNumber = maxNum + 1;
+        } else {
+             // Pick a random spot in the remaining timeline
+             // Formula: Math.floor(Math.random() * (max - min + 1)) + min
+             newNumber = Math.floor(Math.random() * (maxInsert - minInsert + 1)) + minInsert;
+        }
+
+        console.log(`🎲 Late Arrival: Inserting ${name} at #${newNumber} (Range: ${minInsert}-${maxInsert})`);
+
+    }
+    else {
+        // Default: Append to end
+        const maxNum = state.participants.reduce((max, p) => Math.max(max, p.number), 0);
+        newNumber = maxNum + 1;
+    }
+
+    // SHIFT LOGIC: If the spot is taken, bump everyone up
+    // We check if anyone is >= newNumber, and increment them
+    // (We do this for both Manual and Random insertions to prevent collisions)
+    const collision = state.participants.some(p => p.number === newNumber);
+    if (collision || insertRandomly) {
+         state.participants.forEach(p => {
+             if (p.number >= newNumber) {
+                 p.number++;
+             }
+         });
+    }
+
     const newPlayer = {
-        id: `p_${Date.now()}`,
-        name: name || `Player ${num}`,
-        number: num,
+        id: generateId(),
+        number: newNumber,
+        name: name.trim(),
         heldGiftId: null,
         isVictim: false,
-        timesStolenFrom: 0,
-        turnStartTime: null
+        timesStolenFrom: 0
     };
 
     state.participants.push(newPlayer);
-    updateActiveTimers(state);
+
+    // Sort to keep it tidy
+    state.participants.sort((a,b) => a.number - b.number);
 
     await saveGameState(gameId, state);
     io.to(gameId).emit('stateUpdate', state);
-    res.json({ success: true });
+
+    res.json({ success: true, player: newPlayer });
 });
 
-// 9. NEW ROUTE: Update Participant (Reset Timer, etc)
+// 9. Update Participant (Reset Timer, etc)
 app.put('/api/:gameId/participants/:pId', async (req, res) => {
     const { gameId, pId } = req.params;
     const updates = req.body;

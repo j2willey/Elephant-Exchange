@@ -179,6 +179,41 @@
         </div>
     </div>
 
+    <div id="lateArrivalModal" class="admin-modal-overlay hidden" style="z-index: 9999;">
+        <div class="admin-modal" style="max-width: 500px; background: white; color: #1e293b; padding: 30px; border-radius: 16px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);">
+
+            <div style="text-align:center; margin-bottom:20px;">
+                <div style="font-size:3rem; margin-bottom:10px;">⏱️</div>
+                <h3 style="margin:0; font-size:1.5rem; color:#0f172a;">Late Arrival Detected</h3>
+                <p style="color:#64748b; margin-top:8px; font-size:1rem; line-height:1.5;">
+                    The game has already started. How should we insert <b id="latePlayerName" style="color:#2563eb;"></b>?
+                </p>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:15px;">
+                <button onclick="confirmLateAdd('random')" style="display:flex; align-items:center; text-align:left; gap:15px; padding:15px; border:2px solid #3b82f6; background:#eff6ff; border-radius:10px; cursor:pointer; transition:all 0.2s;">
+                    <span style="font-size:1.8rem;">🎲</span>
+                    <div>
+                        <div style="font-weight:bold; color:#1d4ed8; font-size:1.1rem;">Insert Randomly (Fair)</div>
+                        <div style="font-size:0.9rem; color:#3b82f6;">Shuffles them into the remaining turns.</div>
+                    </div>
+                </button>
+
+                <button onclick="confirmLateAdd('end')" style="display:flex; align-items:center; text-align:left; gap:15px; padding:15px; border:2px solid #e2e8f0; background:#f8fafc; border-radius:10px; cursor:pointer; transition:all 0.2s;">
+                    <span style="font-size:1.8rem;">⏭️</span>
+                    <div>
+                        <div style="font-weight:bold; color:#475569; font-size:1.1rem;">Add to End (Standard)</div>
+                        <div style="font-size:0.9rem; color:#64748b;">Gives them the last number (Best Spot).</div>
+                    </div>
+                </button>
+
+                <button onclick="closeLateModal()" style="width:100%; padding:15px; border:2px solid #cbd5e1; background:white; color:#64748b; border-radius:10px; cursor:pointer; font-weight:bold; margin-top:5px; transition:all 0.2s;">
+                    <div style="font-weight:bold; color:#475569; font-size:1.1rem;">Cancel</div>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <div id="localQrModal" class="admin-modal-overlay hidden">
         <div class="admin-modal-content" style="max-width:350px; text-align:center;">
             <h3>📱 Private QR Code</h3>
