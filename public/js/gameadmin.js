@@ -256,6 +256,13 @@ function renderParticipants(state) {
             timerHtml = ` <span class="player-timer" data-start="${startTime}" data-duration="${duration}" style="font-family:monospace; font-weight:bold; font-size:1.2em; margin-left:10px;">--:--</span>`;
         }
 
+        // --- DELETE BUTTON HTML ---
+        // Only allow delete if they don't hold a gift
+        const safeName = p.name.replace(/'/g, "\\'");
+        const deleteBtn = !p.heldGiftId
+            ? `<button onclick="deleteParticipant('${p.id}', '${safeName}')" class="btn-delete-icon" title="Remove ${p.name}">&times;</button>`
+            : '';
+
         let html = `<span><b>#${p.number}</b> ${p.name} ${statsBadge} ${timerHtml}</span>`;
 
         if (isActive && !p.heldGiftId) {
@@ -270,13 +277,17 @@ function renderParticipants(state) {
             } else {
                 html += `
                     <div class="action-buttons">
-                        <button onclick="resetTimer('${p.id}')" class="btn-gray" title="Reset Timer" style="margin-right:5px;">🕒 Reset</button>
+                        <button onclick="resetTimer('${p.id}')" class="btn-gray" title="Reset Timer" style="margin-right:5px;">🕒</button>
                         <button onclick="promptOpenGift('${p.id}')" class="btn-green" title="Open Gift">🎁 Open</button>
                         <button onclick="enterStealMode('${p.id}')" class="btn-orange" title="Steal Gift">😈 Steal</button>
-                    </div>`;
+                        ${deleteBtn} </div>`;
             }
         } else {
-            html += `<span>${statusIcon}</span>`;
+            // For inactive players, put the delete button next to the status icon
+            html += `<div style="display:flex; align-items:center; gap: 8px;">
+                        <span>${statusIcon}</span>
+                        ${deleteBtn}
+                     </div>`;
         }
 
         li.innerHTML = html;
@@ -418,6 +429,26 @@ async function addParticipant() {
     document.getElementById('pNumber').value = '';
     document.getElementById('pName').focus();
 }
+
+async function deleteParticipant(participantId, name) {
+    // UPDATED: Now includes the specific name in the prompt
+    if (!confirm(`Are you sure you want to remove ${name}?`)) return;
+
+    try {
+        const res = await fetch(`/api/${currentGameId}/participants/${participantId}`, {
+            method: 'DELETE'
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+            alert(data.error || "Failed to delete");
+        }
+    } catch (err) {
+        console.error(err);
+        alert("Server error deleting player");
+    }
+}
+
 
 async function resetTimer(playerId) {
     if(!confirm("Restart the timer for this player?")) return;

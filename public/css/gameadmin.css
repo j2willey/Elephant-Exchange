@@ -77,6 +77,31 @@ body {
 
 #displayGameId { display: none; }
 
+/* DELETE ICON (Small Red X) */
+.btn-delete-icon {
+    background: transparent;
+    border: 1px solid #ef4444; /* Red border */
+    color: #ef4444;
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    font-size: 16px;
+    font-weight: bold;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    margin-left: 8px;
+    transition: all 0.2s;
+}
+
+.btn-delete-icon:hover {
+    background: #ef4444;
+    color: white;
+}
+
 /* --- 5. RESPONSIVE BREAKPOINT --- */
 @media (max-width: 850px) {
     .main-layout { flex-direction: column; }
@@ -86,7 +111,7 @@ body {
         min-width: 0;
     }
     .sidebar { margin-bottom: 20px; }
-} /* <--- CRITICAL FIX: Closed the media query here */
+}
 
 /* --- 6. SETTINGS MODAL & TOOLTIPS --- */
 

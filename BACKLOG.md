@@ -10,6 +10,7 @@
       - Display a scrolling "News Ticker" at the bottom of the scoreboard.
 - [ ] **Sandbagging Prevention:**
       - Instead of a fixed order (1..N), randomly choose the *next* player from the pool of remaining players. (Prevents the last person from knowing they have the power position).
+- [ ] - Add more themes and customization,
 
 ## Security & Accounts
 - [ ] **Host Accounts:** Implement User ID/Password so random people cannot admin games they didn't create.

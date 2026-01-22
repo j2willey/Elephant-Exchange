@@ -473,6 +473,34 @@ app.delete('/api/admin/flush', async (req, res) => {
 });
 
 
+// DELETE PARTICIPANT (Safety Valve)
+app.delete('/api/:gameId/participants/:participantId', async (req, res) => {
+    const { gameId, participantId } = req.params;
+    const state = await getGameState(gameId);
+
+    if (!state) return res.status(404).json({ error: "Game not found" });
+
+    const pIndex = state.participants.findIndex(p => p.id === participantId);
+    if (pIndex === -1) return res.status(404).json({ error: "Participant not found" });
+
+    const p = state.participants[pIndex];
+
+    // SAFETY CHECK: Cannot delete if they have already acted (hold a gift)
+    // This prevents breaking the history chain.
+    if (p.heldGiftId) {
+        return res.status(400).json({ error: "Cannot delete a player who has already taken a turn!" });
+    }
+
+    // Remove them
+    state.participants.splice(pIndex, 1);
+
+    await saveGameState(gameId, state);
+    io.to(gameId).emit('stateUpdate', state);
+
+    res.json({ success: true });
+});
+
+
 // --- SECTION F: SOCKET.IO ---
 io.on('connection', (socket) => {
     socket.on('joinGame', (gameId) => {
