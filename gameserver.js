@@ -76,7 +76,7 @@ async function saveGameState(gameId, state) {
 
 // 1. Create or Join Game
 app.post('/api/create', async (req, res) => {
-    const { gameId } = req.body;
+    const { gameId, partyName } = req.body;
     if (!gameId) return res.status(400).json({ error: "Game ID required" });
 
     const key = getGameKey(gameId);
@@ -85,6 +85,7 @@ app.post('/api/create', async (req, res) => {
     if (!exists) {
         const newState = getDefaultState(gameId);
         newState.createdAt = Date.now(); // Track creation
+        if (partyName) newState.settings.partyName = partyName;
         await saveGameState(gameId, newState);
         console.log(`✨ New Game Created: ${gameId}`);
     }

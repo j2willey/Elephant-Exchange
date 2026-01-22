@@ -13,16 +13,37 @@
         <div class="hero-content">
             <h1>🐘 Elephant Exchange</h1>
             <p class="subtitle">The logistical backbone for large-scale gift exchanges.</p>
-            
-            <div class="hero-actions">
-                <div class="input-group">
-                    <input type="text" id="gameIdInput" placeholder="Enter Game ID (e.g. troop2026)" />
-                    <button onclick="joinGame()" class="btn-primary">Host / Join Game</button>
+
+            <div class="hero-actions" style="margin-top:30px;">
+
+                <div style="display:flex; flex-wrap:wrap; gap:20px; justify-content:center; max-width:800px; margin:0 auto;">
+
+                    <div style="background:white; color:#1e293b; padding:25px; border-radius:12px; flex:1; min-width:300px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);">
+                        <h3 style="margin-top:0; color:#2563eb;">🚀 Host New Game</h3>
+                        <p style="font-size:0.9rem; color:#64748b; margin-bottom:15px;">Create a fresh event & invite guests.</p>
+
+                        <input type="text" id="landingHostInput" placeholder="e.g. Smith Family Xmas"
+                               style="width:100%; padding:12px; border:1px solid #cbd5e1; border-radius:6px; margin-bottom:10px; font-size:1rem;">
+
+                        <button onclick="goToHost()" class="btn-primary" style="width:100%;">Create Party</button>
+                    </div>
+
+                    <div style="background:white; color:#1e293b; padding:25px; border-radius:12px; flex:1; min-width:300px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);">
+                        <h3 style="margin-top:0; color:#2563eb;">🔍 Join Existing</h3>
+                        <p style="font-size:0.9rem; color:#64748b; margin-bottom:15px;">Reconnect to a game in progress.</p>
+
+                        <input type="text" id="landingJoinInput" placeholder="Game Name or ID"
+                               style="width:100%; padding:12px; border:1px solid #cbd5e1; border-radius:6px; margin-bottom:10px; font-size:1rem;">
+                         <button onclick="goToJoin()" class="btn-primary" style="width:100%;" >Find Game</button>
+                    </div>
+
                 </div>
-                <div class="sub-links">
+
+                <div class="sub-links" style="margin-top:30px;">
                     <a href="/faq.html" class="link-light">📖 Host's Playbook & Tips</a>
                 </div>
             </div>
+
         </div>
     </header>
 
@@ -55,14 +76,35 @@
         <p><a href="https://github.com/j2willey/Elephant-Exchange" target="_blank">View Source on GitHub</a></p>
     </footer>
 
-    <script>
-        function joinGame() {
-            const gameId = document.getElementById('gameIdInput').value.trim().toLowerCase();
-            if (gameId) window.location.href = `/gameadmin.html?game=${gameId}`;
-            else alert("Please enter a Game ID to start!");
+<script>
+        // 1. HOST ACTION
+        function goToHost() {
+            const val = document.getElementById('landingHostInput').value.trim();
+            if (val) {
+                // Send specifically to 'host' param
+                window.location.href = `/gameadmin.html?host=${encodeURIComponent(val)}`;
+            } else {
+                document.getElementById('landingHostInput').focus();
+            }
         }
-        document.getElementById('gameIdInput').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') joinGame();
+
+        // 2. JOIN ACTION
+        function goToJoin() {
+            const val = document.getElementById('landingJoinInput').value.trim();
+            if (val) {
+                // Send specifically to 'join' param
+                window.location.href = `/gameadmin.html?join=${encodeURIComponent(val)}`;
+            } else {
+                document.getElementById('landingJoinInput').focus();
+            }
+        }
+
+        // Enter Key Handlers
+        document.getElementById('landingHostInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') goToHost();
+        });
+        document.getElementById('landingJoinInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') goToJoin();
         });
     </script>
 </body>

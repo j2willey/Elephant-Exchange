@@ -9,7 +9,9 @@ let stealingPlayerId = null;
 let currentAdminGiftId = null;
 let votingInterval = null;
 
+
 document.addEventListener('DOMContentLoaded', () => {
+    // 1. Handle UI Scaling (Existing)
     const scaleSlider = document.getElementById('uiScale');
     const savedScale = localStorage.getItem('elephantScale');
     if (savedScale && scaleSlider) {
@@ -23,30 +25,133 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // 2. Handle URL Parameters (NEW LOGIC)
     const params = new URLSearchParams(window.location.search);
+
+    // Case A: "?game=xyz" -> Direct Auto-Join (Legacy/Direct Link)
     const urlGameId = params.get('game');
     if (urlGameId) {
+        // Hide the split UI immediately if we are auto-joining
         document.getElementById('gameIdInput').value = urlGameId;
         joinGame(urlGameId);
+        return;
     }
 
-    document.getElementById('gameIdInput').addEventListener('keypress', e => e.key === 'Enter' && joinGame());
-    document.getElementById('pName').addEventListener('keypress', e => e.key === 'Enter' && addParticipant());
+    // Case B: "?start=Smith Family" -> Pre-fill inputs from Landing Page
+    const startVal = params.get('start');
+    if (startVal) {
+        const decoded = decodeURIComponent(startVal);
+        const hostInput = document.getElementById('hostNameInput');
+        const joinInput = document.getElementById('joinNameInput');
+
+        // Pre-fill both so user can just click the button they want
+        if(hostInput) hostInput.value = decoded;
+        if(joinInput) joinInput.value = decoded;
+    }
+
+    // 3. Bind Enter Keys for the new Split UI
+    const hostInput = document.getElementById('hostNameInput');
+    if(hostInput) hostInput.addEventListener('keypress', e => e.key === 'Enter' && handleHostGame());
+
+    const joinInput = document.getElementById('joinNameInput');
+    if(joinInput) joinInput.addEventListener('keypress', e => e.key === 'Enter' && handleReconnectGame());
 });
 
-// --- 2. CONNECTION & STATE ---
-async function joinGame(forceId = null) {
+
+// --- 2. HOST & RECONNECT LOGIC (NEW) ---
+
+// HELPER: "Trim whitespace, remove weird chars, replace internal spaces with hyphen"
+function sanitizeGameId(str) {
+    return str.trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9\s-]/g, '') // Remove emojis/symbols
+        .replace(/\s+/g, '-')         // Spaces -> Hyphens
+        .replace(/^-+|-+$/g, '');     // Trim Hyphens
+}
+
+async function handleHostGame() {
+    const rawName = document.getElementById('hostNameInput').value;
+    if (!rawName.trim()) return alert("Please enter a name for your party!");
+
+    // 1. Sanitize
+    const baseId = sanitizeGameId(rawName);
+    if (!baseId) return alert("Please use letters and numbers.");
+
+    // 2. Check Collisions
+    const res = await fetch('/api/admin/games');
+    const games = await res.json();
+    const existingIds = new Set(games.map(g => g.id));
+
+    let finalId = baseId;
+    let counter = 1;
+
+    // 3. Mangle if exists (smith-xmas -> smith-xmas-1)
+    while (existingIds.has(finalId)) {
+        finalId = `${baseId}-${counter}`;
+        counter++;
+    }
+
+    // 4. Create and Join (Pass raw name for the Banner!)
+    joinGame(finalId, rawName.trim());
+}
+
+async function handleReconnectGame() {
+    const input = document.getElementById('joinNameInput').value;
+    if (!input.trim()) return alert("Enter a name to search.");
+
+    const term = sanitizeGameId(input);
+    const resultsDiv = document.getElementById('searchResults');
+    resultsDiv.innerHTML = '<p style="color:#6b7280;">Searching...</p>';
+
+    // 1. Fetch Games
+    const res = await fetch('/api/admin/games');
+    const games = await res.json();
+
+    // 2. Search Strategy: ID *contains* term
+    const matches = games.filter(g => g.id.includes(term));
+
+    resultsDiv.innerHTML = '';
+
+    if (matches.length === 0) {
+        resultsDiv.innerHTML = `<p style="color:#ef4444;">No games found matching "${term}"</p>`;
+    }
+    else if (matches.length === 1) {
+        joinGame(matches[0].id); // Auto-join single match
+    }
+    else {
+        // Show list
+        let html = `<p style="font-weight:bold; color:#374151;">Found ${matches.length} games:</p><ul style="list-style:none; padding:0;">`;
+        matches.forEach(g => {
+            html += `
+                <li style="margin-bottom:8px; border:1px solid #e5e7eb; padding:10px; border-radius:6px; display:flex; justify-content:space-between; align-items:center; background:#f9fafb;">
+                    <span><b>${g.id}</b> <span style="font-size:0.8em; color:#6b7280;">(${new Date(g.createdAt).toLocaleDateString()})</span></span>
+                    <button onclick="joinGame('${g.id}')" class="btn-primary" style="padding:4px 10px; font-size:0.8rem;">Join</button>
+                </li>`;
+        });
+        html += '</ul>';
+        resultsDiv.innerHTML = html;
+    }
+}
+
+
+// --- 3. CORE JOIN LOGIC ---
+async function joinGame(forceId = null, partyName = null) {
+    // Legacy support for the hidden input
     const inputId = document.getElementById('gameIdInput').value.trim().toLowerCase();
     const gameId = forceId || inputId;
     if(!gameId) return alert("Please enter a Game ID");
 
-    // Check if this is a "Fresh" load (for the defaults popup)
-    const isNewSession = !forceId;
+    // NEW: If we are creating a fresh game, forceId will be set AND partyName might be passed
+    // If partyName is passed, we know it's a NEW session.
+    const isNewSession = !!partyName;
+
+    const payload = { gameId };
+    if (partyName) payload.partyName = partyName;
 
     const res = await fetch('/api/create', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ gameId })
+        body: JSON.stringify(payload)
     });
 
     if(res.ok) {
@@ -60,16 +165,14 @@ async function joinGame(forceId = null) {
 
         initSocket(gameId);
 
-        // --- NEW FLOW ---
-        // If the user manually typed an ID and hit Enter, show the "Defaults" popup
-        // If the user refreshed the page (forceId exists), skip it.
         if (isNewSession) {
-             openSettings('defaults'); // Trigger the "Defaults" mode
+             openSettings('defaults');
         } else {
              refreshState();
         }
     }
 }
+
 
 function initSocket(gameId) {
     if (socket) socket.disconnect();
