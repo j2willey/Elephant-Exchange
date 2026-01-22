@@ -275,12 +275,19 @@ function renderParticipants(state) {
             } else if (stealingPlayerId) {
                 html += `<div style="font-size:0.8em; color:#ccc;">Waiting...</div>`;
             } else {
+                const isRosterMode = state.settings && state.settings.gameMode === 'roster';
+                const skipBtn = isRosterMode
+                    ? `<button onclick="skipTurn('${p.id}', '${safeName}')" class="btn-blue" title="Swap with next player" style="margin-right:5px;">⤵️ Skip</button>`
+                    : '';
+
                 html += `
                     <div class="action-buttons">
                         <button onclick="resetTimer('${p.id}')" class="btn-gray" title="Reset Timer" style="margin-right:5px;">🕒</button>
+                        ${skipBtn}
                         <button onclick="promptOpenGift('${p.id}')" class="btn-green" title="Open Gift">🎁 Open</button>
                         <button onclick="enterStealMode('${p.id}')" class="btn-orange" title="Steal Gift">😈 Steal</button>
-                        ${deleteBtn} </div>`;
+                        ${deleteBtn}
+                    </div>`;
             }
         } else {
             // For inactive players, put the delete button next to the status icon
@@ -449,6 +456,24 @@ async function deleteParticipant(participantId, name) {
     }
 }
 
+
+async function skipTurn(participantId, name) {
+    if (!confirm(`Skip ${name} for now? They will swap spots with the next player.`)) return;
+
+    try {
+        const res = await fetch(`/api/${currentGameId}/participants/${participantId}/swap`, {
+            method: 'POST'
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+            alert(data.error || "Failed to swap");
+        }
+    } catch (err) {
+        console.error(err);
+        alert("Server error skipping turn");
+    }
+}
 
 async function resetTimer(playerId) {
     if(!confirm("Restart the timer for this player?")) return;

@@ -344,6 +344,44 @@ app.post('/api/:gameId/steal', async (req, res) => {
     res.json({ success: true });
 });
 
+
+// 11. SWAP/SKIP TURN (Bathroom Break)
+app.post('/api/:gameId/participants/:participantId/swap', async (req, res) => {
+    const { gameId, participantId } = req.params;
+    const state = await getGameState(gameId);
+    if (!state) return res.status(404).json({ error: "Game not found" });
+
+    const pA = state.participants.find(p => p.id === participantId);
+    if (!pA) return res.status(404).json({ error: "Participant not found" });
+
+    // FIX: Don't just look for "number + 1".
+    // Look for the *next highest number* to handle gaps in the list.
+    const pB = state.participants
+        .filter(p => p.number > pA.number) // Everyone ahead of me
+        .sort((a, b) => a.number - b.number)[0]; // The closest one
+
+    if (!pB) {
+        // If no one is ahead, we can't skip (you are last!)
+        return res.status(400).json({ error: "Cannot skip: No next player found!" });
+    }
+    if (pB.heldGiftId) {
+        return res.status(400).json({ error: "Cannot skip: Next player has already gone!" });
+    }
+
+    // PERFORM THE SWAP
+    const temp = pA.number;
+    pA.number = pB.number;
+    pB.number = temp;
+
+    // Sort list by new numbers to keep data clean
+    state.participants.sort((a, b) => a.number - b.number);
+
+    await saveGameState(gameId, state);
+    io.to(gameId).emit('stateUpdate', state);
+
+    res.json({ success: true, message: `Swapped ${pA.name} with ${pB.name}` });
+});
+
 // 12. Upload Photo
 app.post('/api/:gameId/upload', upload.single('photo'), async (req, res) => {
     const { gameId } = req.params;
