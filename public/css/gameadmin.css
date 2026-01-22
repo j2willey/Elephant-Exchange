@@ -1,16 +1,14 @@
-/* * ELEPHANT EXCHANGE - ADMIN DASHBOARD STYLES 
- * Overrides global defaults for a fluid, app-like interface.
- */
+/* * ELEPHANT EXCHANGE - ADMIN DASHBOARD STYLES */
 
 /* --- 1. GLOBAL RESET & LAYOUT --- */
-* { box-sizing: border-box; } 
+* { box-sizing: border-box; }
 
-body { 
-    padding: 5px 5px 80px 5px; 
+body {
+    padding: 5px 5px 80px 5px;
     margin: 0;
-    width: 100vw;      
-    max-width: 100% !important; /* Override style.css limit */
-    overflow-x: hidden; 
+    width: 100vw;
+    max-width: 100% !important;
+    overflow-x: hidden;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
@@ -41,19 +39,19 @@ body {
 /* --- 3. FLUID DASHBOARD GRID --- */
 .main-layout {
     display: flex;
-    gap: 10px;       
+    gap: 10px;
     align-items: flex-start;
     width: 100%;
 }
 
 .sidebar {
-    flex: 3; 
+    flex: 3;
     min-width: 450px;
 }
 
 .content {
     flex: 7;
-    min-width: 0; 
+    min-width: 0;
 }
 
 /* --- 4. COMPONENTS --- */
@@ -65,8 +63,8 @@ body {
 .action-buttons button {
     padding: 8px 4px;
     font-size: 0.85rem;
-    white-space: nowrap; 
-    flex: 1; 
+    white-space: nowrap;
+    flex: 1;
 }
 
 .admin-footer {
@@ -82,17 +80,16 @@ body {
 /* --- 5. RESPONSIVE BREAKPOINT --- */
 @media (max-width: 850px) {
     .main-layout { flex-direction: column; }
-    .sidebar, .content { 
-        width: 100%; 
-        flex: none; 
+    .sidebar, .content {
+        width: 100%;
+        flex: none;
         min-width: 0;
     }
     .sidebar { margin-bottom: 20px; }
-}
+} /* <--- CRITICAL FIX: Closed the media query here */
 
 /* --- 6. SETTINGS MODAL & TOOLTIPS --- */
 
-/* THE FIX: Force a clean white card look */
 .admin-modal-content {
     background: #ffffff !important;
     color: #1f2937;
@@ -100,11 +97,14 @@ body {
     padding: 30px;
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
     max-width: 600px;
-    margin: 20px auto; /* Centers it vertically/horizontally in flex container */
+    margin: 20px auto;
     position: relative;
+
+    /* SCROLL FIX: Keeps buttons visible on small screens */
+    max-height: 85vh;
+    overflow-y: auto;
 }
 
-/* Modal Title */
 .admin-modal-content h3 {
     color: #111827;
     font-size: 1.5rem;
@@ -114,7 +114,6 @@ body {
     margin-bottom: 20px;
 }
 
-/* Sub-headers (Gameplay Rules) */
 .admin-modal-content h4 {
     color: #6b7280;
     text-transform: uppercase;
@@ -124,10 +123,10 @@ body {
     margin-bottom: 15px;
 }
 
-/* The Grid Layout */
+/* Grid Layout */
 .settings-grid {
     display: grid;
-    grid-template-columns: 1fr 200px; /* Text labels left, Inputs fixed width right */
+    grid-template-columns: 1fr 200px;
     gap: 15px 30px;
     align-items: center;
     margin-bottom: 10px;
@@ -141,7 +140,7 @@ body {
 
 .setting-label-group label {
     font-weight: 600;
-    color: #374151; /* Dark Grey Text */
+    color: #374151;
     font-size: 1rem;
 }
 
@@ -152,24 +151,23 @@ body {
     align-items: center;
     width: 20px;
     height: 20px;
-    background: #e0e7ff; /* Light Indigo */
-    color: #4338ca;      /* Deep Indigo Text */
+    background: #e0e7ff;
+    color: #4338ca;
     border-radius: 50%;
     font-size: 12px;
     font-weight: bold;
-    font-family: serif; 
+    font-family: serif;
     cursor: help;
     position: relative;
 }
 
-/* The Tooltip Popup (Dark bubble on White Modal = Good Contrast) */
 .info-icon:hover::after {
     content: attr(data-tooltip);
     position: absolute;
     left: 28px;
     top: -8px;
     width: 260px;
-    background: #1f2937; /* Nearly Black */
+    background: #1f2937;
     color: #fff;
     padding: 12px;
     border-radius: 8px;
@@ -182,9 +180,8 @@ body {
     pointer-events: none;
 }
 
-/* Inputs - Crisp White fields */
-.settings-grid input[type="text"], 
-.settings-grid input[type="number"], 
+.settings-grid input[type="text"],
+.settings-grid input[type="number"],
 .settings-grid select {
     padding: 10px;
     border: 1px solid #d1d5db;
@@ -193,21 +190,13 @@ body {
     background: #fff;
     color: #111827;
     font-size: 1rem;
-    transition: border-color 0.15s;
 }
-
 .settings-grid input:focus {
     outline: none;
     border-color: #2563eb;
     box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
-
 .settings-grid input[type="color"] {
-    width: 100%;
-    height: 40px;
-    padding: 2px;
-    cursor: pointer;
-    border: 1px solid #d1d5db;
-    border-radius: 6px;
-    background: white;
+    width: 100%; height: 40px; padding: 2px; cursor: pointer;
+    border: 1px solid #d1d5db; border-radius: 6px; background: white;
 }

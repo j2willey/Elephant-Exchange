@@ -107,23 +107,56 @@ app.post('/api/:gameId/reset', async (req, res) => {
     if (oldState && oldState.settings) {
         newState.settings = { ...newState.settings, ...oldState.settings };
     }
-    
+
     await saveGameState(gameId, newState);
     io.to(gameId).emit('stateUpdate', newState);
     res.json({ success: true });
 });
 
-// 4. Update Settings
+// 4. Update Settings & Handle Roster Import
 app.put('/api/:gameId/settings', async (req, res) => {
     const { gameId } = req.params;
+    const { rosterNames, ...settingsUpdates } = req.body; // Extract rosterNames separately
+
     const state = await getGameState(gameId);
     if (!state) return res.status(404).json({ error: "Game not found" });
 
-    state.settings = { ...state.settings, ...req.body };
+    // 1. Update Standard Settings
+    state.settings = { ...state.settings, ...settingsUpdates };
+
+    // 2. Handle Roster Import (The Randomizer)
+    if (rosterNames && Array.isArray(rosterNames) && rosterNames.length > 0) {
+        console.log(`🎲 Randomizing Roster for ${gameId} with ${rosterNames.length} names.`);
+
+        // Fisher-Yates Shuffle
+        const shuffled = [...rosterNames];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+
+        // Create Participants from Shuffled List
+        // WARNING: This replaces existing participants to prevent duplicates during setup
+        state.participants = shuffled.map((name, index) => ({
+            id: `p_${Date.now()}_${index}`,
+            name: name,
+            number: index + 1, // Assign turn order 1..N based on shuffle
+            heldGiftId: null,
+            isVictim: false,
+            timesStolenFrom: 0,
+            turnStartTime: null
+        }));
+
+        // Reset turn to 1
+        state.currentTurn = 1;
+    }
 
     await saveGameState(gameId, state);
+
+    // Broadcast updates
     io.to(gameId).emit('settingsUpdate', state.settings);
     io.to(gameId).emit('stateUpdate', state);
+
     res.json({ success: true });
 });
 
@@ -132,7 +165,7 @@ app.post('/api/:gameId/upload-logo', upload.single('logo'), async (req, res) => 
     const { gameId } = req.params;
     const state = await getGameState(gameId);
     if (!state) return res.status(404).json({ error: "Game not found" });
-    
+
     if (req.file) {
         state.settings.themeLogo = `/uploads/${gameId}/${req.file.filename}`;
         await saveGameState(gameId, state);
@@ -150,13 +183,13 @@ app.post('/api/:gameId/upload-logo', upload.single('logo'), async (req, res) => 
 app.post('/api/:gameId/phase/voting', async (req, res) => {
     const { gameId } = req.params;
     const { durationSeconds } = req.body;
-    
+
     const state = await getGameState(gameId);
     if (!state) return res.status(404).json({ error: "Game not found" });
 
     state.phase = 'voting';
     state.votingEndsAt = Date.now() + (durationSeconds * 1000);
-    
+
     await saveGameState(gameId, state);
     io.to(gameId).emit('stateUpdate', state);
     res.json({ success: true });
@@ -181,7 +214,7 @@ app.post('/api/:gameId/phase/results', async (req, res) => {
 app.post('/api/:gameId/participants', async (req, res) => {
     const { gameId } = req.params;
     const { name, number } = req.body;
-    
+
     const state = await getGameState(gameId);
     if (!state) return res.status(404).json({ error: "Game not found" });
 
@@ -250,7 +283,7 @@ app.post('/api/:gameId/open-new', async (req, res) => {
 
     state.gifts.push(newGift);
     player.heldGiftId = giftId;
-    
+
     if (!player.isVictim) {
         state.currentTurn++;
     }
@@ -281,7 +314,7 @@ app.post('/api/:gameId/steal', async (req, res) => {
     if (thief.forbiddenGiftId === giftId) return res.status(400).json({ error: "No Take-Backs!" });
 
     const victim = state.participants.find(p => p.id === gift.ownerId);
-    
+
     if (victim) {
         victim.heldGiftId = null;
         victim.isVictim = true;
@@ -292,7 +325,7 @@ app.post('/api/:gameId/steal', async (req, res) => {
     thief.heldGiftId = giftId;
     thief.isVictim = false;
     thief.forbiddenGiftId = null;
-    
+
     gift.ownerId = thiefId;
     gift.stealCount++;
     if (gift.stealCount >= maxSteals) {
@@ -302,7 +335,7 @@ app.post('/api/:gameId/steal', async (req, res) => {
     if (!thief.isVictim && state.participants.find(p => p.number === state.currentTurn)?.id === thiefId) {
          state.currentTurn++;
     }
-    
+
     updateActiveTimers(state);
 
     await saveGameState(gameId, state);
@@ -314,10 +347,10 @@ app.post('/api/:gameId/steal', async (req, res) => {
 app.post('/api/:gameId/upload', upload.single('photo'), async (req, res) => {
     const { gameId } = req.params;
     const { giftId, uploaderName } = req.body;
-    
+
     const state = await getGameState(gameId);
     const gift = state.gifts.find(g => g.id === giftId);
-    
+
     if (gift && req.file) {
         const imgEntry = {
             id: `img_${Date.now()}`,
@@ -325,12 +358,12 @@ app.post('/api/:gameId/upload', upload.single('photo'), async (req, res) => {
             uploader: uploaderName || 'Anonymous',
             timestamp: Date.now()
         };
-        
+
         if (!gift.images) gift.images = [];
         gift.images.push(imgEntry);
-        
+
         if (!gift.primaryImageId) gift.primaryImageId = imgEntry.id;
-        
+
         await saveGameState(gameId, state);
         io.to(gameId).emit('stateUpdate', state);
         res.json({ success: true });
@@ -343,10 +376,10 @@ app.post('/api/:gameId/upload', upload.single('photo'), async (req, res) => {
 app.put('/api/:gameId/images/:giftId/primary', async (req, res) => {
     const { gameId, giftId } = req.params;
     const { imageId } = req.body;
-    
+
     const state = await getGameState(gameId);
     const gift = state.gifts.find(g => g.id === giftId);
-    
+
     if (gift) {
         gift.primaryImageId = imageId;
         await saveGameState(gameId, state);
@@ -360,10 +393,10 @@ app.put('/api/:gameId/images/:giftId/primary', async (req, res) => {
 // 14. Delete Image
 app.delete('/api/:gameId/images/:giftId/:imageId', async (req, res) => {
     const { gameId, giftId, imageId } = req.params;
-    
+
     const state = await getGameState(gameId);
     const gift = state.gifts.find(g => g.id === giftId);
-    
+
     if (gift && gift.images) {
         gift.images = gift.images.filter(img => img.id !== imageId);
         if (gift.primaryImageId === imageId) {
@@ -406,7 +439,7 @@ app.post('/api/:gameId/vote', async (req, res) => {
 app.get('/api/admin/games', async (req, res) => {
     const keys = await redisClient.keys('game:*');
     const games = [];
-    
+
     for (const key of keys) {
         const data = await redisClient.get(key);
         if (data) {
@@ -421,7 +454,7 @@ app.get('/api/admin/games', async (req, res) => {
             });
         }
     }
-    
+
     games.sort((a,b) => b.lastActivity - a.lastActivity);
     res.json(games);
 });

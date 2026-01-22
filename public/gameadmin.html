@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Elephant Exchange - Host</title>
-    
+
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/gameadmin.css">
 
@@ -18,14 +18,14 @@
     <div id="login-section" class="container" style="text-align:center; margin-top:100px;">
         <div class="card" style="max-width:400px; margin:0 auto; padding:40px;">
             <h2>Elephant Exchange</h2>
-            <input type="text" id="gameIdInput" placeholder="Enter Game ID" 
+            <input type="text" id="gameIdInput" placeholder="Enter Game ID"
                    style="width:100%; padding:15px; font-size:1.2rem; margin:20px 0; border:1px solid #ccc; border-radius:8px;">
             <button onclick="joinGame()" class="btn-primary" style="width:100%; font-size:1.2rem;">Start Managing</button>
         </div>
     </div>
 
     <div id="dashboard-section" class="hidden">
-        
+
         <header class="admin-banner">
             <h1 id="bannerTitle">Elephant Exchange</h1>
             <div id="bannerTagline" class="tagline"></div>
@@ -87,7 +87,7 @@
     <div id="settingsModal" class="admin-modal-overlay hidden">
         <div class="admin-modal-content" style="max-width: 600px;">
             <h3 id="settingsModalTitle" style="margin-top:0; border-bottom:1px solid #eee; padding-bottom:10px;">Game Settings</h3>
-            
+
             <div class="settings-grid">
                 <div class="setting-label-group">
                     <label>Party Name</label>
@@ -134,6 +134,42 @@
                     <span class="info-icon" data-tooltip="How many people take a turn at the same time? Usually 1.">i</span>
                 </div>
                 <input type="number" id="settingActiveCount">
+
+            </div>
+
+            <div style="margin-bottom: 15px;">
+                <div style="margin-bottom: 15px; margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px;">
+                    <h4 style="margin:0; color:#111827; font-size:1rem; text-transform:uppercase; letter-spacing:0.05em;">Participant Management</h4>
+                </div>
+            </div>
+
+            <div class="settings-grid">
+                <div class="setting-label-group">
+                    <label>Turn Order</label>
+                    <span class="info-icon" data-tooltip="OFF = Host calls 'Who has #1?'. ON = Computer shuffles names and assigns numbers.">i</span>
+                </div>
+
+                <label class="toggle-switch" style="width:100%;">
+                    <input type="checkbox" id="settingGameModeToggle" onchange="toggleRosterInput()">
+                    <span class="slider round"></span>
+                    <span class="toggle-label" id="gameModeLabel" style="font-size:0.9rem; font-weight:600; color:#374151; margin-left:10px;">Manual Numbers</span>
+                </label>
+
+                <div class="setting-label-group">
+                    <label>Total Players</label>
+                    <span class="info-icon" data-tooltip="Sets the game size. In Auto-Shuffle mode, this auto-fills the name list!">i</span>
+                </div>
+                <input type="number" id="settingTotalPlayers" placeholder="e.g. 20" oninput="syncRosterFromCount()">
+            </div>
+
+            <div id="rosterInputSection" style="display:none; margin-top:10px; background:#f9fafb; padding:15px; border-radius:8px; border:1px solid #e5e7eb;">
+                <div class="setting-label-group" style="margin-bottom:8px; justify-content: space-between;">
+                    <label style="font-size:0.9rem;">Player List (Names)</label>
+                    <span style="font-size:0.8rem; color:#6b7280;">Count: <b id="rosterCountDisplay">0</b></span>
+                </div>
+                <textarea id="settingRosterNames" rows="8" placeholder="Alice&#10;Bob&#10;Charlie"
+                          oninput="syncCountFromRoster()"
+                          style="width:100%; padding:10px; border:1px solid #d1d5db; border-radius:6px; font-family:sans-serif; line-height:1.4;"></textarea>
             </div>
 
             <div style="margin-top:20px; text-align:right; display:flex; justify-content:flex-end; gap:10px;">

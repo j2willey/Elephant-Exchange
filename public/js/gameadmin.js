@@ -5,9 +5,9 @@
 // --- 1. GLOBALS & INIT ---
 let socket;
 let currentGameId = null;
-let stealingPlayerId = null; 
-let currentAdminGiftId = null; 
-let votingInterval = null;     
+let stealingPlayerId = null;
+let currentAdminGiftId = null;
+let votingInterval = null;
 
 document.addEventListener('DOMContentLoaded', () => {
     const scaleSlider = document.getElementById('uiScale');
@@ -41,7 +41,7 @@ async function joinGame(forceId = null) {
     if(!gameId) return alert("Please enter a Game ID");
 
     // Check if this is a "Fresh" load (for the defaults popup)
-    const isNewSession = !forceId; 
+    const isNewSession = !forceId;
 
     const res = await fetch('/api/create', {
         method: 'POST',
@@ -57,9 +57,9 @@ async function joinGame(forceId = null) {
         document.getElementById('login-section').classList.add('hidden');
         document.getElementById('dashboard-section').classList.remove('hidden');
         document.getElementById('displayGameId').innerText = gameId;
-        
+
         initSocket(gameId);
-        
+
         // --- NEW FLOW ---
         // If the user manually typed an ID and hit Enter, show the "Defaults" popup
         // If the user refreshed the page (forceId exists), skip it.
@@ -128,10 +128,10 @@ function renderParticipants(state) {
     sorted.forEach(p => {
         const isActive = activeIds.includes(p.id);
         const li = document.createElement('li');
-        
+
         if (isActive) {
             li.classList.add('active-row');
-            if (p.isVictim) { 
+            if (p.isVictim) {
                 li.classList.remove('active-row');
                 li.classList.add('victim-row');
             }
@@ -149,12 +149,12 @@ function renderParticipants(state) {
         let timerHtml = '';
         if (isActive) {
             const duration = state.settings.turnDurationSeconds || 60;
-            const startTime = p.turnStartTime || Date.now(); 
+            const startTime = p.turnStartTime || Date.now();
             timerHtml = ` <span class="player-timer" data-start="${startTime}" data-duration="${duration}" style="font-family:monospace; font-weight:bold; font-size:1.2em; margin-left:10px;">--:--</span>`;
         }
 
         let html = `<span><b>#${p.number}</b> ${p.name} ${statsBadge} ${timerHtml}</span>`;
-        
+
         if (isActive && !p.heldGiftId) {
             if (stealingPlayerId === p.id) {
                 html += `
@@ -195,7 +195,7 @@ function renderGifts(state) {
     gList.innerHTML = sorted.map(g => {
         const owner = state.participants.find(p => p.id === g.ownerId);
         const ownerName = owner ? owner.name : 'Unknown';
-        
+
         if (isVoting) {
             const count = g.downvotes?.length || 0;
             const highlight = count > 0 ? "font-weight:bold; color:#ef4444;" : "color:#9ca3af;";
@@ -245,7 +245,7 @@ function renderPhaseControls(state) {
     const container = document.getElementById('phaseControls');
     if (!container) return;
 
-    const phase = state.phase || 'active'; 
+    const phase = state.phase || 'active';
 
     if (phase !== 'voting' && votingInterval) {
         clearInterval(votingInterval);
@@ -253,15 +253,15 @@ function renderPhaseControls(state) {
     }
 
     if (phase === 'active') {
-        container.innerHTML = ''; 
-        container.style.display = 'none'; 
-    } 
+        container.innerHTML = '';
+        container.style.display = 'none';
+    }
     else if (phase === 'voting') {
         container.style.display = 'block';
         const now = Date.now();
         const endsAt = state.votingEndsAt || 0;
         let remaining = Math.max(0, Math.ceil((endsAt - now) / 1000));
-        
+
         container.innerHTML = `
             <div style="background:#fff7ed; border:2px solid #f97316; padding:15px; border-radius:8px; text-align:center; margin-bottom:20px;">
                 <h3 style="margin:0 0 10px 0; color:#d97706;">🗳️ Voting in Progress</h3>
@@ -280,11 +280,11 @@ function renderPhaseControls(state) {
                 el.innerText = `${curr}s`;
                 if (curr <= 0) {
                     clearInterval(votingInterval);
-                    refreshState(); 
+                    refreshState();
                 }
             }, 1000);
         }
-    } 
+    }
     else if (phase === 'results') {
         container.style.display = 'block';
         container.innerHTML = `
@@ -304,13 +304,13 @@ async function addParticipant() {
     const num = document.getElementById('pNumber').value;
     const name = document.getElementById('pName').value;
     if(!name && !num) return;
-    
+
     await fetch(`/api/${currentGameId}/participants`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ name, number: num })
     });
-    
+
     document.getElementById('pName').value = '';
     document.getElementById('pNumber').value = '';
     document.getElementById('pName').focus();
@@ -318,7 +318,7 @@ async function addParticipant() {
 
 async function resetTimer(playerId) {
     if(!confirm("Restart the timer for this player?")) return;
-    
+
     await fetch(`/api/${currentGameId}/participants/${playerId}`, {
         method: 'PUT',
         headers: {'Content-Type': 'application/json'},
@@ -332,13 +332,13 @@ async function promptOpenGift(playerId) {
     await fetch(`/api/${currentGameId}/open-new`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ description, playerId }) 
+        body: JSON.stringify({ description, playerId })
     });
 }
 
 function enterStealMode(playerId) {
     stealingPlayerId = playerId;
-    refreshState(); 
+    refreshState();
 }
 
 function cancelStealMode() {
@@ -347,17 +347,17 @@ function cancelStealMode() {
 }
 
 async function attemptSteal(giftId, description) {
-    if (!stealingPlayerId) return; 
+    if (!stealingPlayerId) return;
     if(!confirm(`Confirm steal: ${description}?`)) return;
 
     try {
         const res = await fetch(`/api/${currentGameId}/steal`, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ giftId, thiefId: stealingPlayerId }) 
+            body: JSON.stringify({ giftId, thiefId: stealingPlayerId })
         });
         if(!res.ok) alert("Error: " + (await res.json()).error);
-    } catch (err) { alert("Steal failed."); } 
+    } catch (err) { alert("Steal failed."); }
     finally {
         stealingPlayerId = null;
         refreshState();
@@ -378,7 +378,7 @@ async function editGift(giftId, currentDesc) {
 async function clearDb() {
     if(!currentGameId) return;
     if(!confirm("⚠️ DANGER: This will delete ALL players and gifts.\n\nAre you sure?")) return;
-    
+
     const res = await fetch(`/api/${currentGameId}/reset`, { method: 'POST' });
     if(res.ok) location.reload();
 }
@@ -386,7 +386,7 @@ async function clearDb() {
 // --- 5. PHASE & SETTINGS ---
 async function confirmEndGame() {
     const enableVoting = confirm("Would you like to enable 'Worst Gift Voting'?\n\nOK = Yes, Start Voting Phase.\nCancel = No, just end the game.");
-    
+
     if (enableVoting) {
         const duration = prompt("How many seconds for voting?", "180");
         if (!duration) return;
@@ -412,7 +412,7 @@ async function resetGame() {
 
 function openSettings(mode = 'edit') {
     if(!currentGameId) return;
-    
+
     // UI: Defaults vs Edit Mode
     const title = document.getElementById('settingsModalTitle');
     const btnSave = document.getElementById('btnSaveSettings');
@@ -432,15 +432,21 @@ function openSettings(mode = 'edit') {
         .then(res => res.json())
         .then(state => {
             const s = state.settings || {};
-            
-            document.getElementById('settingPartyName').value = s.partyName || '';
+
+            document.getElementById('settingPartyName').value = s.partyName || currentGameId;
             document.getElementById('settingTagline').value = s.tagline || '';
             document.getElementById('settingDuration').value = s.turnDurationSeconds || 60;
             document.getElementById('settingMaxSteals').value = s.maxSteals || 3;
             document.getElementById('settingActiveCount').value = s.activePlayerCount || 1;
-            
+
             const color = document.getElementById('settingThemeColor');
             if(color) color.value = s.themeColor || '#2563eb';
+
+            const gameMode = s.gameMode || 'open';
+            document.getElementById('settingGameModeToggle').checked = (gameMode === 'roster');
+            document.getElementById('settingTotalPlayers').value = s.totalPlayerCount || '';
+
+            toggleRosterInput(); // Apply UI state
 
             // Show Modal
             const modal = document.getElementById('settingsModal');
@@ -450,17 +456,34 @@ function openSettings(mode = 'edit') {
 }
 
 async function saveSettings() {
+    // Determine mode from checkbox
+    const isRoster = document.getElementById('settingGameModeToggle').checked;
+    const mode = isRoster ? 'roster' : 'open';
+
+    let roster = [];
+
+    if (isRoster) {
+        const rawText = document.getElementById('settingRosterNames').value;
+        roster = rawText.split('\n').map(n => n.trim()).filter(n => n.length > 0);
+    }
+
     const payload = {
-        partyName: document.getElementById('settingPartyName').value, 
+        // ... (standard fields: partyName, etc) ...
+        partyName: document.getElementById('settingPartyName').value,
         tagline: document.getElementById('settingTagline').value,
         turnDurationSeconds: document.getElementById('settingDuration').value,
         maxSteals: document.getElementById('settingMaxSteals').value,
         activePlayerCount: document.getElementById('settingActiveCount').value,
-        scrollSpeed: document.getElementById('settingScrollSpeed').value,
-        soundTheme: document.getElementById('settingSoundTheme')?.value || 'standard',
-        themeColor: document.getElementById('settingThemeColor')?.value
+        themeColor: document.getElementById('settingThemeColor').value,
+
+        gameMode: mode,
+        totalPlayerCount: document.getElementById('settingTotalPlayers').value,
+
+        // Only send roster if in roster mode
+        rosterNames: (isRoster && roster.length > 0) ? roster : null
     };
 
+    // ... (fetch logic) ...
     await fetch(`/api/${currentGameId}/settings`, {
         method: 'PUT',
         headers: {'Content-Type': 'application/json'},
@@ -499,7 +522,7 @@ window.openImgModal = function(giftId) {
 
             currentAdminGiftId = giftId;
             document.getElementById('imgModalTitle').innerText = `Images: ${gift.description}`;
-            document.getElementById('imageModal').classList.add('active'); 
+            document.getElementById('imageModal').classList.add('active');
             renderAdminImages(gift);
         });
 }
@@ -521,7 +544,7 @@ function renderAdminImages(gift) {
     gift.images.forEach(img => {
         const isPrimary = img.id === gift.primaryImageId;
         const heroClass = isPrimary ? 'hero' : '';
-        
+
         const div = document.createElement('div');
         div.className = `admin-img-card ${heroClass}`;
         div.innerHTML = `
@@ -584,16 +607,16 @@ setInterval(() => {
         const start = parseInt(el.dataset.start);
         const duration = parseInt(el.dataset.duration) * 1000;
         if (!start) return;
-        
+
         const remaining = Math.max(0, duration - (Date.now() - start));
         const seconds = Math.ceil(remaining / 1000);
         const m = Math.floor(seconds / 60);
         const s = seconds % 60;
         el.innerText = `${m}:${s.toString().padStart(2, '0')}`;
 
-        if (seconds <= 10) el.style.color = "#dc2626"; 
-        else if (seconds <= 30) el.style.color = "#d97706"; 
-        else el.style.color = "#2563eb"; 
+        if (seconds <= 10) el.style.color = "#dc2626";
+        else if (seconds <= 30) el.style.color = "#d97706";
+        else el.style.color = "#2563eb";
     });
 }, 1000);
 
@@ -604,7 +627,7 @@ function setTvMode(mode) {
     if (mode === 'rules') document.getElementById('btnTvRules').classList.add('active');
     else if (mode === 'qr') document.getElementById('btnTvQr').classList.add('active');
     else if (mode === 'catalog') document.getElementById('btnTvGrid').classList.add('active');
-    else document.getElementById('btnTvList').classList.add('active'); 
+    else document.getElementById('btnTvList').classList.add('active');
 }
 
 function previewScrollSpeed() {
@@ -618,7 +641,7 @@ function showLocalQr() {
     const container = document.getElementById('localQrcode');
     container.innerHTML = '';
     new QRCode(container, { text: url, width: 200, height: 200 });
-    
+
     let link = document.getElementById('localQrLink');
     if(!link) {
         link = document.createElement('a');
@@ -645,4 +668,110 @@ function closeLocalQr() {
 
 window.openCatalog = function() {
     if(currentGameId) window.open(`/catalog.html?game=${currentGameId}`, '_blank');
+}
+
+// --- 8. UI HELPERS & SYNC LOGIC ---
+
+function toggleRosterInput() {
+    const isRosterMode = document.getElementById('settingGameModeToggle').checked;
+    const label = document.getElementById('gameModeLabel');
+    const rosterSection = document.getElementById('rosterInputSection');
+
+    // Inputs
+    const countInput = document.getElementById('settingTotalPlayers');
+    const rosterArea = document.getElementById('settingRosterNames');
+
+    if (isRosterMode) {
+        label.innerText = "Auto-Shuffle Names";
+        label.style.color = "#2563eb";
+        rosterSection.style.display = 'block';
+
+        // Disable the manual number input (since the list drives the count)
+        countInput.disabled = true;
+        countInput.style.backgroundColor = "#f3f4f6";
+
+        // NEW: Force Default to 5 if empty
+        // We check if value is empty string OR 0 OR null
+        if (!countInput.value || parseInt(countInput.value) === 0) {
+            countInput.value = 5;
+            syncRosterFromCount(); // Generates "Player 1" -> "Player 5"
+        } else {
+            // Otherwise, update the list/count based on what's there
+            syncCountFromRoster();
+        }
+
+    } else {
+        label.innerText = "Manual Numbers";
+        label.style.color = "#374151";
+        rosterSection.style.display = 'none';
+
+        // Re-enable manual input
+        countInput.disabled = false;
+        countInput.style.backgroundColor = "#ffffff";
+    }
+}
+
+// 1. INPUT -> TEXTAREA (User types "5", Textarea gets "Player 1...Player 5")
+function syncRosterFromCount() {
+    // Only auto-fill if we are in Roster Mode
+    if (!document.getElementById('settingGameModeToggle').checked) return;
+
+    const countInput = document.getElementById('settingTotalPlayers');
+    const rosterArea = document.getElementById('settingRosterNames');
+
+    const count = parseInt(countInput.value) || 0;
+
+    // Safety check: Limit generation to 100 to prevent browser hanging
+    if (count > 100) return;
+
+    // Generate the list
+    let lines = [];
+    for (let i = 1; i <= count; i++) {
+        lines.push(`Player ${i}`);
+    }
+
+    rosterArea.value = lines.join('\n');
+    updateCountDisplay(count);
+}
+
+// 2. TEXTAREA -> INPUT (User types names -> Updates "5")
+function syncCountFromRoster() {
+    const rosterArea = document.getElementById('settingRosterNames');
+    const countInput = document.getElementById('settingTotalPlayers');
+
+    // THE FIX: Strict Filter
+    // We only count lines that have actual characters (trimming whitespace).
+    // This ignores blank lines created by hitting 'Enter'.
+    const lines = rosterArea.value.split('\n').filter(line => line.trim().length > 0);
+
+    const count = lines.length;
+    updateCountDisplay(count);
+
+    // Update the input field
+    if (countInput.value != count) {
+        countInput.value = count;
+    }
+}
+
+// Helper to update the small text "Count: X"
+function updateCountDisplay(n) {
+    const el = document.getElementById('rosterCountDisplay');
+    if(el) el.innerText = n;
+}
+
+// Add Blur Listener to clean up empty lines when user leaves the box
+const rosterAreaRef = document.getElementById('settingRosterNames');
+if(rosterAreaRef) {
+    rosterAreaRef.addEventListener('blur', function() {
+        // When user clicks away, remove the ugly blank lines to keep it tidy
+        const cleanText = this.value.split('\n')
+            .map(l => l.trim())
+            .filter(l => l.length > 0)
+            .join('\n');
+
+        if (this.value !== cleanText) {
+            this.value = cleanText;
+            syncCountFromRoster();
+        }
+    });
 }
