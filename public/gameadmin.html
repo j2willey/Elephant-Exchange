@@ -15,13 +15,36 @@
 </head>
 <body>
 
-    <div id="login-section" class="container" style="text-align:center; margin-top:100px;">
-        <div class="card" style="max-width:400px; margin:0 auto; padding:40px;">
-            <h2>Elephant Exchange</h2>
-            <input type="text" id="gameIdInput" placeholder="Enter Game ID"
-                   style="width:100%; padding:15px; font-size:1.2rem; margin:20px 0; border:1px solid #ccc; border-radius:8px;">
-            <button onclick="joinGame()" class="btn-primary" style="width:100%; font-size:1.2rem;">Start Managing</button>
+<div id="login-section" class="login-container">
+        <h1 style="font-size: 2.5rem; margin-bottom: 0.5rem;">🐘 Elephant Exchange</h1>
+        <p style="color: #94a3b8; margin-bottom: 2rem;">The ultimate White Elephant party companion.</p>
+
+        <div class="login-split-card">
+            <div class="login-half left">
+                <h2>🎉 Host a Party</h2>
+                <p>Start a brand new game.</p>
+                <div class="input-group">
+                    <input type="text" id="hostNameInput" placeholder="e.g. Smith Family Xmas">
+                    <button onclick="handleHostGame()" class="btn-primary">Create & Host 🚀</button>
+                </div>
+            </div>
+
+            <div class="login-divider">
+                <span>OR</span>
+            </div>
+
+            <div class="login-half right">
+                <h2>🕵️ Reconnect</h2>
+                <p>Manage an existing game.</p>
+                <div class="input-group">
+                    <input type="text" id="joinNameInput" placeholder="Search Party Name...">
+                    <button onclick="handleReconnectGame()" class="btn-secondary">Search 🔍</button>
+                </div>
+                <div id="searchResults" style="margin-top:10px; text-align:left;"></div>
+            </div>
         </div>
+
+        <input type="hidden" id="gameIdInput">
     </div>
 
     <div id="dashboard-section" class="hidden">

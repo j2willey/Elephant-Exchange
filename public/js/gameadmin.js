@@ -11,7 +11,7 @@ let votingInterval = null;
 let pendingLateName = null;
 
 document.addEventListener('DOMContentLoaded', () => {
-    // 1. Handle UI Scaling (Existing)
+    // 1. Handle UI Scaling
     const scaleSlider = document.getElementById('uiScale');
     const savedScale = localStorage.getItem('elephantScale');
     if (savedScale && scaleSlider) {
@@ -25,31 +25,35 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 2. Handle URL Parameters (NEW LOGIC)
+    // 2. Handle URL Parameters (Auto-Login Logic)
     const params = new URLSearchParams(window.location.search);
 
-    // Case A: "?game=xyz" -> Direct Auto-Join (Legacy/Direct Link)
+    // Case A: Direct Link to ID ("?game=willey")
+    // Behavior: Join immediately, NO Setup Wizard (assume returning user)
     const urlGameId = params.get('game');
     if (urlGameId) {
-        // Hide the split UI immediately if we are auto-joining
         document.getElementById('gameIdInput').value = urlGameId;
         joinGame(urlGameId);
         return;
     }
 
-    // Case B: "?start=Smith Family" -> Pre-fill inputs from Landing Page
+    // Case B: Landing Page Handoff ("?start=The Willey Party")
+    // Behavior: Create/Join immediately AND trigger Setup Wizard (assume new host)
     const startVal = params.get('start');
     if (startVal) {
         const decoded = decodeURIComponent(startVal);
-        const hostInput = document.getElementById('hostNameInput');
-        const joinInput = document.getElementById('joinNameInput');
+        const cleanId = sanitizeGameId(decoded);
 
-        // Pre-fill both so user can just click the button they want
-        if(hostInput) hostInput.value = decoded;
-        if(joinInput) joinInput.value = decoded;
+        // FIX: Don't just pre-fill inputs. EXECUTE immediately.
+        // We pass 'decoded' as the 2nd argument (Party Name).
+        // This tells joinGame() to trigger openSettings('defaults') on success.
+        if (cleanId) {
+            joinGame(cleanId, decoded);
+            return;
+        }
     }
 
-    // 3. Bind Enter Keys for the new Split UI
+    // 3. Bind Enter Keys (Only needed if user arrives with NO params)
     const hostInput = document.getElementById('hostNameInput');
     if(hostInput) hostInput.addEventListener('keypress', e => e.key === 'Enter' && handleHostGame());
 

@@ -82,7 +82,7 @@
             const val = document.getElementById('landingHostInput').value.trim();
             if (val) {
                 // Send specifically to 'host' param
-                window.location.href = `/gameadmin.html?host=${encodeURIComponent(val)}`;
+                window.location.href = `/gameadmin.html?start=${encodeURIComponent(val)}`;
             } else {
                 document.getElementById('landingHostInput').focus();
             }
