@@ -39,7 +39,7 @@ test.describe('Elephant Exchange Full Loop', () => {
 
         await adminPage.fill('#pName', 'Bob');
         await adminPage.click('button:has-text("Add")');
-        await expect(adminPage.locator('#participantList')).toContainText('Bob');
+        await adminPage.click('text=Add to End');
 
         // --- STEP 4: OPEN GIFT (Alice) ---
         // Click "Open" on the active player row

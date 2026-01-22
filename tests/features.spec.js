@@ -8,8 +8,8 @@ test('Feature Check: Reset Timer and On Deck', async ({ browser }) => {
 
     // 1. Setup Game
     await adminPage.goto(`http://localhost:3000/gameadmin.html`);
-    await adminPage.fill('#gameIdInput', gameId);
-    await adminPage.press('#gameIdInput', 'Enter');
+    await adminPage.fill('#hostNameInput', gameId);
+    await adminPage.click('text=Create & Host');
 
     // This is the "Start Game 🚀" button
     const startBtn = adminPage.locator('#btnSaveSettings');

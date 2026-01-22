@@ -23,8 +23,8 @@ test.describe('Elephant Exchange E2E', () => {
         console.log('Step 1: Admin Login');
         await adminPage.goto('http://localhost:3000/gameadmin.html');
 
-        await adminPage.fill('#gameIdInput', GAME_ID);
-        await adminPage.click('text=Start Managing');
+        await adminPage.fill('#hostNameInput', gameId);
+        await adminPage.click('text=Create & Host');
 
         // FIX: Dismiss the "Game Defaults" Modal
         // Since we manually typed the ID, the app treats this as a new setup
