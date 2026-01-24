@@ -4,10 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Elephant Exchange - Host</title>
-
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/gameadmin.css">
-
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="js/gamelib.js" defer></script>
@@ -15,7 +13,7 @@
 </head>
 <body>
 
-<div id="login-section" class="login-container">
+    <div id="login-section" class="login-container">
         <h1 style="font-size: 2.5rem; margin-bottom: 0.5rem;">🐘 Elephant Exchange</h1>
         <p style="color: #94a3b8; margin-bottom: 2rem;">The ultimate White Elephant party companion.</p>
 
@@ -29,9 +27,7 @@
                 </div>
             </div>
 
-            <div class="login-divider">
-                <span>OR</span>
-            </div>
+            <div class="login-divider"><span>OR</span></div>
 
             <div class="login-half right">
                 <h2>🕵️ Reconnect</h2>
@@ -43,7 +39,6 @@
                 <div id="searchResults" style="margin-top:10px; text-align:left;"></div>
             </div>
         </div>
-
         <input type="hidden" id="gameIdInput">
     </div>
 
@@ -55,7 +50,7 @@
         </header>
 
         <div class="menu-bar">
-            <div style="margin-right: auto; display: flex; gap: 5px; align-items: center;">
+            <div style="margin-right: auto; display: flex; gap: 8px; align-items: center;">
                 <span class="menu-label">TV View:</span>
                 <button id="btnTvRules"  onclick="setTvMode('rules')"   class="btn-toggle" title="Show Rules">Rules</button>
                 <button id="btnTvQr"     onclick="setTvMode('qr')"      class="btn-toggle" title="Show Join QR">QR</button>
@@ -64,11 +59,11 @@
             </div>
 
             <div style="display:flex; gap:10px; align-items: center;">
-                <span class="menu-label">Admin:</span>
-                <button onclick="showLocalQr()" class="btn-toggle" title="Show QR on this screen">Invite</button>
-                <button onclick="openCatalog()" class="btn-toggle" title="Open Catalog in new window">Catalog</button>
-                <a href="/faq.html" target="_blank" class="btn-toggle" title="View Help">Help</a>
-                <button onclick="openSettings()" class="btn-toggle" title="Game Settings">Settings</button>
+                <button onclick="showLocalQr()" class="btn-ghost" title="Show QR on this screen">Invite</button>
+                <button onclick="openCatalog()" class="btn-ghost" title="Open Catalog in new window">Catalog</button>
+
+                <a href="/faq.html" target="_blank" class="icon-btn" title="Help / FAQ">❓</a>
+                <button onclick="openSettings()" class="icon-btn" title="Game Settings">⚙️</button>
             </div>
         </div>
 
@@ -77,8 +72,8 @@
                 <div class="card">
                     <h3>Participants</h3>
                     <div style="display:flex; gap:5px; margin-bottom:10px;">
-                        <input type="number" id="pNumber" placeholder="#" style="width:50px;">
-                        <input type="text" id="pName" placeholder="Name" style="flex:1;">
+                        <input type="number" id="pNumber" placeholder="#" style="width:60px; padding:8px; border:1px solid #d1d5db; border-radius:4px;">
+                        <input type="text" id="pName" placeholder="Name" style="flex:1; padding:8px; border:1px solid #d1d5db; border-radius:4px;">
                         <button onclick="addParticipant()" class="btn-primary">Add</button>
                     </div>
                     <ul id="participantList" class="participant-list"></ul>
@@ -101,15 +96,15 @@
         <footer class="admin-footer">
             <button onclick="confirmEndGame()" class="btn-red" title="End Game">🛑 End Game</button>
             <div class="scale-control">
-                <span>UI Size:</span>
+                <span style="font-size:0.85rem; color:#6b7280; margin-right:5px;">UI Scale:</span>
                 <input type="range" id="uiScale" min="0.5" max="1.5" step="0.1" value="1" style="width:80px;">
             </div>
         </footer>
     </div>
 
     <div id="settingsModal" class="admin-modal-overlay hidden">
-        <div class="admin-modal-content" style="max-width: 600px;">
-            <h3 id="settingsModalTitle" style="margin-top:0; border-bottom:1px solid #eee; padding-bottom:10px;">Game Settings</h3>
+        <div class="admin-modal-content">
+            <h3 id="settingsModalTitle">Game Settings</h3>
 
             <div class="settings-grid">
                 <div class="setting-label-group">
@@ -131,14 +126,7 @@
                 <input type="color" id="settingThemeColor">
             </div>
 
-            <hr style="margin: 20px 0; border:0; border-top:1px solid #eee;">
-            <div style="margin-bottom: 15px;">
-                <h4 style="margin:0; color:#111827; font-size:1rem; text-transform:uppercase; letter-spacing:0.05em;">Gameplay & Pacing</h4>
-                <p style="margin:5px 0 0 0; font-size:0.85rem; color:#6b7280; font-style:italic;">
-                    Use these settings to speed up or slow down your event.
-                </p>
-            </div>
-
+            <h4>Gameplay & Pacing</h4>
             <div class="settings-grid">
                 <div class="setting-label-group">
                     <label>Turn Duration</label>
@@ -157,21 +145,14 @@
                     <span class="info-icon" data-tooltip="How many people take a turn at the same time? Usually 1.">i</span>
                 </div>
                 <input type="number" id="settingActiveCount">
-
             </div>
 
-            <div style="margin-bottom: 15px;">
-                <div style="margin-bottom: 15px; margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px;">
-                    <h4 style="margin:0; color:#111827; font-size:1rem; text-transform:uppercase; letter-spacing:0.05em;">Participant Management</h4>
-                </div>
-            </div>
-
+            <h4>Participant Management</h4>
             <div class="settings-grid">
                 <div class="setting-label-group">
                     <label>Turn Order</label>
                     <span class="info-icon" data-tooltip="OFF = Host calls 'Who has #1?'. ON = Computer shuffles names and assigns numbers.">i</span>
                 </div>
-
                 <label class="toggle-switch" style="width:100%;">
                     <input type="checkbox" id="settingGameModeToggle" onchange="toggleRosterInput()">
                     <span class="slider round"></span>
@@ -190,31 +171,26 @@
                     <label style="font-size:0.9rem;">Player List (Names)</label>
                     <span style="font-size:0.8rem; color:#6b7280;">Count: <b id="rosterCountDisplay">0</b></span>
                 </div>
-                <textarea id="settingRosterNames" rows="8" placeholder="Alice&#10;Bob&#10;Charlie"
-                          oninput="syncCountFromRoster()"
-                          style="width:100%; padding:10px; border:1px solid #d1d5db; border-radius:6px; font-family:sans-serif; line-height:1.4;"></textarea>
+                <textarea id="settingRosterNames" rows="6" placeholder="Alice&#10;Bob&#10;Charlie" oninput="syncCountFromRoster()" style="width:100%; padding:10px; border:1px solid #d1d5db; border-radius:6px; font-family:sans-serif;"></textarea>
             </div>
 
-            <div style="margin-top:20px; text-align:right; display:flex; justify-content:flex-end; gap:10px;">
+            <div style="margin-top:25px; text-align:right; display:flex; justify-content:flex-end; gap:10px;">
                 <button id="btnCancelSettings" onclick="cancelSettings()" class="btn-gray">Cancel</button>
                 <button id="btnSaveSettings" onclick="saveSettings()" class="btn-primary">Save Changes</button>
             </div>
         </div>
     </div>
 
-    <div id="lateArrivalModal" class="admin-modal-overlay hidden" style="z-index: 9999;">
-        <div class="admin-modal" style="max-width: 500px; background: white; color: #1e293b; padding: 30px; border-radius: 16px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);">
+    <div id="lateArrivalModal" class="admin-modal-overlay hidden">
+        <div class="admin-modal-content" style="max-width: 500px; text-align: center;">
+            <div style="font-size:3rem; margin-bottom:10px;">⏱️</div>
+            <h3 style="border:none; margin-bottom:10px;">Late Arrival Detected</h3>
+            <p style="color:#64748b; margin:0 0 25px 0;">
+                The game has already started. How should we insert <b id="latePlayerName" style="color:#2563eb;"></b>?
+            </p>
 
-            <div style="text-align:center; margin-bottom:20px;">
-                <div style="font-size:3rem; margin-bottom:10px;">⏱️</div>
-                <h3 style="margin:0; font-size:1.5rem; color:#0f172a;">Late Arrival Detected</h3>
-                <p style="color:#64748b; margin-top:8px; font-size:1rem; line-height:1.5;">
-                    The game has already started. How should we insert <b id="latePlayerName" style="color:#2563eb;"></b>?
-                </p>
-            </div>
-
-            <div style="display:flex; flex-direction:column; gap:15px;">
-                <button onclick="confirmLateAdd('random')" style="display:flex; align-items:center; text-align:left; gap:15px; padding:15px; border:2px solid #3b82f6; background:#eff6ff; border-radius:10px; cursor:pointer; transition:all 0.2s;">
+            <div style="display:flex; flex-direction:column; gap:12px;">
+                <button onclick="confirmLateAdd('random')" class="late-arrival-btn random">
                     <span style="font-size:1.8rem;">🎲</span>
                     <div>
                         <div style="font-weight:bold; color:#1d4ed8; font-size:1.1rem;">Insert Randomly (Fair)</div>
@@ -222,7 +198,7 @@
                     </div>
                 </button>
 
-                <button onclick="confirmLateAdd('end')" style="display:flex; align-items:center; text-align:left; gap:15px; padding:15px; border:2px solid #e2e8f0; background:#f8fafc; border-radius:10px; cursor:pointer; transition:all 0.2s;">
+                <button onclick="confirmLateAdd('end')" class="late-arrival-btn end">
                     <span style="font-size:1.8rem;">⏭️</span>
                     <div>
                         <div style="font-weight:bold; color:#475569; font-size:1.1rem;">Add to End (Standard)</div>
@@ -230,8 +206,8 @@
                     </div>
                 </button>
 
-                <button onclick="closeLateModal()" style="width:100%; padding:15px; border:2px solid #cbd5e1; background:white; color:#64748b; border-radius:10px; cursor:pointer; font-weight:bold; margin-top:5px; transition:all 0.2s;">
-                    <div style="font-weight:bold; color:#475569; font-size:1.1rem;">Cancel</div>
+                <button onclick="closeLateModal()" style="margin-top:10px; background:transparent; border:none; color:#94a3b8; font-weight:bold; cursor:pointer;">
+                    Cancel
                 </button>
             </div>
         </div>
@@ -239,28 +215,27 @@
 
     <div id="localQrModal" class="admin-modal-overlay hidden">
         <div class="admin-modal-content" style="max-width:350px; text-align:center;">
-            <h3>📱 Private QR Code</h3>
-            <p>Scan to join <b><span id="qrGameIdDisplay"></span></b></p>
-            <div id="localQrcode" style="margin:20px auto; display:inline-block; background: white; padding: 10px; border-radius: 8px;"></div>
+            <h3 style="border:none;">📱 Private QR Code</h3>
+            <p style="margin-bottom:20px;">Scan to join <b><span id="qrGameIdDisplay"></span></b></p>
+            <div id="localQrcode" style="margin:0 auto 20px auto; display:inline-block; background: white; padding: 10px; border-radius: 8px;"></div>
             <br>
-            <button onclick="closeLocalQr()" class="btn-gray">Close</button>
+            <button onclick="closeLocalQr()" class="btn-gray" style="width:100%;">Close</button>
         </div>
     </div>
 
-    <div id="imageModal" class="admin-modal-overlay">
+    <div id="imageModal" class="admin-modal-overlay hidden">
         <div class="admin-modal-content">
-            <div class="admin-modal-header">
-                <h3 id="imgModalTitle" style="margin:0;">Manage Images</h3>
-                <button onclick="closeImgModal()" class="close-modal-btn">&times;</button>
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #eee; padding-bottom:15px; margin-bottom:15px;">
+                <h3 id="imgModalTitle" style="margin:0; border:none; padding:0;">Manage Images</h3>
+                <button onclick="closeImgModal()" style="background:none; border:none; font-size:1.5rem; cursor:pointer;">&times;</button>
             </div>
-            <div class="admin-modal-body">
-                <div id="imgList" class="admin-img-grid"></div>
-            </div>
-            <div class="admin-modal-footer">
-                <input type="file" id="adminFileInput" accept="image/*">
+            <div id="imgList" class="admin-img-grid" style="min-height:100px;"></div>
+            <div style="margin-top:20px; border-top:1px solid #eee; padding-top:15px; display:flex; gap:10px;">
+                <input type="file" id="adminFileInput" accept="image/*" style="flex:1;">
                 <button onclick="adminUpload()" class="btn-primary">Upload</button>
             </div>
         </div>
     </div>
+
 </body>
 </html>

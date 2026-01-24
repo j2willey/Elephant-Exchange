@@ -25,35 +25,30 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 2. Handle URL Parameters (Auto-Login Logic)
+    // 2. Handle URL Parameters (Auto-Login)
     const params = new URLSearchParams(window.location.search);
-
-    // Case A: Direct Link to ID ("?game=willey")
-    // Behavior: Join immediately, NO Setup Wizard (assume returning user)
     const urlGameId = params.get('game');
+    const startVal = params.get('start');
+
     if (urlGameId) {
+        // Direct Link: Join immediately
         document.getElementById('gameIdInput').value = urlGameId;
         joinGame(urlGameId);
         return;
     }
 
-    // Case B: Landing Page Handoff ("?start=The Willey Party")
-    // Behavior: Create/Join immediately AND trigger Setup Wizard (assume new host)
-    const startVal = params.get('start');
     if (startVal) {
+        // Handoff from Home Page: Create/Join and trigger Wizard
         const decoded = decodeURIComponent(startVal);
         const cleanId = sanitizeGameId(decoded);
 
-        // FIX: Don't just pre-fill inputs. EXECUTE immediately.
-        // We pass 'decoded' as the 2nd argument (Party Name).
-        // This tells joinGame() to trigger openSettings('defaults') on success.
         if (cleanId) {
             joinGame(cleanId, decoded);
             return;
         }
     }
 
-    // 3. Bind Enter Keys (Only needed if user arrives with NO params)
+    // 3. Bind Keys
     const hostInput = document.getElementById('hostNameInput');
     if(hostInput) hostInput.addEventListener('keypress', e => e.key === 'Enter' && handleHostGame());
 
@@ -62,26 +57,24 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 
-// --- 2. HOST & RECONNECT LOGIC (NEW) ---
+// --- 2. HOST & RECONNECT LOGIC ---
 
-// HELPER: "Trim whitespace, remove weird chars, replace internal spaces with hyphen"
 function sanitizeGameId(str) {
     return str.trim()
         .toLowerCase()
-        .replace(/[^a-z0-9\s-]/g, '') // Remove emojis/symbols
-        .replace(/\s+/g, '-')         // Spaces -> Hyphens
-        .replace(/^-+|-+$/g, '');     // Trim Hyphens
+        .replace(/[^a-z0-9\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/^-+|-+$/g, '');
 }
 
 async function handleHostGame() {
     const rawName = document.getElementById('hostNameInput').value;
     if (!rawName.trim()) return alert("Please enter a name for your party!");
 
-    // 1. Sanitize
     const baseId = sanitizeGameId(rawName);
     if (!baseId) return alert("Please use letters and numbers.");
 
-    // 2. Check Collisions
+    // Check Collisions
     const res = await fetch('/api/admin/games');
     const games = await res.json();
     const existingIds = new Set(games.map(g => g.id));
@@ -89,13 +82,11 @@ async function handleHostGame() {
     let finalId = baseId;
     let counter = 1;
 
-    // 3. Mangle if exists (smith-xmas -> smith-xmas-1)
     while (existingIds.has(finalId)) {
         finalId = `${baseId}-${counter}`;
         counter++;
     }
 
-    // 4. Create and Join (Pass raw name for the Banner!)
     joinGame(finalId, rawName.trim());
 }
 
@@ -107,23 +98,17 @@ async function handleReconnectGame() {
     const resultsDiv = document.getElementById('searchResults');
     resultsDiv.innerHTML = '<p style="color:#6b7280;">Searching...</p>';
 
-    // 1. Fetch Games
     const res = await fetch('/api/admin/games');
     const games = await res.json();
-
-    // 2. Search Strategy: ID *contains* term
     const matches = games.filter(g => g.id.includes(term));
 
     resultsDiv.innerHTML = '';
 
     if (matches.length === 0) {
         resultsDiv.innerHTML = `<p style="color:#ef4444;">No games found matching "${term}"</p>`;
-    }
-    else if (matches.length === 1) {
-        joinGame(matches[0].id); // Auto-join single match
-    }
-    else {
-        // Show list
+    } else if (matches.length === 1) {
+        joinGame(matches[0].id);
+    } else {
         let html = `<p style="font-weight:bold; color:#374151;">Found ${matches.length} games:</p><ul style="list-style:none; padding:0;">`;
         matches.forEach(g => {
             html += `
@@ -140,13 +125,10 @@ async function handleReconnectGame() {
 
 // --- 3. CORE JOIN LOGIC ---
 async function joinGame(forceId = null, partyName = null) {
-    // Legacy support for the hidden input
     const inputId = document.getElementById('gameIdInput').value.trim().toLowerCase();
     const gameId = forceId || inputId;
     if(!gameId) return alert("Please enter a Game ID");
 
-    // NEW: If we are creating a fresh game, forceId will be set AND partyName might be passed
-    // If partyName is passed, we know it's a NEW session.
     const isNewSession = !!partyName;
 
     const payload = { gameId };
@@ -198,7 +180,7 @@ async function refreshState() {
     } catch(e) { console.error("State fetch failed", e); }
 }
 
-// --- 3. MAIN RENDER LOOP ---
+// --- 4. RENDER LOOP ---
 function render(state) {
     if (window.applyTheme) applyTheme(state.settings);
 
@@ -260,8 +242,6 @@ function renderParticipants(state) {
             timerHtml = ` <span class="player-timer" data-start="${startTime}" data-duration="${duration}" style="font-family:monospace; font-weight:bold; font-size:1.2em; margin-left:10px;">--:--</span>`;
         }
 
-        // --- DELETE BUTTON HTML ---
-        // Only allow delete if they don't hold a gift
         const safeName = p.name.replace(/'/g, "\\'");
         const deleteBtn = !p.heldGiftId
             ? `<button onclick="deleteParticipant('${p.id}', '${safeName}')" class="btn-delete-icon" title="Remove ${p.name}">&times;</button>`
@@ -294,7 +274,6 @@ function renderParticipants(state) {
                     </div>`;
             }
         } else {
-            // For inactive players, put the delete button next to the status icon
             html += `<div style="display:flex; align-items:center; gap: 8px;">
                         <span>${statusIcon}</span>
                         ${deleteBtn}
@@ -424,54 +403,38 @@ function renderPhaseControls(state) {
     }
 }
 
-// --- 4. GAMEPLAY ACTIONS ---
+// --- 5. GAME ACTIONS ---
 async function addParticipant() {
     const nameInput = document.getElementById('pName');
     const numInput = document.getElementById('pNumber');
-
     const name = nameInput.value.trim();
     if (!name) return alert("Enter a name");
 
     const manualNum = numInput.value.trim();
-
-    // 1. CHECK LATE ARRIVAL (Game started + No manual number)
     const hasPlayers = document.querySelectorAll('#participantList li').length > 0;
 
     if (!manualNum && hasPlayers) {
-        // OPEN CUSTOM MODAL instead of confirm()
         pendingLateName = name;
         document.getElementById('latePlayerName').innerText = name;
-
-        const modal = document.getElementById('lateArrivalModal');
-        modal.classList.remove('hidden');
-        modal.classList.add('active');
-        return; // Stop here, wait for modal click
+        showModal('lateArrivalModal');
+        return;
     }
 
-    // 2. NORMAL ADD (Start of game or Manual Number)
     await executeAddPlayer(name, manualNum, false);
 }
 
 function closeLateModal() {
-    document.getElementById('lateArrivalModal').classList.remove('active');
-    document.getElementById('lateArrivalModal').classList.add('hidden');
+    hideModal('lateArrivalModal');
     pendingLateName = null;
 }
 
 async function confirmLateAdd(mode) {
     if (!pendingLateName) return;
-
     const isRandom = (mode === 'random');
-
-    // Execute the add
     await executeAddPlayer(pendingLateName, null, isRandom);
-    pendingLateName = null;
-
-    // Close modal
     closeLateModal();
 }
 
-// SHARED HELPER: Actually calls the API
 async function executeAddPlayer(name, manualNum, insertRandomly) {
     try {
         const payload = { name, insertRandomly };
@@ -484,66 +447,29 @@ async function executeAddPlayer(name, manualNum, insertRandomly) {
         });
 
         const data = await res.json();
-
         if (res.ok) {
-            // Clear inputs
             document.getElementById('pName').value = '';
             document.getElementById('pNumber').value = '';
             document.getElementById('pName').focus();
-
-            if (insertRandomly) {
-                alert(`🎲 ${name} was assigned Number #${data.player.number}!`);
-            }
+            if (insertRandomly) alert(`🎲 ${name} was assigned Number #${data.player.number}!`);
         } else {
             alert(data.error);
         }
-    } catch (e) {
-        console.error(e);
-        alert("Server error adding player.");
-    }
+    } catch (e) { console.error(e); }
 }
 
 async function deleteParticipant(participantId, name) {
-    // UPDATED: Now includes the specific name in the prompt
     if (!confirm(`Are you sure you want to remove ${name}?`)) return;
-
-    try {
-        const res = await fetch(`/api/${currentGameId}/participants/${participantId}`, {
-            method: 'DELETE'
-        });
-
-        const data = await res.json();
-        if (!res.ok) {
-            alert(data.error || "Failed to delete");
-        }
-    } catch (err) {
-        console.error(err);
-        alert("Server error deleting player");
-    }
+    await fetch(`/api/${currentGameId}/participants/${participantId}`, { method: 'DELETE' });
 }
-
 
 async function skipTurn(participantId, name) {
     if (!confirm(`Skip ${name} for now? They will swap spots with the next player.`)) return;
-
-    try {
-        const res = await fetch(`/api/${currentGameId}/participants/${participantId}/swap`, {
-            method: 'POST'
-        });
-
-        const data = await res.json();
-        if (!res.ok) {
-            alert(data.error || "Failed to swap");
-        }
-    } catch (err) {
-        console.error(err);
-        alert("Server error skipping turn");
-    }
+    await fetch(`/api/${currentGameId}/participants/${participantId}/swap`, { method: 'POST' });
 }
 
 async function resetTimer(playerId) {
     if(!confirm("Restart the timer for this player?")) return;
-
     await fetch(`/api/${currentGameId}/participants/${playerId}`, {
         method: 'PUT',
         headers: {'Content-Type': 'application/json'},
@@ -574,14 +500,13 @@ function cancelStealMode() {
 async function attemptSteal(giftId, description) {
     if (!stealingPlayerId) return;
     if(!confirm(`Confirm steal: ${description}?`)) return;
-
     try {
         const res = await fetch(`/api/${currentGameId}/steal`, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ giftId, thiefId: stealingPlayerId })
         });
-        if(!res.ok) alert("Error: " + (await res.json()).error);
+        if(!res.ok) alert((await res.json()).error);
     } catch (err) { alert("Steal failed."); }
     finally {
         stealingPlayerId = null;
@@ -600,20 +525,11 @@ async function editGift(giftId, currentDesc) {
     }
 }
 
-async function clearDb() {
-    if(!currentGameId) return;
-    if(!confirm("⚠️ DANGER: This will delete ALL players and gifts.\n\nAre you sure?")) return;
-
-    const res = await fetch(`/api/${currentGameId}/reset`, { method: 'POST' });
-    if(res.ok) location.reload();
-}
-
-// --- 5. PHASE & SETTINGS ---
+// --- 6. PHASE & SETTINGS ---
 async function confirmEndGame() {
-    const enableVoting = confirm("Would you like to enable 'Worst Gift Voting'?\n\nOK = Yes, Start Voting Phase.\nCancel = No, just end the game.");
-
+    const enableVoting = confirm("Would you like to enable 'Worst Gift Voting'?\n\nOK = Yes, Start Voting.\nCancel = No, just end game.");
     if (enableVoting) {
-        const duration = prompt("How many seconds for voting?", "180");
+        const duration = prompt("Voting Duration (seconds)?", "180");
         if (!duration) return;
         await fetch(`/api/${currentGameId}/phase/voting`, {
             method: 'POST',
@@ -626,19 +542,36 @@ async function confirmEndGame() {
 }
 
 async function endVoting() {
-    if(!confirm("Close voting early and show the Podium?")) return;
+    if(!confirm("Close voting early?")) return;
     await fetch(`/api/${currentGameId}/phase/results`, { method: 'POST' });
 }
 
 async function resetGame() {
-    if(!confirm("⚠️ DANGER: This will delete ALL history and start fresh.\n\nAre you sure?")) return;
+    if(!confirm("⚠️ DANGER: This will delete ALL history.\n\nAre you sure?")) return;
     await fetch(`/api/${currentGameId}/reset`, { method: 'POST' });
+}
+
+// GENERIC MODAL HELPERS
+function showModal(id) {
+    const el = document.getElementById(id);
+    if(el) {
+        el.classList.remove('hidden');
+        el.classList.add('active');
+    }
+}
+
+function hideModal(id) {
+    const el = document.getElementById(id);
+    if(el) {
+        el.classList.remove('active');
+        // Delay hidden to allow transition
+        setTimeout(() => el.classList.add('hidden'), 200);
+    }
 }
 
 function openSettings(mode = 'edit') {
     if(!currentGameId) return;
 
-    // UI: Defaults vs Edit Mode
     const title = document.getElementById('settingsModalTitle');
     const btnSave = document.getElementById('btnSaveSettings');
     const btnCancel = document.getElementById('btnCancelSettings');
@@ -646,7 +579,7 @@ function openSettings(mode = 'edit') {
     if (mode === 'defaults') {
         title.innerText = "Setup Game Defaults";
         btnSave.innerText = "Start Game 🚀";
-        btnCancel.style.display = 'none'; // Can't cancel setup
+        btnCancel.style.display = 'none';
     } else {
         title.innerText = "Game Settings";
         btnSave.innerText = "Save Changes";
@@ -657,7 +590,6 @@ function openSettings(mode = 'edit') {
         .then(res => res.json())
         .then(state => {
             const s = state.settings || {};
-
             document.getElementById('settingPartyName').value = s.partyName || currentGameId;
             document.getElementById('settingTagline').value = s.tagline || '';
             document.getElementById('settingDuration').value = s.turnDurationSeconds || 60;
@@ -671,73 +603,44 @@ function openSettings(mode = 'edit') {
             document.getElementById('settingGameModeToggle').checked = (gameMode === 'roster');
             document.getElementById('settingTotalPlayers').value = s.totalPlayerCount || '';
 
-            toggleRosterInput(); // Apply UI state
-
-            // Show Modal
-            const modal = document.getElementById('settingsModal');
-            modal.classList.add('active');
-            modal.classList.remove('hidden');
+            toggleRosterInput();
+            showModal('settingsModal');
         });
 }
 
+function cancelSettings() { hideModal('settingsModal'); }
+
 async function saveSettings() {
-    // Determine mode from checkbox
     const isRoster = document.getElementById('settingGameModeToggle').checked;
     const mode = isRoster ? 'roster' : 'open';
 
     let roster = [];
-
     if (isRoster) {
         const rawText = document.getElementById('settingRosterNames').value;
         roster = rawText.split('\n').map(n => n.trim()).filter(n => n.length > 0);
     }
 
     const payload = {
-        // ... (standard fields: partyName, etc) ...
         partyName: document.getElementById('settingPartyName').value,
         tagline: document.getElementById('settingTagline').value,
         turnDurationSeconds: document.getElementById('settingDuration').value,
         maxSteals: document.getElementById('settingMaxSteals').value,
         activePlayerCount: document.getElementById('settingActiveCount').value,
         themeColor: document.getElementById('settingThemeColor').value,
-
         gameMode: mode,
         totalPlayerCount: document.getElementById('settingTotalPlayers').value,
-
-        // Only send roster if in roster mode
         rosterNames: (isRoster && roster.length > 0) ? roster : null
     };
 
-    // ... (fetch logic) ...
     await fetch(`/api/${currentGameId}/settings`, {
         method: 'PUT',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(payload)
     });
-    const modal = document.getElementById('settingsModal');
-    modal.classList.remove('active');
-    modal.classList.add('hidden');
+    hideModal('settingsModal');
 }
 
-function cancelSettings() {
-    const modal = document.getElementById('settingsModal');
-    modal.classList.remove('active');
-    modal.classList.add('hidden');
-}
-
-async function uploadLogo() {
-    const input = document.getElementById('themeLogoInput');
-    const file = input.files[0];
-    if (!file) return;
-
-    const formData = new FormData();
-    formData.append('logo', file);
-
-    const res = await fetch(`/api/${currentGameId}/upload-logo`, { method: 'POST', body: formData });
-    if (res.ok) alert("Logo Updated!");
-}
-
-// --- 6. ADMIN IMAGE MODAL ---
+// --- 7. IMAGE MODAL ---
 window.openImgModal = function(giftId) {
     fetch(`/api/${currentGameId}/state`)
         .then(r => r.json())
@@ -747,13 +650,13 @@ window.openImgModal = function(giftId) {
 
             currentAdminGiftId = giftId;
             document.getElementById('imgModalTitle').innerText = `Images: ${gift.description}`;
-            document.getElementById('imageModal').classList.add('active');
+            showModal('imageModal');
             renderAdminImages(gift);
         });
 }
 
 window.closeImgModal = function() {
-    document.getElementById('imageModal').classList.remove('active');
+    hideModal('imageModal');
     currentAdminGiftId = null;
 }
 
@@ -769,13 +672,12 @@ function renderAdminImages(gift) {
     gift.images.forEach(img => {
         const isPrimary = img.id === gift.primaryImageId;
         const heroClass = isPrimary ? 'hero' : '';
-
         const div = document.createElement('div');
         div.className = `admin-img-card ${heroClass}`;
         div.innerHTML = `
             <img src="${img.path}">
             <div class="admin-img-controls">
-                <button onclick="setPrimaryImage('${gift.id}', '${img.id}')" style="color:#10b981; background:none; border:none; cursor:pointer; font-weight:bold;">★ Hero</button>
+                <button onclick="setPrimaryImage('${gift.id}', '${img.id}')" style="color:#10b981; background:none; border:none; cursor:pointer;">★ Hero</button>
                 <button onclick="deleteImage('${gift.id}', '${img.id}')" style="color:#ef4444; background:none; border:none; cursor:pointer;">🗑 Del</button>
             </div>
             ${isPrimary ? '<div style="position:absolute; top:0; left:0; background:#10b981; color:white; font-size:0.7rem; padding:2px 6px;">HERO</div>' : ''}
@@ -785,7 +687,7 @@ function renderAdminImages(gift) {
 }
 
 window.deleteImage = async function(giftId, imageId) {
-    if (!confirm("Permanently delete this photo?")) return;
+    if (!confirm("Delete this photo?")) return;
     const res = await fetch(`/api/${currentGameId}/images/${giftId}/${imageId}`, { method: 'DELETE' });
     if (res.ok) reloadModal(giftId);
 }
@@ -825,7 +727,7 @@ function reloadModal(giftId) {
         });
 }
 
-// --- 7. UTILS & REMOTES ---
+// --- 8. UTILS & SYNC ---
 setInterval(() => {
     const timers = document.querySelectorAll('.player-timer');
     timers.forEach(el => {
@@ -855,11 +757,6 @@ function setTvMode(mode) {
     else document.getElementById('btnTvList').classList.add('active');
 }
 
-function previewScrollSpeed() {
-    const val = document.getElementById('settingScrollSpeed').value;
-    socket.emit('previewSettings', { gameId: currentGameId, settings: { scrollSpeed: val } });
-}
-
 function showLocalQr() {
     const url = `${window.location.origin}/scoreboard.html?game=${currentGameId}&mode=mobile`;
     document.getElementById('qrGameIdDisplay').innerText = currentGameId;
@@ -879,121 +776,74 @@ function showLocalQr() {
     }
     link.href = url;
     link.innerText = "🔗 Click to Open Link";
-
-    const modal = document.getElementById('localQrModal');
-    modal.classList.add('active');
-    modal.classList.remove('hidden');
+    showModal('localQrModal');
 }
 
-function closeLocalQr() {
-    const modal = document.getElementById('localQrModal');
-    modal.classList.remove('active');
-    modal.classList.add('hidden');
-}
+function closeLocalQr() { hideModal('localQrModal'); }
 
 window.openCatalog = function() {
     if(currentGameId) window.open(`/catalog.html?game=${currentGameId}`, '_blank');
 }
 
-// --- 8. UI HELPERS & SYNC LOGIC ---
-
 function toggleRosterInput() {
     const isRosterMode = document.getElementById('settingGameModeToggle').checked;
     const label = document.getElementById('gameModeLabel');
     const rosterSection = document.getElementById('rosterInputSection');
-
-    // Inputs
     const countInput = document.getElementById('settingTotalPlayers');
-    const rosterArea = document.getElementById('settingRosterNames');
 
     if (isRosterMode) {
         label.innerText = "Auto-Shuffle Names";
         label.style.color = "#2563eb";
         rosterSection.style.display = 'block';
-
-        // Disable the manual number input (since the list drives the count)
         countInput.disabled = true;
         countInput.style.backgroundColor = "#f3f4f6";
 
-        // NEW: Force Default to 5 if empty
-        // We check if value is empty string OR 0 OR null
         if (!countInput.value || parseInt(countInput.value) === 0) {
             countInput.value = 5;
-            syncRosterFromCount(); // Generates "Player 1" -> "Player 5"
+            syncRosterFromCount();
         } else {
-            // Otherwise, update the list/count based on what's there
             syncCountFromRoster();
         }
-
     } else {
         label.innerText = "Manual Numbers";
         label.style.color = "#374151";
         rosterSection.style.display = 'none';
-
-        // Re-enable manual input
         countInput.disabled = false;
         countInput.style.backgroundColor = "#ffffff";
     }
 }
 
-// 1. INPUT -> TEXTAREA (User types "5", Textarea gets "Player 1...Player 5")
 function syncRosterFromCount() {
-    // Only auto-fill if we are in Roster Mode
     if (!document.getElementById('settingGameModeToggle').checked) return;
-
     const countInput = document.getElementById('settingTotalPlayers');
     const rosterArea = document.getElementById('settingRosterNames');
-
     const count = parseInt(countInput.value) || 0;
-
-    // Safety check: Limit generation to 100 to prevent browser hanging
     if (count > 100) return;
 
-    // Generate the list
     let lines = [];
-    for (let i = 1; i <= count; i++) {
-        lines.push(`Player ${i}`);
-    }
-
+    for (let i = 1; i <= count; i++) lines.push(`Player ${i}`);
     rosterArea.value = lines.join('\n');
     updateCountDisplay(count);
 }
 
-// 2. TEXTAREA -> INPUT (User types names -> Updates "5")
 function syncCountFromRoster() {
     const rosterArea = document.getElementById('settingRosterNames');
     const countInput = document.getElementById('settingTotalPlayers');
-
-    // THE FIX: Strict Filter
-    // We only count lines that have actual characters (trimming whitespace).
-    // This ignores blank lines created by hitting 'Enter'.
     const lines = rosterArea.value.split('\n').filter(line => line.trim().length > 0);
-
     const count = lines.length;
     updateCountDisplay(count);
-
-    // Update the input field
-    if (countInput.value != count) {
-        countInput.value = count;
-    }
+    if (countInput.value != count) countInput.value = count;
 }
 
-// Helper to update the small text "Count: X"
 function updateCountDisplay(n) {
     const el = document.getElementById('rosterCountDisplay');
     if(el) el.innerText = n;
 }
 
-// Add Blur Listener to clean up empty lines when user leaves the box
 const rosterAreaRef = document.getElementById('settingRosterNames');
 if(rosterAreaRef) {
     rosterAreaRef.addEventListener('blur', function() {
-        // When user clicks away, remove the ugly blank lines to keep it tidy
-        const cleanText = this.value.split('\n')
-            .map(l => l.trim())
-            .filter(l => l.length > 0)
-            .join('\n');
-
+        const cleanText = this.value.split('\n').map(l => l.trim()).filter(l => l.length > 0).join('\n');
         if (this.value !== cleanText) {
             this.value = cleanText;
             syncCountFromRoster();
