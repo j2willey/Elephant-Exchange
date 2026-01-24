@@ -63,6 +63,7 @@
                 <button onclick="openCatalog()" class="btn-ghost" title="Open Catalog in new window">Catalog</button>
 
                 <a href="/faq.html" target="_blank" class="icon-btn" title="Help / FAQ">❓</a>
+                <button onclick="openThemeSettings()" class="icon-btn" title="Theme & Branding">🎭</button>
                 <button onclick="openSettings()" class="icon-btn" title="Game Settings">⚙️</button>
             </div>
         </div>
@@ -102,6 +103,37 @@
         </footer>
     </div>
 
+    <div id="themeModal" class="admin-modal-overlay hidden">
+        <div class="admin-modal-content">
+            <h3 style="margin-top:0; border-bottom:1px solid #eee; padding-bottom:10px;">Party Theme & Branding</h3>
+
+            <div style="text-align:center; padding: 20px 0; border-bottom:1px solid #f3f4f6; margin-bottom:20px;">
+                <label style="display:block; font-weight:600; color:#374151; margin-bottom:10px;">Projector Logo</label>
+                <div style="font-size:0.85rem; color:#6b7280; margin-bottom:15px;">
+                    Replaces the elephant icon on the TV view.
+                </div>
+
+                <div style="display:flex; gap:10px; justify-content:center;">
+                    <input type="file" id="themeLogoInput" accept="image/*" style="font-size:0.9rem;">
+                    <button onclick="uploadLogo()" class="btn-primary" style="padding: 6px 12px;">Upload Logo</button>
+                </div>
+            </div>
+
+            <div class="settings-grid">
+                <div class="setting-label-group">
+                    <label>Theme Color</label>
+                    <span class="info-icon" data-tooltip="Primary color for banners and buttons.">i</span>
+                </div>
+                <input type="color" id="themeColorInput" style="height:50px;">
+            </div>
+
+            <div style="margin-top:25px; text-align:right; display:flex; justify-content:flex-end; gap:10px;">
+                <button onclick="closeThemeSettings()" class="btn-gray">Cancel</button>
+                <button onclick="saveThemeSettings()" class="btn-primary">Save Theme</button>
+            </div>
+        </div>
+    </div>
+
     <div id="settingsModal" class="admin-modal-overlay hidden">
         <div class="admin-modal-content">
             <h3 id="settingsModalTitle">Game Settings</h3>
@@ -118,12 +150,6 @@
                     <span class="info-icon" data-tooltip="A fun subtitle under the main banner.">i</span>
                 </div>
                 <input type="text" id="settingTagline" placeholder="e.g. 2026 Edition">
-
-                <div class="setting-label-group">
-                    <label>Theme Color</label>
-                    <span class="info-icon" data-tooltip="Primary color for banners and buttons.">i</span>
-                </div>
-                <input type="color" id="settingThemeColor">
             </div>
 
             <h4>Gameplay & Pacing</h4>

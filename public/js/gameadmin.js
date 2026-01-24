@@ -596,9 +596,6 @@ function openSettings(mode = 'edit') {
             document.getElementById('settingMaxSteals').value = s.maxSteals || 3;
             document.getElementById('settingActiveCount').value = s.activePlayerCount || 1;
 
-            const color = document.getElementById('settingThemeColor');
-            if(color) color.value = s.themeColor || '#2563eb';
-
             const gameMode = s.gameMode || 'open';
             document.getElementById('settingGameModeToggle').checked = (gameMode === 'roster');
             document.getElementById('settingTotalPlayers').value = s.totalPlayerCount || '';
@@ -626,7 +623,6 @@ async function saveSettings() {
         turnDurationSeconds: document.getElementById('settingDuration').value,
         maxSteals: document.getElementById('settingMaxSteals').value,
         activePlayerCount: document.getElementById('settingActiveCount').value,
-        themeColor: document.getElementById('settingThemeColor').value,
         gameMode: mode,
         totalPlayerCount: document.getElementById('settingTotalPlayers').value,
         rosterNames: (isRoster && roster.length > 0) ? roster : null
@@ -638,6 +634,68 @@ async function saveSettings() {
         body: JSON.stringify(payload)
     });
     hideModal('settingsModal');
+}
+
+// --- THEME & BRANDING MODAL ---
+
+function openThemeSettings() {
+    if(!currentGameId) return;
+
+    fetch(`/api/${currentGameId}/state`)
+        .then(res => res.json())
+        .then(state => {
+            const s = state.settings || {};
+            // Pre-fill current color (Default to Elephant Blue if missing)
+            document.getElementById('themeColorInput').value = s.themeColor || '#2563eb';
+
+            showModal('themeModal');
+        });
+}
+
+function closeThemeSettings() {
+    hideModal('themeModal');
+}
+
+async function saveThemeSettings() {
+    const newColor = document.getElementById('themeColorInput').value;
+
+    // We reuse the existing settings API but only send the color
+    // The server should merge this, not overwrite everything else.
+    // (Assuming your server does a merge/patch)
+    await fetch(`/api/${currentGameId}/settings`, {
+        method: 'PUT', // or PATCH if your server supports it
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ themeColor: newColor })
+    });
+
+    closeThemeSettings();
+    refreshState(); // Force re-render to see changes immediately
+}
+
+async function uploadLogo() {
+    const input = document.getElementById('themeLogoInput');
+    const file = input.files[0];
+    if (!file) return alert("Please select a file first.");
+
+    const formData = new FormData();
+    formData.append('logo', file);
+
+    try {
+        const res = await fetch(`/api/${currentGameId}/upload-logo`, {
+            method: 'POST',
+            body: formData
+        });
+
+        if (res.ok) {
+            alert("Logo Updated! Check the TV View.");
+            input.value = ''; // Clear input
+        } else {
+            alert("Upload failed.");
+        }
+    } catch (e) {
+        console.error(e);
+        alert("Error uploading logo.");
+    }
 }
 
 // --- 7. IMAGE MODAL ---
