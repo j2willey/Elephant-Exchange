@@ -124,12 +124,14 @@ body {
     display: flex; align-items: center; gap: 10px;
 }
 
+/* 2. The Buttons */
+/* These stay fixed size and never wrap/shrink */
 .action-buttons {
+    flex-shrink: 0;        /* Do NOT shrink. Stay visible. */
+    margin-top: 0;         /* Reset vertical margins */
+    width: auto;           /* Only take necessary width */
     display: flex;
     gap: 6px;
-    margin-top: 8px;
-    align-items: center;
-    justify-content: flex-start;
 }
 
 /* Toolbar Button Override (Square Shape) */
@@ -223,13 +225,32 @@ li > div > .btn-manage {
     background-color: #eff6ff;
     border-left: 4px solid var(--primary);
 
-    /* Layout Fix: Stack buttons vertically if panel is narrow */
-    flex-direction: column;
-    align-items: stretch;
-    gap: 10px;
+    /* FORCE ROW LAYOUT */
+    display: flex;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 0;       /* Space between Name and Buttons */
+    padding-right: 5px;
 }
+
+/* 1. Name & Timer Container */
+/* This element grows to fill space, but shrinks if buttons need room */
 .participant-list li.active-row > span {
-    display: flex; justify-content: space-between; align-items: center;
+    flex: 1;                /* Take available space */
+    min-width: 0;           /* CRITICAL: Allows flex child to shrink past content size */
+    display: flex;
+    align-items: center;
+    white-space: nowrap;    /* Keep name on one line */
+    overflow: hidden;       /* Cut off name if it hits buttons */
+    padding-right: 12px;    /* The specific gap between Time and Buttons */
+    /* Note: We removed 'justify-content: space-between' so timer stays near name */
+}
+
+/* margin-left: auto pushes this element to the FAR RIGHT of the span */
+.player-timer {
+    margin-left: auto;      /* Pushes time to the right, away from name */
+    flex-shrink: 0;         /* Never let the time get squished */
+    font-family: monospace; /* Ensures digits align vertically */
 }
 
 .participant-list li.victim-row { background-color: #fff1f2; border-left: 4px solid #e11d48; }

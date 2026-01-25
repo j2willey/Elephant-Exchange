@@ -310,7 +310,7 @@ function renderParticipants(state) {
         if (isActive) {
             const duration = state.settings.turnDurationSeconds || 60;
             const startTime = p.turnStartTime || Date.now();
-            timerHtml = ` <span class="player-timer" data-start="${startTime}" data-duration="${duration}" style="font-family:monospace; font-weight:bold; font-size:1.2em; margin-left:10px;">--:--</span>`;
+            timerHtml = ` <span class="player-timer" data-start="${startTime}" data-duration="${duration}" style="font-family:monospace; font-weight:bold; font-size:1.2em;">--:--</span>`;
         }
 
         const safeName = p.name.replace(/'/g, "\\'");
