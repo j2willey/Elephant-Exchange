@@ -1,44 +1,42 @@
-/* ELEPHANT EXCHANGE - ADMIN DASHBOARD STYLES */
+/* ELEPHANT EXCHANGE - ADMIN DASHBOARD (STANDALONE) */
 
-/* --- 1. GLOBAL RESET & LAYOUT --- */
-* { box-sizing: border-box; }
+/* --- 1. VARIABLES & RESET --- */
+:root {
+    --primary: #2563eb;
+    --bg-page: #f9fafb;
+    --bg-card: #ffffff;
+    --text-main: #111827;
+    --text-muted: #6b7280;
+    --border: #e5e7eb;
+}
 
-/* --- 1. GLOBAL RESET & LAYOUT --- */
 * { box-sizing: border-box; }
 
 body {
     padding: 0;
     margin: 0;
     width: 100%;
-    max-width: none !important;
     min-height: 100vh;
-    overflow-x: hidden;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    background-color: #f9fafb;
+    background-color: var(--bg-page);
+    color: var(--text-main);
     display: flex;
     flex-direction: column;
 }
 
-/* NEW: WRAPPER FOR CENTERING */
+/* --- 2. UTILITIES --- */
+.hidden { display: none !important; }
+
+/* --- 3. HEADER & MENU --- */
 #dashboard-section {
     width: 100%;
-    max-width: 1400px; /* The "Stop Growing" point */
-    margin: 0 auto;    /* The "Center Me" command */
-    padding: 10px 15px 80px 15px; /* Add padding here instead of body */
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 10px 15px 80px 15px;
 }
 
-/* Ensure the login container also respects centering */
-.login-container {
-    width: 100%;
-    max-width: 800px;
-    margin: 40px auto;
-    padding: 0 20px;
-    text-align: center;
-}
-
-/* --- 2. HEADER & MENU --- */
 .admin-banner {
-    background-color: var(--primary, #2563eb);
+    background-color: var(--primary);
     color: white;
     padding: 12px 20px;
     text-align: center;
@@ -50,34 +48,20 @@ body {
 
 .menu-bar {
     display: flex;
-    justify-content: space-between; /* Pushes TV controls left, Admin right */
+    justify-content: space-between;
     align-items: center;
-    background: #ffffff;
+    background: var(--bg-card);
     padding: 10px 20px;
-    border-bottom: 1px solid #e5e7eb;
+    border-bottom: 1px solid var(--border);
     border-radius: 0 0 8px 8px;
     margin-bottom: 20px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.05);
 }
-.menu-label { font-size: 0.75rem; font-weight: 700; color: #9ca3af; margin-right: 5px; text-transform: uppercase; letter-spacing: 0.05em; }
+.menu-label { font-size: 0.75rem; font-weight: 700; color: var(--text-muted); margin-right: 5px; text-transform: uppercase; letter-spacing: 0.05em; }
 
-/* ICON BUTTONS (New) */
-.icon-btn {
-    background: none;
-    border: none;
-    font-size: 1.4rem;
-    cursor: pointer;
-    padding: 6px;
-    border-radius: 50%;
-    transition: background 0.2s, transform 0.1s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    line-height: 1;
-}
-.icon-btn:hover { background-color: #f3f4f6; }
-.icon-btn:active { transform: scale(0.95); }
+/* --- 4. BUTTONS --- */
 
+/* Header Ghost Buttons (Category 4: Menu - placeholder for now) */
 .btn-ghost {
     background: white;
     border: 1px solid #d1d5db;
@@ -89,188 +73,218 @@ body {
     cursor: pointer;
     transition: all 0.2s;
 }
+.btn-ghost:hover { background: #f3f4f6; border-color: #9ca3af; color: #111827; }
 
-.btn-ghost:hover {
-    background: #f3f4f6;
-    border-color: #9ca3af;
-    color: #111827;
+.icon-btn {
+    background: none;
+    border: none;
+    font-size: 1.4rem;
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 50%;
+    transition: background 0.2s, transform 0.1s;
+    display: flex; align-items: center; justify-content: center; line-height: 1;
+}
+.icon-btn:hover { background-color: #f3f4f6; }
+.icon-btn:active { transform: scale(0.95); }
+
+
+/* --- THE 3-CATEGORY SYSTEM --- */
+/* 1. PLAY: Open, Steal
+   2. MANAGE: Reset, Skip, Delete
+   3. NAVIGATE: Save, Join, Cancel, Close, End Game, Upload
+
+   VISUAL STYLE: ALL THEME COLOR.
+*/
+
+.btn-play,
+.btn-manage,
+.btn-nav {
+    background-color: var(--primary) !important;
+    color: white !important;
+    border: 1px solid var(--primary) !important;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: filter 0.2s;
+    opacity: 1 !important;
 }
 
-/* --- 3. FLUID DASHBOARD GRID --- */
+.btn-play:hover,
+.btn-manage:hover,
+.btn-nav:hover {
+    filter: brightness(0.85); /* Simple darken effect */
+}
+
+/* --- 5. ACTION TOOLBAR (Participants) --- */
+.participant-list li > span {
+    font-size: 1.3rem;
+    font-weight: 500;
+    display: flex; align-items: center; gap: 10px;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+    align-items: center;
+    justify-content: flex-start;
+}
+
+/* Toolbar Button Override (Square Shape) */
+.action-buttons button,
+.action-buttons .btn-play,
+.action-buttons .btn-manage {
+    flex: 0 0 50px;       /* Fixed 50px Width */
+    width: 50px;
+    height: 50px;         /* Fixed 50px Height */
+    display: flex; justify-content: center; align-items: center;
+    padding: 0 !important; margin: 0 !important;
+    font-size: 1.5rem;
+    border-radius: 8px;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    transition: all 0.15s ease-in-out;
+}
+
+/* Inactive Row Trash Can (Matches Toolbar) */
+li > div > .btn-manage {
+    width: 50px; height: 50px;
+    display: flex; justify-content: center; align-items: center;
+    border-radius: 8px; cursor: pointer; font-size: 1.5rem;
+
+    /* Ensure it looks like the toolbar buttons even when isolated */
+    background-color: var(--primary) !important;
+    color: white !important;
+    border: 1px solid var(--primary) !important;
+}
+
+/* --- 6. LAYOUT COMPONENTS (Resizable Split Pane) --- */
 .main-layout {
     display: flex;
-    gap: 20px;
-    align-items: flex-start;
     width: 100%;
+    height: calc(100vh - 160px); /* Fill screen height minus header/footer */
+    overflow: hidden;            /* Prevent window scrollbars */
 }
 
-.sidebar { flex: 3; min-width: 350px; }
-.content { flex: 7; min-width: 0; }
+/* LEFT PANEL (Participants) */
+.sidebar {
+    /* Default to 50% width, but let JS override it via inline style */
+    width: 50%;
+    min-width: 320px; /* Don't squash too small */
+    display: flex;
+    flex-direction: column;
+}
 
-/* --- 4. COMPONENTS --- */
+/* THE DRAGGABLE HANDLE */
+.resizer {
+    width: 8px;
+    background-color: #e5e7eb;
+    cursor: col-resize;
+    transition: background-color 0.2s;
+    z-index: 10;
+    flex-shrink: 0; /* Prevent resizer from vanishing */
+}
+
+.resizer:hover,
+.resizer.dragging {
+    background-color: var(--primary); /* Highlight when grabbing */
+}
+
+/* RIGHT PANEL (Gifts) */
+.content {
+    flex: 1; /* Take whatever space is left */
+    min-width: 320px;
+    display: flex;
+    flex-direction: column;
+    padding-left: 10px; /* Slight buffer from resizer */
+}
+
+/* CARDS inside panels should fill height now */
 .card {
     background: white;
     border-radius: 12px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     padding: 20px;
     margin-bottom: 20px;
+    /* Allow scrolling INSIDE the card, not the window */
+    flex: 1;
+    overflow-y: auto;
 }
-.card h3 { margin-top: 0; color: #111827; font-size: 1.1rem; }
 
-.action-buttons { display: flex; gap: 5px; margin-top: 8px; }
-.action-buttons button { padding: 6px 12px; font-size: 0.85rem; white-space: nowrap; flex: 1; }
+/* ... Keep .participant-list and .input-group styles below ... */
+.participant-list, .gift-list { list-style: none; padding: 0; margin: 0; }
+.participant-list li, .gift-list li {
+    padding: 12px; border-bottom: 1px solid #f3f4f6;
+    display: flex; justify-content: space-between; align-items: center;
+}
+.participant-list li.active-row {
+    background-color: #eff6ff;
+    border-left: 4px solid var(--primary);
 
+    /* Layout Fix: Stack buttons vertically if panel is narrow */
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+}
+.participant-list li.active-row > span {
+    display: flex; justify-content: space-between; align-items: center;
+}
+
+.participant-list li.victim-row { background-color: #fff1f2; border-left: 4px solid #e11d48; }
+
+.input-group { display: flex; gap: 10px; width: 100%; }
+.input-group input { flex: 1; padding: 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 1rem; }
+
+
+/* --- 7. MODALS --- */
+.admin-modal-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.65); backdrop-filter: blur(4px);
+    display: flex; justify-content: center; align-items: center;
+    z-index: 2000; opacity: 0; visibility: hidden;
+    transition: opacity 0.2s ease, visibility 0.2s;
+}
+.admin-modal-overlay.active { opacity: 1; visibility: visible; }
+
+.admin-modal-content {
+    background: white; color: var(--text-main);
+    border-radius: 16px; padding: 30px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    width: 90%; max-width: 600px; max-height: 90vh; overflow-y: auto;
+    transform: scale(0.95); transition: transform 0.2s;
+}
+.admin-modal-overlay.active .admin-modal-content { transform: scale(1); }
+
+/* Settings Form */
+.settings-grid { display: grid; grid-template-columns: 1fr 200px; gap: 15px 30px; align-items: center; margin-bottom: 10px; }
+.setting-label-group label { font-weight: 600; color: #374151; font-size: 0.95rem; }
+.settings-grid input, .settings-grid select { padding: 10px; border: 1px solid var(--border); border-radius: 6px; width: 100%; }
+.info-icon { display: inline-flex; justify-content: center; align-items: center; width: 18px; height: 18px; background: #e0e7ff; color: #4338ca; border-radius: 50%; font-size: 11px; font-weight: bold; cursor: help; margin-left: 5px; }
+
+/* --- 8. FOOTER --- */
 .admin-footer {
     position: fixed; bottom: 0; left: 0; right: 0;
-    background: white; border-top: 1px solid #e5e7eb;
+    background: white; border-top: 1px solid var(--border);
     padding: 10px 20px;
     display: flex; justify-content: space-between; align-items: center;
     z-index: 100; box-shadow: 0 -4px 6px -1px rgba(0,0,0,0.05);
 }
+.icon-legend { display: flex; gap: 15px; font-size: 0.8rem; color: var(--text-muted); }
+.icon-legend span { display: flex; align-items: center; gap: 4px; }
+@media (max-width: 600px) { .icon-legend { display: none; } }
 
-#displayGameId { display: none; }
-
-/* DELETE ICON (Small Red X) */
-.btn-delete-icon {
-    background: transparent;
-    border: 1px solid #fee2e2;
-    color: #ef4444;
-    width: 28px; height: 28px;
-    border-radius: 6px;
-    font-size: 18px; line-height: 1;
-    cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-    padding: 0; margin-left: 8px;
-    transition: all 0.2s;
-}
-.btn-delete-icon:hover { background: #ef4444; color: white; border-color: #ef4444; }
-
-/* --- 5. RESPONSIVE BREAKPOINT --- */
-@media (max-width: 850px) {
-    .main-layout { flex-direction: column; }
-    .sidebar, .content { width: 100%; flex: none; }
-    .sidebar { margin-bottom: 20px; }
-}
-
-/* --- 6. UNIFIED MODAL SYSTEM (Overlay & Box) --- */
-
-/* The Dark Backdrop */
-.admin-modal-overlay {
-    position: fixed;
-    top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0, 0, 0, 0.65);
-    backdrop-filter: blur(4px);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 2000;
-    opacity: 0;
-    visibility: hidden;
-    transition: opacity 0.2s ease, visibility 0.2s;
-}
-
-.admin-modal-overlay.active {
-    opacity: 1;
-    visibility: visible;
-}
-
-/* The White Box */
-.admin-modal-content {
-    background: #ffffff;
-    color: #1f2937;
-    border-radius: 16px;
-    padding: 30px;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-    width: 90%;
-    max-width: 600px;
-    max-height: 90vh;
-    overflow-y: auto;
-    position: relative;
-    transform: scale(0.95);
-    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.admin-modal-overlay.active .admin-modal-content {
-    transform: scale(1);
-}
-
-/* Modal Typography */
-.admin-modal-content h3 {
-    margin-top: 0; color: #111827; font-size: 1.5rem;
-    border-bottom: 1px solid #f3f4f6; padding-bottom: 15px; margin-bottom: 20px;
-}
-.admin-modal-content h4 {
-    color: #6b7280; text-transform: uppercase; font-size: 0.85rem; letter-spacing: 0.05em;
-    margin-top: 25px; margin-bottom: 15px; border-top: 1px solid #f3f4f6; padding-top: 15px;
-}
-
-/* --- 7. SPECIFIC MODAL STYLES --- */
-
-/* Settings Grid */
-.settings-grid {
-    display: grid; grid-template-columns: 1fr 200px;
-    gap: 15px 30px; align-items: center; margin-bottom: 10px;
-}
-.setting-label-group { display: flex; align-items: center; gap: 8px; }
-.setting-label-group label { font-weight: 600; color: #374151; font-size: 0.95rem; }
-
-/* Info Tooltip */
-.info-icon {
-    display: inline-flex; justify-content: center; align-items: center;
-    width: 18px; height: 18px;
-    background: #e0e7ff; color: #4338ca; border-radius: 50%;
-    font-size: 11px; font-weight: bold; cursor: help; position: relative;
-}
-.info-icon:hover::after {
-    content: attr(data-tooltip);
-    position: absolute; left: 24px; top: -8px; width: 240px;
-    background: #1f2937; color: #fff; padding: 10px; border-radius: 6px;
-    font-size: 0.8rem; line-height: 1.4; font-weight: normal; z-index: 1000;
-    pointer-events: none;
-}
-
-/* Inputs */
-.settings-grid input[type="text"],
-.settings-grid input[type="number"],
-.settings-grid select {
-    padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;
-    width: 100%; font-size: 1rem;
-}
-.settings-grid input:focus { outline: 2px solid #2563eb; border-color: transparent; }
-.settings-grid input[type="color"] {
-    width: 100%; height: 42px; padding: 2px; cursor: pointer;
-    border: 1px solid #d1d5db; border-radius: 6px;
-}
-
-/* Late Arrival Buttons */
-.late-arrival-btn {
-    display: flex; align-items: center; text-align: left; gap: 15px;
-    padding: 15px; border-radius: 10px; cursor: pointer; transition: all 0.2s;
-    background: #f8fafc; border: 2px solid #e2e8f0; width: 100%;
-}
-.late-arrival-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
-
-.late-arrival-btn.random { background: #eff6ff; border-color: #3b82f6; }
-.late-arrival-btn.end { background: #f8fafc; border-color: #cbd5e1; }
-
-/* --- 8. LOGIN / ONBOARDING --- */
-.login-container { max-width: 800px; margin: 40px auto; text-align: center; }
-.login-split-card {
-    display: flex; background: white; border-radius: 16px;
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-    overflow: hidden; margin-top: 30px; text-align: left;
-}
+/* --- 9. LOGIN --- */
+.login-container { width: 100%; max-width: 800px; margin: 40px auto; padding: 0 20px; text-align: center; }
+.login-split-card { display: flex; background: white; border-radius: 16px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); overflow: hidden; margin-top: 30px; text-align: left; }
 .login-half { flex: 1; padding: 40px; display: flex; flex-direction: column; justify-content: center; }
 .login-half.left { background: #f8fafc; }
-.login-divider {
-    width: 1px; background: #e2e8f0; position: relative;
-    display: flex; align-items: center; justify-content: center;
-}
-.login-divider span {
-    background: white; padding: 4px 8px; color: #94a3b8;
-    font-weight: bold; font-size: 0.75rem; border: 1px solid #e2e8f0; border-radius: 12px;
-}
-@media (max-width: 768px) {
+.login-divider { width: 1px; background: var(--border); display: flex; align-items: center; justify-content: center; }
+.login-divider span { background: white; padding: 4px 8px; color: #94a3b8; font-weight: bold; font-size: 0.75rem; border: 1px solid var(--border); border-radius: 12px; }
+@media (max-width: 850px) {
+    .main-layout { flex-direction: column; }
+    .sidebar, .content { width: 100%; }
     .login-split-card { flex-direction: column; }
     .login-divider { width: 100%; height: 1px; margin: 0; }
 }

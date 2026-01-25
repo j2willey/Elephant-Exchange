@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Elephant Exchange - Host</title>
-    <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/gameadmin.css">
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -23,7 +22,7 @@
                 <p>Start a brand new game.</p>
                 <div class="input-group">
                     <input type="text" id="hostNameInput" placeholder="e.g. Smith Family Xmas">
-                    <button onclick="handleHostGame()" class="btn-primary">Create & Host 🚀</button>
+                    <button onclick="handleHostGame()" class="btn-nav">Create & Host 🚀</button>
                 </div>
             </div>
 
@@ -34,7 +33,7 @@
                 <p>Manage an existing game.</p>
                 <div class="input-group">
                     <input type="text" id="joinNameInput" placeholder="Search Party Name...">
-                    <button onclick="handleReconnectGame()" class="btn-secondary">Search 🔍</button>
+                    <button onclick="handleReconnectGame()" class="btn-nav">Search 🔍</button>
                 </div>
                 <div id="searchResults" style="margin-top:10px; text-align:left;"></div>
             </div>
@@ -52,40 +51,41 @@
         <div class="menu-bar">
             <div style="margin-right: auto; display: flex; gap: 8px; align-items: center;">
                 <span class="menu-label">TV View:</span>
-                <button id="btnTvRules"  onclick="setTvMode('rules')"   class="btn-toggle" title="Show Rules">Rules</button>
-                <button id="btnTvQr"     onclick="setTvMode('qr')"      class="btn-toggle" title="Show Join QR">QR</button>
-                <button id="btnTvGrid"   onclick="setTvMode('catalog')" class="btn-toggle" title="Show Grid View">Catalog</button>
-                <button id="btnTvList"   onclick="setTvMode(null)"      class="btn-toggle active" title="Show Game List">Gifts</button>
+                <button id="btnTvRules"  onclick="setTvMode('rules')"   class="btn-ghost" title="Show Rules">Rules</button>
+                <button id="btnTvQr"     onclick="setTvMode('qr')"      class="btn-ghost" title="Show Join QR">QR</button>
+                <button id="btnTvGrid"   onclick="setTvMode('catalog')" class="btn-ghost" title="Show Grid View">Catalog</button>
+                <button id="btnTvList"   onclick="setTvMode(null)"      class="btn-ghost active" title="Show Game List">Gifts</button>
             </div>
 
             <div style="display:flex; gap:10px; align-items: center;">
-                <button onclick="showLocalQr()" class="btn-ghost" title="Show QR on this screen">Invite</button>
-                <button onclick="openCatalog()" class="btn-ghost" title="Open Catalog in new window">Catalog</button>
-
+                <button onclick="showLocalQr()" class="btn-ghost" style="font-size:0.85rem;">Invite</button>
+                <button onclick="openCatalog()" class="btn-ghost" style="font-size:0.85rem;">Catalog</button>
                 <a href="/faq.html" target="_blank" class="icon-btn" title="Help / FAQ">❓</a>
-                <button onclick="openThemeSettings()" class="icon-btn" title="Theme & Branding">🎭</button>
+                <button onclick="openThemeSettings()" class="icon-btn" title="Theme">🎭</button>
                 <button onclick="openSettings()" class="icon-btn" title="Game Settings">⚙️</button>
             </div>
         </div>
 
-        <div class="main-layout">
-            <aside class="sidebar">
-                <div class="card">
+        <div class="main-layout" id="mainLayout">
+            <aside class="sidebar" id="leftPanel">
+                <div class="card" style="height: 100%; overflow-y: auto;">
                     <h3>Participants</h3>
                     <div style="display:flex; gap:5px; margin-bottom:10px;">
                         <input type="number" id="pNumber" placeholder="#" style="width:60px; padding:8px; border:1px solid #d1d5db; border-radius:4px;">
                         <input type="text" id="pName" placeholder="Name" style="flex:1; padding:8px; border:1px solid #d1d5db; border-radius:4px;">
-                        <button onclick="addParticipant()" class="btn-primary">Add</button>
+                        <button onclick="addParticipant()" class="btn-nav">Add</button>
                     </div>
                     <ul id="participantList" class="participant-list"></ul>
                 </div>
                 <div id="displayGameId"></div>
             </aside>
 
-            <main class="content">
+            <div class="resizer" id="dragHandle"></div>
+
+            <main class="content" id="rightPanel">
                 <div id="phaseControls" style="margin-bottom: 20px;"></div>
 
-                <div class="card">
+                <div class="card" style="height: 100%; overflow-y: auto;">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
                         <h3>Gift Tracker</h3>
                     </div>
@@ -95,7 +95,16 @@
         </div>
 
         <footer class="admin-footer">
-            <button onclick="confirmEndGame()" class="btn-red" title="End Game">🛑 End Game</button>
+            <button onclick="confirmEndGame()" class="btn-nav" title="End Game">🛑 End Game</button>
+
+            <div class="icon-legend">
+                <span>🎁 Open</span>
+                <span>😈 Steal</span>
+                <span>🕒 Reset Time</span>
+                <span>⤵️ Skip</span>
+                <span>🗑️ Remove</span>
+            </div>
+
             <div class="scale-control">
                 <span style="font-size:0.85rem; color:#6b7280; margin-right:5px;">UI Scale:</span>
                 <input type="range" id="uiScale" min="0.5" max="1.5" step="0.1" value="1" style="width:80px;">
@@ -103,106 +112,28 @@
         </footer>
     </div>
 
-    <div id="themeModal" class="admin-modal-overlay hidden">
-        <div class="admin-modal-content">
-            <h3 style="margin-top:0; border-bottom:1px solid #eee; padding-bottom:10px;">Party Theme & Branding</h3>
-
-            <div style="text-align:center; padding: 20px 0; border-bottom:1px solid #f3f4f6; margin-bottom:20px;">
-                <label style="display:block; font-weight:600; color:#374151; margin-bottom:10px;">Projector Logo</label>
-                <div style="font-size:0.85rem; color:#6b7280; margin-bottom:15px;">
-                    Replaces the elephant icon on the TV view.
-                </div>
-
-                <div style="display:flex; gap:10px; justify-content:center;">
-                    <input type="file" id="themeLogoInput" accept="image/*" style="font-size:0.9rem;">
-                    <button onclick="uploadLogo()" class="btn-primary" style="padding: 6px 12px;">Upload Logo</button>
-                </div>
-            </div>
-
-            <div class="settings-grid">
-                <div class="setting-label-group">
-                    <label>Theme Color</label>
-                    <span class="info-icon" data-tooltip="Primary color for banners and buttons.">i</span>
-                </div>
-                <input type="color" id="themeColorInput" style="height:50px;">
-            </div>
-
-            <div style="margin-top:25px; text-align:right; display:flex; justify-content:flex-end; gap:10px;">
-                <button onclick="closeThemeSettings()" class="btn-gray">Cancel</button>
-                <button onclick="saveThemeSettings()" class="btn-primary">Save Theme</button>
-            </div>
-        </div>
-    </div>
-
     <div id="settingsModal" class="admin-modal-overlay hidden">
         <div class="admin-modal-content">
             <h3 id="settingsModalTitle">Game Settings</h3>
-
             <div class="settings-grid">
-                <div class="setting-label-group">
-                    <label>Party Name</label>
-                    <span class="info-icon" data-tooltip="This appears at the top of the TV Scoreboard.">i</span>
-                </div>
-                <input type="text" id="settingPartyName" placeholder="e.g. Smith Family Xmas">
-
-                <div class="setting-label-group">
-                    <label>Tagline</label>
-                    <span class="info-icon" data-tooltip="A fun subtitle under the main banner.">i</span>
-                </div>
-                <input type="text" id="settingTagline" placeholder="e.g. 2026 Edition">
-            </div>
-
-            <h4>Gameplay & Pacing</h4>
-            <div class="settings-grid">
-                <div class="setting-label-group">
-                    <label>Turn Duration</label>
-                    <span class="info-icon" data-tooltip="Time (seconds) a player has to open or steal.">i</span>
-                </div>
-                <input type="number" id="settingDuration">
-
-                <div class="setting-label-group">
-                    <label>Max Steals</label>
-                    <span class="info-icon" data-tooltip="How many times a single gift can be stolen before it is Locked.">i</span>
-                </div>
-                <input type="number" id="settingMaxSteals">
-
-                <div class="setting-label-group">
-                    <label>Active Players</label>
-                    <span class="info-icon" data-tooltip="How many people take a turn at the same time? Usually 1.">i</span>
-                </div>
-                <input type="number" id="settingActiveCount">
-            </div>
-
-            <h4>Participant Management</h4>
-            <div class="settings-grid">
-                <div class="setting-label-group">
-                    <label>Turn Order</label>
-                    <span class="info-icon" data-tooltip="OFF = Host calls 'Who has #1?'. ON = Computer shuffles names and assigns numbers.">i</span>
-                </div>
-                <label class="toggle-switch" style="width:100%;">
+                 <div class="setting-label-group"><label>Party Name</label></div><input type="text" id="settingPartyName">
+                 <div class="setting-label-group"><label>Tagline</label></div><input type="text" id="settingTagline">
+                 <div class="setting-label-group"><label>Turn Duration</label></div><input type="number" id="settingDuration">
+                 <div class="setting-label-group"><label>Max Steals</label></div><input type="number" id="settingMaxSteals">
+                 <div class="setting-label-group"><label>Active Players</label></div><input type="number" id="settingActiveCount">
+                 <div class="setting-label-group"><label>Turn Order</label></div>
+                 <label class="toggle-switch" style="width:100%;">
                     <input type="checkbox" id="settingGameModeToggle" onchange="toggleRosterInput()">
                     <span class="slider round"></span>
-                    <span class="toggle-label" id="gameModeLabel" style="font-size:0.9rem; font-weight:600; color:#374151; margin-left:10px;">Manual Numbers</span>
+                    <span class="toggle-label" id="gameModeLabel" style="margin-left:10px;">Manual Numbers</span>
                 </label>
-
-                <div class="setting-label-group">
-                    <label>Total Players</label>
-                    <span class="info-icon" data-tooltip="Sets the game size. In Auto-Shuffle mode, this auto-fills the name list!">i</span>
-                </div>
-                <input type="number" id="settingTotalPlayers" placeholder="e.g. 20" oninput="syncRosterFromCount()">
+                <div class="setting-label-group"><label>Total Players</label></div><input type="number" id="settingTotalPlayers" oninput="syncRosterFromCount()">
             </div>
-
-            <div id="rosterInputSection" style="display:none; margin-top:10px; background:#f9fafb; padding:15px; border-radius:8px; border:1px solid #e5e7eb;">
-                <div class="setting-label-group" style="margin-bottom:8px; justify-content: space-between;">
-                    <label style="font-size:0.9rem;">Player List (Names)</label>
-                    <span style="font-size:0.8rem; color:#6b7280;">Count: <b id="rosterCountDisplay">0</b></span>
-                </div>
-                <textarea id="settingRosterNames" rows="6" placeholder="Alice&#10;Bob&#10;Charlie" oninput="syncCountFromRoster()" style="width:100%; padding:10px; border:1px solid #d1d5db; border-radius:6px; font-family:sans-serif;"></textarea>
-            </div>
+            <div id="rosterInputSection" style="display:none; margin-top:10px;"><textarea id="settingRosterNames" rows="6" oninput="syncCountFromRoster()" style="width:100%;"></textarea></div>
 
             <div style="margin-top:25px; text-align:right; display:flex; justify-content:flex-end; gap:10px;">
-                <button id="btnCancelSettings" onclick="cancelSettings()" class="btn-gray">Cancel</button>
-                <button id="btnSaveSettings" onclick="saveSettings()" class="btn-primary">Save Changes</button>
+                <button id="btnCancelSettings" onclick="cancelSettings()" class="btn-nav">Cancel</button>
+                <button id="btnSaveSettings" onclick="saveSettings()" class="btn-nav">Save Changes</button>
             </div>
         </div>
     </div>
@@ -210,31 +141,12 @@
     <div id="lateArrivalModal" class="admin-modal-overlay hidden">
         <div class="admin-modal-content" style="max-width: 500px; text-align: center;">
             <div style="font-size:3rem; margin-bottom:10px;">⏱️</div>
-            <h3 style="border:none; margin-bottom:10px;">Late Arrival Detected</h3>
-            <p style="color:#64748b; margin:0 0 25px 0;">
-                The game has already started. How should we insert <b id="latePlayerName" style="color:#2563eb;"></b>?
-            </p>
-
+            <h3>Late Arrival Detected</h3>
+            <p>The game has already started. How should we insert <b id="latePlayerName"></b>?</p>
             <div style="display:flex; flex-direction:column; gap:12px;">
-                <button onclick="confirmLateAdd('random')" class="late-arrival-btn random">
-                    <span style="font-size:1.8rem;">🎲</span>
-                    <div>
-                        <div style="font-weight:bold; color:#1d4ed8; font-size:1.1rem;">Insert Randomly (Fair)</div>
-                        <div style="font-size:0.9rem; color:#3b82f6;">Shuffles them into the remaining turns.</div>
-                    </div>
-                </button>
-
-                <button onclick="confirmLateAdd('end')" class="late-arrival-btn end">
-                    <span style="font-size:1.8rem;">⏭️</span>
-                    <div>
-                        <div style="font-weight:bold; color:#475569; font-size:1.1rem;">Add to End (Standard)</div>
-                        <div style="font-size:0.9rem; color:#64748b;">Gives them the last number (Best Spot).</div>
-                    </div>
-                </button>
-
-                <button onclick="closeLateModal()" style="margin-top:10px; background:transparent; border:none; color:#94a3b8; font-weight:bold; cursor:pointer;">
-                    Cancel
-                </button>
+                <button onclick="confirmLateAdd('random')" class="btn-nav">Insert Randomly (Fair)</button>
+                <button onclick="confirmLateAdd('end')" class="btn-nav">Add to End (Standard)</button>
+                <button onclick="closeLateModal()" class="btn-nav" style="background:white !important; color:#64748b !important; border-color:#e2e8f0 !important;">Cancel</button>
             </div>
         </div>
     </div>
@@ -245,20 +157,41 @@
             <p style="margin-bottom:20px;">Scan to join <b><span id="qrGameIdDisplay"></span></b></p>
             <div id="localQrcode" style="margin:0 auto 20px auto; display:inline-block; background: white; padding: 10px; border-radius: 8px;"></div>
             <br>
-            <button onclick="closeLocalQr()" class="btn-gray" style="width:100%;">Close</button>
+            <button onclick="closeLocalQr()" class="btn-nav" style="width:100%;">Close</button>
+        </div>
+    </div>
+
+    <div id="themeModal" class="admin-modal-overlay hidden">
+        <div class="admin-modal-content">
+            <h3>Party Theme & Branding</h3>
+            <div style="text-align:center; padding: 20px 0; border-bottom:1px solid #f3f4f6; margin-bottom:20px;">
+                <label style="display:block; font-weight:600; margin-bottom:10px;">Projector Logo</label>
+                <div style="display:flex; gap:10px; justify-content:center;">
+                    <input type="file" id="themeLogoInput" accept="image/*">
+                    <button onclick="uploadLogo()" class="btn-nav">Upload Logo</button>
+                </div>
+            </div>
+            <div class="settings-grid">
+                <div class="setting-label-group"><label>Theme Color</label></div>
+                <input type="color" id="themeColorInput" style="height:50px;">
+            </div>
+            <div style="margin-top:25px; text-align:right; display:flex; justify-content:flex-end; gap:10px;">
+                <button onclick="closeThemeSettings()" class="btn-nav">Cancel</button>
+                <button onclick="saveThemeSettings()" class="btn-nav">Save Theme</button>
+            </div>
         </div>
     </div>
 
     <div id="imageModal" class="admin-modal-overlay hidden">
         <div class="admin-modal-content">
             <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #eee; padding-bottom:15px; margin-bottom:15px;">
-                <h3 id="imgModalTitle" style="margin:0; border:none; padding:0;">Manage Images</h3>
-                <button onclick="closeImgModal()" style="background:none; border:none; font-size:1.5rem; cursor:pointer;">&times;</button>
+                <h3 id="imgModalTitle" style="margin:0;">Manage Images</h3>
+                <button onclick="closeImgModal()" class="btn-nav" style="padding: 4px 10px; font-size: 1.2rem;">&times;</button>
             </div>
-            <div id="imgList" class="admin-img-grid" style="min-height:100px;"></div>
+            <div id="imgList" class="admin-img-grid"></div>
             <div style="margin-top:20px; border-top:1px solid #eee; padding-top:15px; display:flex; gap:10px;">
                 <input type="file" id="adminFileInput" accept="image/*" style="flex:1;">
-                <button onclick="adminUpload()" class="btn-primary">Upload</button>
+                <button onclick="adminUpload()" class="btn-nav">Upload</button>
             </div>
         </div>
     </div>

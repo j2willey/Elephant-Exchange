@@ -15,13 +15,13 @@
 
 function getContrastColor(hex) {
     if (!hex || hex.length < 7) return '#ffffff';
-    
+
     const r = parseInt(hex.substr(1, 2), 16);
     const g = parseInt(hex.substr(3, 2), 16);
     const b = parseInt(hex.substr(5, 2), 16);
-    
+
     const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
-    
+
     // Threshold raised to 150 to prefer White text on mid-tones (like Orange)
     return (yiq >= 150) ? '#000000' : '#ffffff';
 }
@@ -29,7 +29,7 @@ function getContrastColor(hex) {
 
 function applyTheme(settings) {
     if (!settings) return;
-    
+
     const root = document.documentElement;
     const primary = settings.themeColor || '#2563eb';
     const bg = settings.themeBg || '';
@@ -37,14 +37,14 @@ function applyTheme(settings) {
     // Set CSS Variables
     root.style.setProperty('--primary', primary);
     root.style.setProperty('--bg-image', bg ? `url('${bg}')` : 'none');
-    
+
     const textCol = getContrastColor(primary);
 
 
     // Inject Dynamic Classes
     // We create a <style> tag to override specific button classes with the precise theme color and contrast text
     let styleTag = document.getElementById('dynamic-theme-style');
-    
+
     if (!styleTag) {
         styleTag = document.createElement('style');
         styleTag.id = 'dynamic-theme-style';
@@ -52,26 +52,27 @@ function applyTheme(settings) {
     }
 
 
-    styleTag.innerHTML = `
-        /* Main Action Buttons */
-        .btn-primary, .btn-blue, .btn-sm, .btn-green, .btn-orange { 
-            background-color: ${primary} !important; 
-            color: ${textCol} !important; 
+styleTag.innerHTML = `
+        /* 1. Main Action Buttons (The New Taxonomy) */
+        .btn-primary,
+        .btn-play,
+        .btn-manage,
+        .btn-nav {
+            background-color: ${primary} !important;
+            color: ${textCol} !important;
+            border: 1px solid ${primary} !important;
         }
 
-        /* Menu / Toggle Buttons */
+        /* 2. Menu / Toggle Buttons */
         .btn-toggle {
             background-color: ${primary} !important;
             color: ${textCol} !important;
-            opacity: 0.75; /* Slightly dim by default */
+            opacity: 0.75;
             border: 1px solid rgba(0,0,0,0.1) !important;
         }
-        
-        .btn-toggle:hover {
-            opacity: 0.9;
-        }
 
-        /* Active State: Full Opacity + Pressed Look */
+        .btn-toggle:hover { opacity: 0.9; }
+
         .btn-toggle.active {
             opacity: 1.0 !important;
             box-shadow: inset 0 3px 6px rgba(0,0,0,0.3) !important;
@@ -79,30 +80,26 @@ function applyTheme(settings) {
             font-weight: bold;
         }
 
-        /* Banner & Header Consistency */
-        .admin-banner {
-            color: ${textCol} !important;
-        }
-        .admin-banner .tagline {
-            color: ${textCol} !important;
-            opacity: 0.9;
+        /* 3. Banner & Highlights */
+        .admin-banner { color: ${textCol} !important; }
+        .admin-banner .tagline { color: ${textCol} !important; opacity: 0.9; }
+
+        .active-row, .active-turn {
+            border-left: 5px solid ${primary} !important;
+            background-color: ${primary}15 !important;
         }
 
-        /* Highlights */
-        .active-row, .active-turn { 
-            border: 2px solid ${primary} !important; 
-            background-color: ${primary}15 !important; 
+        .victim-row, .status-victim {
+            border-left: 5px solid #dc2626 !important;
+            background-color: #fef2f2 !important;
         }
-        
-        .btn-camera-add { background-color: ${primary}; color: ${textCol}; }
-        .victim-row, .status-victim { border-color: #dc2626 !important; background-color: #fef2f2 !important; }
     `;
 
 
     // Update Logo if present
     const titleEl = document.querySelector('h1');
     const existingLogo = document.getElementById('customGameLogo');
-    
+
     if (settings.themeLogo) {
         if (!existingLogo && titleEl) {
             const img = document.createElement('img');
@@ -122,16 +119,16 @@ function applyTheme(settings) {
 
 function getActiveIds(state) {
     if (!state || !state.participants) return [];
-    
+
     const victims = state.participants.filter(p => p.isVictim && !p.heldGiftId);
-    
+
     const queue = state.participants
         .filter(p => !p.isVictim && !p.heldGiftId && p.number >= state.currentTurn)
         .sort((a,b) => a.number - b.number);
-        
+
     const limit = state.settings.activePlayerCount || 1;
     const slots = Math.max(0, limit - victims.length);
-    
+
     return [...victims, ...queue.slice(0, slots)].map(p => p.id);
 }
 
@@ -148,7 +145,7 @@ function sortGifts(gifts, state, isMobile = false, bookmarks = new Set()) {
             if (votesA === votesB) return a.id.localeCompare(b.id);
             return votesB - votesA;
         }
-        
+
         // B. Mobile Bookmarks
         if (isMobile) {
             const aStarred = bookmarks.has(a.id);

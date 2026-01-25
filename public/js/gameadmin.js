@@ -25,6 +25,58 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // --- NEW: RESIZABLE PANELS LOGIC ---
+    const resizer = document.getElementById('dragHandle');
+    const leftPanel = document.getElementById('leftPanel');
+    const rightPanel = document.getElementById('rightPanel');
+    const container = document.getElementById('mainLayout');
+
+    // 1. Restore saved width
+    const savedWidth = localStorage.getItem('elephantSidebarWidth');
+    if (savedWidth && leftPanel) {
+        leftPanel.style.width = savedWidth; // e.g. "45%"
+        leftPanel.style.flex = "none";      // Disable flex growing
+    }
+
+    // 2. Drag Logic
+    if (resizer && leftPanel && container) {
+        let isResizing = false;
+
+        resizer.addEventListener('mousedown', (e) => {
+            isResizing = true;
+            resizer.classList.add('dragging');
+            document.body.style.cursor = 'col-resize'; // Force cursor everywhere
+            e.preventDefault(); // Stop text selection
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isResizing) return;
+
+            // Calculate percentage based on mouse X position relative to container
+            const containerRect = container.getBoundingClientRect();
+            const newWidthPx = e.clientX - containerRect.left;
+
+            // Convert to percentage for responsiveness
+            const newWidthPercent = (newWidthPx / containerRect.width) * 100;
+
+            // Safety Limits (15% to 85%)
+            if (newWidthPercent > 15 && newWidthPercent < 85) {
+                leftPanel.style.width = `${newWidthPercent}%`;
+                leftPanel.style.flex = "none"; // Important: Stop flex from fighting us
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (isResizing) {
+                isResizing = false;
+                resizer.classList.remove('dragging');
+                document.body.style.cursor = 'default';
+                // Save preference
+                localStorage.setItem('elephantSidebarWidth', leftPanel.style.width);
+            }
+        });
+    }
+
     // 2. Handle URL Parameters (Auto-Login)
     const params = new URLSearchParams(window.location.search);
     const urlGameId = params.get('game');
@@ -134,29 +186,47 @@ async function joinGame(forceId = null, partyName = null) {
     const payload = { gameId };
     if (partyName) payload.partyName = partyName;
 
-    const res = await fetch('/api/create', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(payload)
-    });
+    try {
+        const res = await fetch('/api/create', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        });
 
-    if(res.ok) {
-        currentGameId = gameId;
-        const newUrl = `${window.location.pathname}?game=${gameId}`;
-        window.history.pushState({path: newUrl}, '', newUrl);
+        if(res.ok) {
+            currentGameId = gameId;
+            const newUrl = `${window.location.pathname}?game=${gameId}`;
+            window.history.pushState({path: newUrl}, '', newUrl);
 
-        document.getElementById('login-section').classList.add('hidden');
-        document.getElementById('dashboard-section').classList.remove('hidden');
-        document.getElementById('displayGameId').innerText = gameId;
+            document.getElementById('login-section').classList.add('hidden');
+            document.getElementById('dashboard-section').classList.remove('hidden');
+            document.getElementById('displayGameId').innerText = gameId;
 
-        initSocket(gameId);
+            initSocket(gameId);
 
-        if (isNewSession) {
-             openSettings('defaults');
+            if (isNewSession) {
+                openSettings('defaults');
+            } else {
+                refreshState();
+            }
         } else {
-             refreshState();
+            // FIX: ALERT THE USER IF IT FAILS
+            const err = await res.json();
+            alert(`Cannot join game: ${err.error || res.statusText}`);
+
+            // Optional: If game doesn't exist, clear the URL so they aren't stuck
+            if (res.status === 404) {
+                 window.history.pushState({path: '/gameadmin.html'}, '', '/gameadmin.html');
+            }
         }
+
+
+
+    } catch (e) {
+        console.error(e);
+        alert("Network Error: Could not connect to server.");
     }
+
 }
 
 
@@ -200,10 +270,11 @@ function render(state) {
     renderGifts(state);
 }
 
+/* ... (Global Init Logic kept same) ... */
+
 function renderParticipants(state) {
     const pList = document.getElementById('participantList');
     pList.innerHTML = '';
-
     const activeIds = (window.getActiveIds) ? getActiveIds(state) : [];
 
     const sorted = state.participants.sort((a,b) => {
@@ -243,8 +314,11 @@ function renderParticipants(state) {
         }
 
         const safeName = p.name.replace(/'/g, "\\'");
+        const safePId = p.id.replace(/[^a-zA-Z0-9]/g, '_');
+
+        // CATEGORY 2: MANAGE (Delete) - Theme Color
         const deleteBtn = !p.heldGiftId
-            ? `<button onclick="deleteParticipant('${p.id}', '${safeName}')" class="btn-delete-icon" title="Remove ${p.name}">&times;</button>`
+            ? `<button id="${safePId}_delete" onclick="deleteParticipant('${p.id}', '${safeName}')" class="btn-manage" title="Remove ${p.name}">🗑️</button>`
             : '';
 
         let html = `<span><b>#${p.number}</b> ${p.name} ${statsBadge} ${timerHtml}</span>`;
@@ -254,22 +328,29 @@ function renderParticipants(state) {
                 html += `
                     <div class="action-buttons">
                         <span style="color:#d97706; font-weight:bold; font-size:0.9em; margin-right:5px;">Select Gift below...</span>
-                        <button onclick="cancelStealMode()" class="btn-gray">Cancel</button>
+                        <button onclick="cancelStealMode()" class="btn-manage" title="Cancel Steal">❌</button>
                     </div>`;
             } else if (stealingPlayerId) {
                 html += `<div style="font-size:0.8em; color:#ccc;">Waiting...</div>`;
             } else {
                 const isRosterMode = state.settings && state.settings.gameMode === 'roster';
-                const skipBtn = isRosterMode
-                    ? `<button onclick="skipTurn('${p.id}', '${safeName}')" class="btn-blue" title="Swap with next player" style="margin-right:5px;">⤵️ Skip</button>`
-                    : '';
+
+                // CATEGORY 1: PLAY (Open, Steal)
+                const btnOpen  = `<button id="${safePId}_open" onclick="promptOpenGift('${p.id}')" class="btn-play" title="Open Gift">🎁</button>`;
+                const btnSteal = `<button id="${safePId}_steal" onclick="enterStealMode('${p.id}')" class="btn-play" title="Steal Gift">😈</button>`;
+
+                // CATEGORY 2: MANAGE (Reset, Skip)
+                const btnReset = `<button id="${safePId}_reset" onclick="resetTimer('${p.id}')" class="btn-manage" title="Reset Timer">🕒</button>`;
+                const btnSkip  = isRosterMode
+                                 ? `<button id="${safePId}_skip" onclick="skipTurn('${p.id}', '${safeName}')" class="btn-manage" title="Skip Turn">⤵️</button>`
+                                 : '';
 
                 html += `
                     <div class="action-buttons">
-                        <button onclick="resetTimer('${p.id}')" class="btn-gray" title="Reset Timer" style="margin-right:5px;">🕒</button>
-                        ${skipBtn}
-                        <button onclick="promptOpenGift('${p.id}')" class="btn-green" title="Open Gift">🎁 Open</button>
-                        <button onclick="enterStealMode('${p.id}')" class="btn-orange" title="Steal Gift">😈 Steal</button>
+                        ${btnOpen}
+                        ${btnSteal}
+                        ${btnReset}
+                        ${btnSkip}
                         ${deleteBtn}
                     </div>`;
             }
@@ -279,7 +360,6 @@ function renderParticipants(state) {
                         ${deleteBtn}
                      </div>`;
         }
-
         li.innerHTML = html;
         pList.appendChild(li);
     });
@@ -303,22 +383,14 @@ function renderGifts(state) {
         if (isVoting) {
             const count = g.downvotes?.length || 0;
             const highlight = count > 0 ? "font-weight:bold; color:#ef4444;" : "color:#9ca3af;";
-            return `
-            <li>
-                <div>
-                    <span style="font-size:1.1em; ${highlight}">${count} 👎</span>
-                    <span style="margin-left:10px;">${g.description}</span>
-                </div>
-                <div style="font-size:0.8em; color:#666;">Held by <b>${ownerName}</b></div>
-            </li>`;
+            return `<li><div><span style="font-size:1.1em; ${highlight}">${count} 👎</span> <span style="margin-left:10px;">${g.description}</span></div><div style="font-size:0.8em; color:#666;">Held by <b>${ownerName}</b></div></li>`;
         }
 
         let isForbidden = (stealingPlayerId && state.participants.find(p => p.id === stealingPlayerId)?.forbiddenGiftId === g.id);
         const itemStyle = g.isFrozen ? 'opacity: 0.5; background: #f1f5f9;' : '';
-        let statusBadge = '';
-        if (g.isFrozen) statusBadge = `<span class="badge" style="background:#333; color:#fff;">🔒 LOCKED</span>`;
-        else if (isForbidden) statusBadge = `<span class="badge" style="background:#fde68a; color:#92400e;">🚫 NO TAKE-BACKS</span>`;
-        else statusBadge = g.stealCount > 0 ? `<span class="badge stolen">${g.stealCount}/3 Steals</span>` : `<span class="badge">0/3 Steals</span>`;
+        let statusBadge = g.isFrozen ? `<span class="badge" style="background:#333; color:#fff;">🔒 LOCKED</span>` :
+                          (isForbidden ? `<span class="badge" style="background:#fde68a; color:#92400e;">🚫 NO TAKE-BACKS</span>` :
+                          (g.stealCount > 0 ? `<span class="badge stolen">${g.stealCount}/3 Steals</span>` : `<span class="badge">0/3 Steals</span>`));
 
         const imgCount = (g.images && g.images.length) || 0;
         const camColor = imgCount > 0 ? '#3b82f6' : '#9ca3af';
@@ -331,19 +403,18 @@ function renderGifts(state) {
                     <div style="display:flex; align-items:center; gap:5px;">
                         <span style="font-weight:500;">${g.description}</span>
                         <button onclick="editGift('${g.id}', '${g.description.replace(/'/g, "\\'")}')" style="background:none; border:none; padding:0; cursor:pointer; font-size:1em;" title="Edit Name">✏️</button>
-                        <button onclick="openImgModal('${g.id}')" style="background:none; border:none; color:${camColor}; cursor:pointer; font-size:0.9em; margin-left:8px;" title="Manage Images">
-                            ${camIcon}
-                        </button>
+                        <button onclick="openImgModal('${g.id}')" style="background:none; border:none; color:${camColor}; cursor:pointer; font-size:0.9em; margin-left:8px;" title="Manage Images">${camIcon}</button>
                     </div>
                     <div style="font-size:0.8em; color:#666;">Held by <b>${ownerName}</b></div>
                 </div>
                 <div style="text-align:right;">
                     ${statusBadge}
-                    ${showStealBtn ? `<button onclick="attemptSteal('${g.id}', '${g.description.replace(/'/g, "\\'")}')" class="btn-orange" style="font-size:0.7em; margin-left:5px;">Select</button>` : ''}
+                    ${showStealBtn ? `<button onclick="attemptSteal('${g.id}', '${g.description.replace(/'/g, "\\'")}')" class="btn-play" style="font-size:0.8em; padding:4px 8px; width:auto; height:auto;">Select</button>` : ''}
                 </div>
             </li>`;
     }).join('');
 }
+
 
 function renderPhaseControls(state) {
     const container = document.getElementById('phaseControls');
@@ -590,18 +661,52 @@ function openSettings(mode = 'edit') {
         .then(res => res.json())
         .then(state => {
             const s = state.settings || {};
+
+            // 1. Basic Fields
             document.getElementById('settingPartyName').value = s.partyName || currentGameId;
             document.getElementById('settingTagline').value = s.tagline || '';
             document.getElementById('settingDuration').value = s.turnDurationSeconds || 60;
             document.getElementById('settingMaxSteals').value = s.maxSteals || 3;
             document.getElementById('settingActiveCount').value = s.activePlayerCount || 1;
 
+            // 2. Theme Color
+            const color = document.getElementById('settingThemeColor');
+            if(color) color.value = s.themeColor || '#2563eb';
+
+            // 3. Game Mode & Roster Logic (THE FIX)
             const gameMode = s.gameMode || 'open';
             document.getElementById('settingGameModeToggle').checked = (gameMode === 'roster');
-            document.getElementById('settingTotalPlayers').value = s.totalPlayerCount || '';
 
+            // FIX: If we have live participants, use THEM as the source of truth.
+            // Otherwise, fall back to the saved roster list.
+            let currentCount = s.totalPlayerCount || '';
+            let rosterText = '';
+
+            if (state.participants && state.participants.length > 0) {
+                // We have live data! Use it.
+                // Sort by number so the list looks orderly
+                const sorted = state.participants.sort((a,b) => a.number - b.number);
+                rosterText = sorted.map(p => p.name).join('\n');
+                currentCount = sorted.length;
+            } else if (s.rosterNames && s.rosterNames.length > 0) {
+                // No live players, but we have a saved plan
+                rosterText = s.rosterNames.join('\n');
+            }
+
+            document.getElementById('settingTotalPlayers').value = currentCount;
+            document.getElementById('settingRosterNames').value = rosterText;
+
+            // 4. Update UI to match
             toggleRosterInput();
-            showModal('settingsModal');
+            if (gameMode === 'roster') {
+                 // Force the count display to update immediately
+                 updateCountDisplay(currentCount);
+            }
+
+            // Show Modal
+            const modal = document.getElementById('settingsModal');
+            modal.classList.add('active');
+            modal.classList.remove('hidden');
         });
 }
 
