@@ -150,6 +150,22 @@ body {
     transition: all 0.15s ease-in-out;
 }
 
+/* --- AWAITING PLAYER BUTTON (Quiet Mode) --- */
+/* Used for players who are in the list but not currently active */
+.btn-manage.awaiting {
+    background-color: transparent !important;
+    border-color: transparent !important;
+    color: #9ca3af !important; /* Light Gray Icon (Subtle) */
+    box-shadow: none !important;
+}
+
+/* Give feedback when hovering so they know it's clickable */
+.btn-manage.awaiting:hover {
+    background-color: #fef2f2 !important; /* Very light red bg */
+    border-color: #fecaca !important;
+    color: #dc2626 !important; /* Bright Red Icon */
+}
+
 /* Inactive Row Trash Can (Matches Toolbar) */
 li > div > .btn-manage {
     width: 50px; height: 50px;

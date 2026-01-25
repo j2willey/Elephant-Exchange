@@ -316,9 +316,12 @@ function renderParticipants(state) {
         const safeName = p.name.replace(/'/g, "\\'");
         const safePId = p.id.replace(/[^a-zA-Z0-9]/g, '_');
 
+        // LOGIC: If they are NOT active, add the 'awaiting' class to quiet the button
+        const btnClass = isActive ? "btn-manage" : "btn-manage awaiting";
+
         // CATEGORY 2: MANAGE (Delete) - Theme Color
         const deleteBtn = !p.heldGiftId
-            ? `<button id="${safePId}_delete" onclick="deleteParticipant('${p.id}', '${safeName}')" class="btn-manage" title="Remove ${p.name}">🗑️</button>`
+            ? `<button id="${safePId}_delete" onclick="deleteParticipant('${p.id}', '${safeName}')" class="${btnClass}" title="Remove ${p.name}">🗑️</button>`
             : '';
 
         let html = `<span><b>#${p.number}</b> ${p.name} ${statsBadge} ${timerHtml}</span>`;
