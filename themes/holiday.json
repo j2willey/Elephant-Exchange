@@ -1,0 +1,12 @@
+{
+    "id": "holiday",
+    "name": "Cozy Holiday",
+    "colors": {
+        "primary": "#d97706",
+        "secondary": "#92400e",
+        "text": "#ffffff"
+    },
+    "assets": {
+        "background": "https://images.unsplash.com/photo-1513297887119-d46091b24bfa?auto=format&fit=crop&q=80"
+    }
+}

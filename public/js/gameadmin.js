@@ -1,5 +1,8 @@
 /*
+ * ==============================================================================
  * ELEPHANT EXCHANGE - ADMIN CONTROLLER
+ * ==============================================================================
+ * Manages the Host UI, Settings, Participants, and Game State.
  */
 
 // --- 1. GLOBALS & INIT ---
@@ -9,60 +12,58 @@ let stealingPlayerId = null;
 let currentAdminGiftId = null;
 let votingInterval = null;
 let pendingLateName = null;
+let serverThemes = {}; // Store loaded theme presets from server
 
 document.addEventListener('DOMContentLoaded', () => {
-    // 1. Handle UI Scaling
+    // 1. Load Theme Presets
+    loadThemeOptions();
+
+    // 2. Handle UI Scaling
     const scaleSlider = document.getElementById('uiScale');
     const savedScale = localStorage.getItem('elephantScale');
     if (savedScale && scaleSlider) {
         document.body.style.zoom = savedScale;
         scaleSlider.value = savedScale;
     }
-    if(scaleSlider) {
+    if (scaleSlider) {
         scaleSlider.addEventListener('input', (e) => {
             document.body.style.zoom = e.target.value;
             localStorage.setItem('elephantScale', e.target.value);
         });
     }
 
-    // --- NEW: RESIZABLE PANELS LOGIC ---
+    // 3. Resizable Panels Logic
     const resizer = document.getElementById('dragHandle');
     const leftPanel = document.getElementById('leftPanel');
-    const rightPanel = document.getElementById('rightPanel');
     const container = document.getElementById('mainLayout');
 
-    // 1. Restore saved width
+    // Restore saved width
     const savedWidth = localStorage.getItem('elephantSidebarWidth');
     if (savedWidth && leftPanel) {
-        leftPanel.style.width = savedWidth; // e.g. "45%"
-        leftPanel.style.flex = "none";      // Disable flex growing
+        leftPanel.style.width = savedWidth;
+        leftPanel.style.flex = "none";
     }
 
-    // 2. Drag Logic
+    // Drag Listeners
     if (resizer && leftPanel && container) {
         let isResizing = false;
 
         resizer.addEventListener('mousedown', (e) => {
             isResizing = true;
             resizer.classList.add('dragging');
-            document.body.style.cursor = 'col-resize'; // Force cursor everywhere
-            e.preventDefault(); // Stop text selection
+            document.body.style.cursor = 'col-resize';
+            e.preventDefault();
         });
 
         document.addEventListener('mousemove', (e) => {
             if (!isResizing) return;
-
-            // Calculate percentage based on mouse X position relative to container
             const containerRect = container.getBoundingClientRect();
             const newWidthPx = e.clientX - containerRect.left;
-
-            // Convert to percentage for responsiveness
             const newWidthPercent = (newWidthPx / containerRect.width) * 100;
 
-            // Safety Limits (15% to 85%)
             if (newWidthPercent > 15 && newWidthPercent < 85) {
                 leftPanel.style.width = `${newWidthPercent}%`;
-                leftPanel.style.flex = "none"; // Important: Stop flex from fighting us
+                leftPanel.style.flex = "none";
             }
         });
 
@@ -71,52 +72,67 @@ document.addEventListener('DOMContentLoaded', () => {
                 isResizing = false;
                 resizer.classList.remove('dragging');
                 document.body.style.cursor = 'default';
-                // Save preference
                 localStorage.setItem('elephantSidebarWidth', leftPanel.style.width);
             }
         });
-
-        const gName = document.getElementById('giftNameInput');
-        const gDesc = document.getElementById('giftDescInput');
-
-        // Allow hitting "Enter" in the description to submit
-        if(gDesc) {
-            gDesc.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') submitOpenGift();
-            });
-        }
-
     }
 
-    // 2. Handle URL Parameters (Auto-Login)
+    // 4. Input Enhancements (Enter Key)
+    const gDesc = document.getElementById('giftDescInput');
+    if (gDesc) {
+        gDesc.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') submitGiftModal();
+        });
+    }
+
+    const hostInput = document.getElementById('hostNameInput');
+    if (hostInput) hostInput.addEventListener('keypress', e => e.key === 'Enter' && handleHostGame());
+
+    const joinInput = document.getElementById('joinNameInput');
+    if (joinInput) joinInput.addEventListener('keypress', e => e.key === 'Enter' && handleReconnectGame());
+
+    // 5. Theme Dropdown Logic (UPDATED for Theme Modal)
+    const themeSelect = document.getElementById('themePresetSelect'); // <--- Updated ID
+    const themeColor = document.getElementById('themeColorInput');   // <--- Updated ID
+    const themeBg = document.getElementById('themeBgInput');         // <--- Updated ID
+
+    // A. Dropdown Changed -> Update Inputs
+    if (themeSelect) {
+        themeSelect.addEventListener('change', (e) => {
+            const key = e.target.value;
+            if (serverThemes[key]) {
+                const t = serverThemes[key];
+                const color = t.colors ? t.colors.primary : t.color;
+                const bg = t.assets ? t.assets.background : t.bg;
+
+                if (themeColor) themeColor.value = color || '#000000';
+                if (themeBg) themeBg.value = bg || '';
+            }
+        });
+    }
+
+    // B. Inputs Changed -> Set Dropdown to "Customized"
+    const markAsCustom = () => { if (themeSelect) themeSelect.value = 'custom'; };
+    if (themeColor) themeColor.addEventListener('input', markAsCustom);
+    if (themeBg) themeBg.addEventListener('input', markAsCustom);
+
+
+    // 6. Handle URL Parameters (Auto-Login)
     const params = new URLSearchParams(window.location.search);
     const urlGameId = params.get('game');
     const startVal = params.get('start');
 
     if (urlGameId) {
-        // Direct Link: Join immediately
         document.getElementById('gameIdInput').value = urlGameId;
         joinGame(urlGameId);
         return;
     }
 
     if (startVal) {
-        // Handoff from Home Page: Create/Join and trigger Wizard
         const decoded = decodeURIComponent(startVal);
         const cleanId = sanitizeGameId(decoded);
-
-        if (cleanId) {
-            joinGame(cleanId, decoded);
-            return;
-        }
+        if (cleanId) joinGame(cleanId, decoded);
     }
-
-    // 3. Bind Keys
-    const hostInput = document.getElementById('hostNameInput');
-    if(hostInput) hostInput.addEventListener('keypress', e => e.key === 'Enter' && handleHostGame());
-
-    const joinInput = document.getElementById('joinNameInput');
-    if(joinInput) joinInput.addEventListener('keypress', e => e.key === 'Enter' && handleReconnectGame());
 });
 
 
@@ -185,29 +201,26 @@ async function handleReconnectGame() {
     }
 }
 
-
-// --- 3. CORE JOIN LOGIC ---
 async function joinGame(forceId = null, partyName = null) {
     const inputId = document.getElementById('gameIdInput').value.trim().toLowerCase();
     const gameId = forceId || inputId;
-    if(!gameId) return customAlert("Please enter a Game ID");
+    if (!gameId) return customAlert("Please enter a Game ID");
 
     const isNewSession = !!partyName;
-
     const payload = { gameId };
     if (partyName) payload.partyName = partyName;
 
     try {
         const res = await fetch('/api/create', {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
 
-        if(res.ok) {
+        if (res.ok) {
             currentGameId = gameId;
             const newUrl = `${window.location.pathname}?game=${gameId}`;
-            window.history.pushState({path: newUrl}, '', newUrl);
+            window.history.pushState({ path: newUrl }, '', newUrl);
 
             document.getElementById('login-section').classList.add('hidden');
             document.getElementById('dashboard-section').classList.remove('hidden');
@@ -220,25 +233,17 @@ async function joinGame(forceId = null, partyName = null) {
                 refreshState();
             }
         } else {
-            // FIX: ALERT THE USER IF IT FAILS
             const err = await res.json();
             customAlert(`Cannot join game: ${err.error || res.statusText}`);
-
-            // Optional: If game doesn't exist, clear the URL so they aren't stuck
             if (res.status === 404) {
-                 window.history.pushState({path: '/gameadmin.html'}, '', '/gameadmin.html');
+                window.history.pushState({ path: '/gameadmin.html' }, '', '/gameadmin.html');
             }
         }
-
-
-
     } catch (e) {
         console.error(e);
         customAlert("Network Error: Could not connect to server.");
     }
-
 }
-
 
 function initSocket(gameId) {
     if (socket) socket.disconnect();
@@ -252,14 +257,16 @@ function initSocket(gameId) {
 }
 
 async function refreshState() {
-    if(!currentGameId) return;
+    if (!currentGameId) return;
     try {
         const res = await fetch(`/api/${currentGameId}/state`);
-        if(res.ok) render(await res.json());
-    } catch(e) { console.error("State fetch failed", e); }
+        if (res.ok) render(await res.json());
+    } catch (e) { console.error("State fetch failed", e); }
 }
 
-// --- 4. RENDER LOOP ---
+
+// --- 3. RENDER LOOP ---
+
 function render(state) {
     if (window.applyTheme) applyTheme(state.settings);
 
@@ -279,35 +286,24 @@ function render(state) {
     renderGifts(state);
 }
 
-/* ... (Global Init Logic kept same) ... */
-
 function renderParticipants(state) {
     const pList = document.getElementById('participantList');
     pList.innerHTML = '';
     const activeIds = (window.getActiveIds) ? getActiveIds(state) : [];
 
-    // SORTING LOGIC:
-    // 1. Active Players (Top)
-    // 2. Players WITHOUT gifts (Upcoming/Waiting)
-    // 3. Players WITH gifts (Done/Bottom)
-    // 4. Tie-breaker: Player Number
-    const sorted = state.participants.sort((a,b) => {
+    const sorted = state.participants.sort((a, b) => {
         const aActive = activeIds.includes(a.id);
         const bActive = activeIds.includes(b.id);
 
-        // Priority 1: Active goes to top
         if (aActive && !bActive) return -1;
         if (!aActive && bActive) return 1;
 
-        // Priority 2: Holding a gift? (Sink to bottom)
         const aHasGift = !!a.heldGiftId;
         const bHasGift = !!b.heldGiftId;
 
-        // If a has gift and b does not -> b comes first (is waiting)
         if (aHasGift && !bHasGift) return 1;
         if (!aHasGift && bHasGift) return -1;
 
-        // Priority 3: Player Number
         return a.number - b.number;
     });
 
@@ -341,11 +337,9 @@ function renderParticipants(state) {
 
         const safeName = p.name.replace(/'/g, "\\'");
         const safePId = p.id.replace(/[^a-zA-Z0-9]/g, '_');
-
-        // LOGIC: If they are NOT active, add the 'awaiting' class to quiet the button
         const btnClass = isActive ? "btn-manage" : "btn-manage awaiting";
 
-        // CATEGORY 2: MANAGE (Delete) - Theme Color
+        // ACTION BUTTONS
         const deleteBtn = !p.heldGiftId
             ? `<button id="${safePId}_delete" onclick="deleteParticipant('${p.id}', '${safeName}')" class="${btnClass}" title="Remove ${p.name}">🗑️</button>`
             : '';
@@ -363,16 +357,12 @@ function renderParticipants(state) {
                 html += `<div style="font-size:0.8em; color:#ccc;">Waiting...</div>`;
             } else {
                 const isRosterMode = state.settings && state.settings.gameMode === 'roster';
-
-                // CATEGORY 1: PLAY (Open, Steal)
-                const btnOpen  = `<button id="${safePId}_open" onclick="promptOpenGift('${p.id}')" class="btn-play" title="Open Gift">🎁</button>`;
+                const btnOpen = `<button id="${safePId}_open" onclick="promptOpenGift('${p.id}')" class="btn-play" title="Open Gift">🎁</button>`;
                 const btnSteal = `<button id="${safePId}_steal" onclick="enterStealMode('${p.id}')" class="btn-play" title="Steal Gift">😈</button>`;
-
-                // CATEGORY 2: MANAGE (Reset, Skip)
                 const btnReset = `<button id="${safePId}_reset" onclick="resetTimer('${p.id}')" class="btn-manage" title="Reset Timer">🕒</button>`;
-                const btnSkip  = isRosterMode
-                                 ? `<button id="${safePId}_skip" onclick="skipTurn('${p.id}', '${safeName}')" class="btn-manage" title="Skip Turn">⤵️</button>`
-                                 : '';
+                const btnSkip = isRosterMode
+                    ? `<button id="${safePId}_skip" onclick="skipTurn('${p.id}', '${safeName}')" class="btn-manage" title="Skip Turn">⤵️</button>`
+                    : '';
 
                 html += `
                     <div class="action-buttons">
@@ -396,7 +386,6 @@ function renderParticipants(state) {
 
 function renderGifts(state) {
     const gList = document.getElementById('giftList');
-    const rawGifts = state.gifts || [];
     const sorted = (window.sortGifts) ? sortGifts(state.gifts, state) : state.gifts;
 
     if (sorted.length === 0) {
@@ -410,19 +399,15 @@ function renderGifts(state) {
         const owner = state.participants.find(p => p.id === g.ownerId);
         const ownerName = owner ? owner.name : 'Unknown';
 
-        // --- 1. INTELLIGENT DATA EXTRACTION ---
+        // Data Cleanup (Headlines vs Details)
         let mainName = g.name;
         let subDesc = g.description;
-
-        // Clean up "Empty Object" garbage if present
         if (String(mainName) === '{}' || String(mainName) === '[object Object]') mainName = null;
         if (String(subDesc) === '{}' || String(subDesc) === '[object Object]') subDesc = null;
 
-        // Fallback Logic:
-        // If we only have one string, treat it as the Name (Headline).
         if (!mainName && subDesc) {
             mainName = subDesc;
-            subDesc = null; // Don't repeat it
+            subDesc = null;
         } else if (!mainName && !subDesc) {
             mainName = "Mystery Gift";
         }
@@ -430,24 +415,24 @@ function renderGifts(state) {
         const safeName = String(mainName || "");
         const safeDesc = String(subDesc || "");
         const safeOwner = String(ownerName || "Unknown");
-
         const jsName = safeName.replace(/'/g, "\\'");
         const jsDesc = safeDesc.replace(/'/g, "\\'");
         const jsOwner = safeOwner.replace(/'/g, "\\'");
 
-        // --- 2. LAYOUT LOGIC ---
+        // Voting Layout
         if (isVoting) {
             const count = g.downvotes?.length || 0;
             const highlight = count > 0 ? "font-weight:bold; color:#ef4444;" : "color:#9ca3af;";
             return `<li><div><span style="font-size:1.1em; ${highlight}">${count} 👎</span> <span style="margin-left:10px;">${safeName}</span></div><div style="font-size:0.8em; color:#666;">Held by <b>${ownerName}</b></div></li>`;
         }
 
+        // Standard Layout
         let isForbidden = (stealingPlayerId && state.participants.find(p => p.id === stealingPlayerId)?.forbiddenGiftId === g.id);
         const itemStyle = g.isFrozen ? 'opacity: 0.5; background: #f1f5f9;' : '';
 
         let statusBadge = g.isFrozen ? `<span class="badge" style="background:#333; color:#fff;">🔒 LOCKED</span>` :
-                          (isForbidden ? `<span class="badge" style="background:#fde68a; color:#92400e;">🚫 NO TAKE-BACKS</span>` :
-                          (g.stealCount > 0 ? `<span class="badge stolen">${g.stealCount}/3 Steals</span>` : `<span class="badge">0/3 Steals</span>`));
+            (isForbidden ? `<span class="badge" style="background:#fde68a; color:#92400e;">🚫 NO TAKE-BACKS</span>` :
+                (g.stealCount > 0 ? `<span class="badge stolen">${g.stealCount}/3 Steals</span>` : `<span class="badge">0/3 Steals</span>`));
 
         const imgCount = (g.images && g.images.length) || 0;
         const camColor = imgCount > 0 ? '#3b82f6' : '#9ca3af';
@@ -459,31 +444,25 @@ function renderGifts(state) {
                 <div style="flex: 1; padding-right: 10px;">
                     <div style="display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
                         <span style="font-weight:600; font-size: 1.05rem; color:#1f2937;">${safeName}</span>
-
                         <button onclick="editGift('${g.id}', '${jsName}', '${jsDesc}', '${jsOwner}')"
                                 style="background:none; border:none; padding:0; cursor:pointer; font-size:0.9em; opacity:0.6;"
                                 title="Edit Gift">
                             ✏️
                         </button>
-
                         <button onclick="openImgModal('${g.id}')" style="background:none; border:none; color:${camColor}; cursor:pointer; font-size:0.9em;" title="Manage Images">${camIcon}</button>
                     </div>
-
                     ${safeDesc ? `<div style="font-size:0.85em; color:#6b7280; margin-top:2px;">${safeDesc}</div>` : ''}
                 </div>
-
                 <div style="text-align:right; display:flex; flex-direction:column; align-items:flex-end; gap: 4px;">
                     <div style="display:flex; align-items:center; gap: 8px;">
                         <span style="font-size:0.8rem; color:#6b7280;">Held by <b style="color:#374151;">${ownerName}</b></span>
                         ${statusBadge}
                     </div>
-
-                    ${showStealBtn ? `<button onclick="attemptSteal('${g.id}', '${safeNameEscaped}')" class="btn-play" style="font-size:0.8rem; padding:4px 10px; height:auto; width:auto;">Select Gift</button>` : ''}
+                    ${showStealBtn ? `<button onclick="attemptSteal('${g.id}', '${safeName.replace(/'/g, "\\'")}')" class="btn-play" style="font-size:0.8rem; padding:4px 10px; height:auto; width:auto;">Select Gift</button>` : ''}
                 </div>
             </li>`;
     }).join('');
 }
-
 
 function renderPhaseControls(state) {
     const container = document.getElementById('phaseControls');
@@ -499,8 +478,7 @@ function renderPhaseControls(state) {
     if (phase === 'active') {
         container.innerHTML = '';
         container.style.display = 'none';
-    }
-    else if (phase === 'voting') {
+    } else if (phase === 'voting') {
         container.style.display = 'block';
         const now = Date.now();
         const endsAt = state.votingEndsAt || 0;
@@ -513,8 +491,7 @@ function renderPhaseControls(state) {
                     ${remaining}s
                 </div>
                 <button onclick="endVoting()" class="btn-gray">Skip Timer & Show Results ➡️</button>
-            </div>
-        `;
+            </div>`;
 
         if (!votingInterval) {
             votingInterval = setInterval(() => {
@@ -528,8 +505,7 @@ function renderPhaseControls(state) {
                 }
             }, 1000);
         }
-    }
-    else if (phase === 'results') {
+    } else if (phase === 'results') {
         container.style.display = 'block';
         container.innerHTML = `
             <div style="background:#f0fdf4; border:2px solid #16a34a; padding:15px; border-radius:8px; text-align:center; margin-bottom:20px;">
@@ -538,12 +514,13 @@ function renderPhaseControls(state) {
                     <button onclick="triggerVoting()" class="btn-gray">Re-open Voting</button>
                     <button onclick="resetGame()" class="btn-red" title="Reset Game">💣 Reset Game</button>
                 </div>
-            </div>
-        `;
+            </div>`;
     }
 }
 
-// --- 5. GAME ACTIONS ---
+
+// --- 4. PARTICIPANT ACTIONS ---
+
 async function addParticipant() {
     const nameInput = document.getElementById('pName');
     const numInput = document.getElementById('pNumber');
@@ -582,7 +559,7 @@ async function executeAddPlayer(name, manualNum, insertRandomly) {
 
         const res = await fetch(`/api/${currentGameId}/participants`, {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
 
@@ -609,16 +586,21 @@ async function skipTurn(participantId, name) {
 }
 
 async function resetTimer(playerId) {
-    if(!customConfirm("Restart the timer for this player?")) return;
+    if (!customConfirm("Restart the timer for this player?")) return;
     await fetch(`/api/${currentGameId}/participants/${playerId}`, {
         method: 'PUT',
-        headers: {'Content-Type': 'application/json'},
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ turnStartTime: Date.now() })
     });
 }
 
-/* --- GIFT OPENING (DUAL INPUT) --- */
-let currentOpeningPlayerId = null;
+
+// --- 5. GIFT ACTIONS (OPEN / STEAL / EDIT) ---
+
+/* GIFT MANAGER (OPEN & EDIT) */
+let giftModalMode = 'OPEN'; // 'OPEN' or 'EDIT'
+let targetPlayerId = null;  // For Opening
+let targetGiftId = null;    // For Editing
 
 function promptOpenGift(playerId) {
     giftModalMode = 'OPEN';
@@ -626,18 +608,38 @@ function promptOpenGift(playerId) {
     targetGiftId = null;
 
     // Find player name for context
-    const player = state.participants.find(p => p.id === playerId);
-    const pName = player ? player.name : "Unknown Player";
+    const player = document.getElementById(playerId.replace(/[^a-zA-Z0-9]/g, '_') + '_open')
+        ? null // Not available directly in DOM, relying on state re-fetch usually safest, but we just rendered.
+        : null;
 
-    // Setup UI
+    // Since we are inside a render loop usually, we can find the player name from the button click context
+    // But easier to just set generic text or fetch state if critical.
+    // For MVP, "Opening for Player" is sufficient context.
     document.getElementById('giftModalTitle').innerText = "Revealed Gift?";
     document.getElementById('giftModalSubtitle').innerText = "What is inside the package?";
-    document.getElementById('giftModalContext').innerText = `🎁 Opening for: ${pName}`;
-    document.getElementById('giftModalContext').style.color = "#2563eb"; // Blue for Open
+    document.getElementById('giftModalContext').innerText = `🎁 Opening Gift`;
+    document.getElementById('giftModalContext').style.color = "#2563eb";
 
     // Clear Fields
     document.getElementById('giftNameInput').value = '';
     document.getElementById('giftDescInput').value = '';
+
+    showModal('openGiftModal');
+    setTimeout(() => document.getElementById('giftNameInput').focus(), 100);
+}
+
+function editGift(giftId, currentName, currentDesc, ownerName) {
+    giftModalMode = 'EDIT';
+    targetGiftId = giftId;
+    targetPlayerId = null;
+
+    document.getElementById('giftModalTitle').innerText = "Update Gift";
+    document.getElementById('giftModalSubtitle').innerText = "Correcting gift details.";
+    document.getElementById('giftModalContext').innerText = `👤 Held by: ${ownerName}`;
+    document.getElementById('giftModalContext').style.color = "#4b5563";
+
+    document.getElementById('giftNameInput').value = currentName || '';
+    document.getElementById('giftDescInput').value = currentDesc || '';
 
     showModal('openGiftModal');
     setTimeout(() => document.getElementById('giftNameInput').focus(), 100);
@@ -652,23 +654,19 @@ async function submitGiftModal() {
     }
 
     try {
-        // CASE A: OPENING NEW GIFT
         if (giftModalMode === 'OPEN' && targetPlayerId) {
             await fetch(`/api/${currentGameId}/open-new`, {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name, description, playerId: targetPlayerId })
             });
-        }
-        // CASE B: EDITING EXISTING GIFT
-        else if (giftModalMode === 'EDIT' && targetGiftId) {
+        } else if (giftModalMode === 'EDIT' && targetGiftId) {
             await fetch(`/api/${currentGameId}/gift/${targetGiftId}`, {
                 method: 'PUT',
-                headers: {'Content-Type': 'application/json'},
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name, description })
             });
         }
-
         closeOpenGiftModal();
     } catch (e) {
         console.error(e);
@@ -694,18 +692,16 @@ function cancelStealMode() {
 
 async function attemptSteal(giftId, description) {
     if (!stealingPlayerId) return;
-
-    // FIX: Must use 'await' with customConfirm
     if (!await customConfirm(`Confirm steal: ${description}?`)) return;
 
     try {
         const res = await fetch(`/api/${currentGameId}/steal`, {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ giftId, thiefId: stealingPlayerId })
         });
 
-        if(!res.ok) {
+        if (!res.ok) {
             const err = await res.json();
             await customAlert(err.error || "Steal failed");
         }
@@ -718,34 +714,17 @@ async function attemptSteal(giftId, description) {
     }
 }
 
-function editGift(giftId, currentName, currentDesc, ownerName) {
-    giftModalMode = 'EDIT';
-    targetGiftId = giftId;
-    targetPlayerId = null; // Not needed for edit
 
-    // Setup UI
-    document.getElementById('giftModalTitle').innerText = "Update Gift";
-    document.getElementById('giftModalSubtitle').innerText = "Correcting gift details.";
-    document.getElementById('giftModalContext').innerText = `👤 Held by: ${ownerName}`;
-    document.getElementById('giftModalContext').style.color = "#4b5563"; // Gray for Edit
+// --- 6. GAME CONTROL (END / RESET) ---
 
-    // Fill Fields
-    document.getElementById('giftNameInput').value = currentName || '';
-    document.getElementById('giftDescInput').value = currentDesc || '';
-
-    showModal('openGiftModal');
-    setTimeout(() => document.getElementById('giftNameInput').focus(), 100);
-}
-
-// --- 6. PHASE & SETTINGS ---
 async function confirmEndGame() {
-    const enableVoting = customConfirm("Would you like to enable 'Worst Gift Voting'?\n\nOK = Yes, Start Voting.\nCancel = No, just end game.");
+    const enableVoting = await customConfirm("Would you like to enable 'Worst Gift Voting'?\n\nOK = Yes, Start Voting.\nCancel = No, just end game.");
     if (enableVoting) {
-        const duration = customPrompt("Voting Duration (seconds)?", "180");
+        const duration = await customPrompt("Voting Duration (seconds)?", "180");
         if (!duration) return;
         await fetch(`/api/${currentGameId}/phase/voting`, {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ durationSeconds: parseInt(duration) })
         });
     } else {
@@ -754,35 +733,46 @@ async function confirmEndGame() {
 }
 
 async function endVoting() {
-    if(!customConfirm("Close voting early?")) return;
+    if (!await customConfirm("Close voting early?")) return;
     await fetch(`/api/${currentGameId}/phase/results`, { method: 'POST' });
 }
 
 async function resetGame() {
-    if(!customConfirm("⚠️ DANGER: This will delete ALL history.\n\nAre you sure?")) return;
+    if (!await customConfirm("⚠️ DANGER: This will delete ALL history.\n\nAre you sure?")) return;
     await fetch(`/api/${currentGameId}/reset`, { method: 'POST' });
 }
 
-// GENERIC MODAL HELPERS
-function showModal(id) {
-    const el = document.getElementById(id);
-    if(el) {
-        el.classList.remove('hidden');
-        el.classList.add('active');
-    }
-}
 
-function hideModal(id) {
-    const el = document.getElementById(id);
-    if(el) {
-        el.classList.remove('active');
-        // Delay hidden to allow transition
-        setTimeout(() => el.classList.add('hidden'), 200);
-    }
+// --- 7. SETTINGS MODAL & THEMES ---
+async function loadThemeOptions() {
+    try {
+        const res = await fetch('/api/themes');
+        const themes = await res.json();
+        serverThemes = {};
+
+        // Target the dropdown in the THEME MODAL now
+        const select = document.getElementById('themePresetSelect');
+        if(!select) return;
+
+        const currentVal = select.value;
+        while (select.options.length > 2) select.remove(2);
+
+        themes.forEach(t => {
+            serverThemes[t.id] = t;
+            const opt = document.createElement('option');
+            opt.value = t.id;
+            opt.innerText = `🎨 ${t.name}`;
+            select.appendChild(opt);
+        });
+
+        if (currentVal && (currentVal === 'custom' || serverThemes[currentVal])) {
+            select.value = currentVal;
+        }
+    } catch (e) { console.error("Failed to load themes:", e); }
 }
 
 function openSettings(mode = 'edit') {
-    if(!currentGameId) return;
+    if (!currentGameId) return;
 
     const title = document.getElementById('settingsModalTitle');
     const btnSave = document.getElementById('btnSaveSettings');
@@ -809,45 +799,29 @@ function openSettings(mode = 'edit') {
             document.getElementById('settingDuration').value = s.turnDurationSeconds || 60;
             document.getElementById('settingMaxSteals').value = s.maxSteals || 3;
             document.getElementById('settingActiveCount').value = s.activePlayerCount || 1;
+            document.getElementById('settingTotalPlayers').value = s.totalPlayerCount || '';
 
-            // 2. Theme Color
-            const color = document.getElementById('settingThemeColor');
-            if(color) color.value = s.themeColor || '#2563eb';
+            // Match current theme to dropdown
+            const themeSelect = document.getElementById('settingThemeSelect');
+            let matchedTheme = 'custom';
 
-            // 3. Game Mode & Roster Logic (THE FIX)
+            // 3. Roster Logic
             const gameMode = s.gameMode || 'open';
             document.getElementById('settingGameModeToggle').checked = (gameMode === 'roster');
 
-            // FIX: If we have live participants, use THEM as the source of truth.
-            // Otherwise, fall back to the saved roster list.
-            let currentCount = s.totalPlayerCount || '';
             let rosterText = '';
-
             if (state.participants && state.participants.length > 0) {
-                // We have live data! Use it.
-                // Sort by number so the list looks orderly
-                const sorted = state.participants.sort((a,b) => a.number - b.number);
+                const sorted = state.participants.sort((a, b) => a.number - b.number);
                 rosterText = sorted.map(p => p.name).join('\n');
-                currentCount = sorted.length;
-            } else if (s.rosterNames && s.rosterNames.length > 0) {
-                // No live players, but we have a saved plan
+                document.getElementById('settingTotalPlayers').value = sorted.length;
+            } else if (s.rosterNames) {
                 rosterText = s.rosterNames.join('\n');
             }
-
-            document.getElementById('settingTotalPlayers').value = currentCount;
             document.getElementById('settingRosterNames').value = rosterText;
 
-            // 4. Update UI to match
             toggleRosterInput();
-            if (gameMode === 'roster') {
-                 // Force the count display to update immediately
-                 updateCountDisplay(currentCount);
-            }
 
-            // Show Modal
-            const modal = document.getElementById('settingsModal');
-            modal.classList.add('active');
-            modal.classList.remove('hidden');
+            showModal('settingsModal');
         });
 }
 
@@ -863,15 +837,10 @@ async function saveSettings() {
         roster = rawText.split('\n').map(n => n.trim()).filter(n => n.length > 0);
     }
 
-    // 1. Get the current values from the inputs
-    // We use parseInt to ensure they are saved as Math-safe Numbers
+    // Parse Integers safely
     const turnDuration = parseInt(document.getElementById('settingDuration').value) || 60;
     const maxSteals = parseInt(document.getElementById('settingMaxSteals').value) || 3;
-
-    // CORRECTION: Respect user input. Only default to 1 if the field is blank/invalid.
-    // If you type "3", this saves 3.
     const activeCount = parseInt(document.getElementById('settingActiveCount').value) || 1;
-
     const totalCount = parseInt(document.getElementById('settingTotalPlayers').value) || 0;
 
     const payload = {
@@ -879,55 +848,80 @@ async function saveSettings() {
         tagline: document.getElementById('settingTagline').value,
         turnDurationSeconds: turnDuration,
         maxSteals: maxSteals,
-        activePlayerCount: activeCount, // Saves "3" (or whatever you set)
+        activePlayerCount: activeCount,
         gameMode: mode,
         totalPlayerCount: totalCount,
-        rosterNames: (isRoster && roster.length > 0) ? roster : null
+        rosterNames: (isRoster && roster.length > 0) ? roster : null,
     };
 
     await fetch(`/api/${currentGameId}/settings`, {
         method: 'PUT',
-        headers: {'Content-Type': 'application/json'},
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
     });
 
     hideModal('settingsModal');
 }
 
-// --- THEME & BRANDING MODAL ---
-
+// --- THEME / BRANDING MODAL (Deprecated/Legacy support for Logo Upload) ---
 function openThemeSettings() {
-    if(!currentGameId) return;
+    if (!currentGameId) return;
 
+    // Load fresh state to populate modal
     fetch(`/api/${currentGameId}/state`)
         .then(res => res.json())
         .then(state => {
             const s = state.settings || {};
-            // Pre-fill current color (Default to Elephant Blue if missing)
+
+            // 1. Populate Inputs
             document.getElementById('themeColorInput').value = s.themeColor || '#2563eb';
+            document.getElementById('themeBgInput').value = s.themeBg || '';
+
+            // 2. Match Current State to a Preset
+            const themeSelect = document.getElementById('themePresetSelect');
+            let matchedTheme = 'custom';
+
+            // Check if we have an explicit name saved
+            if (s.themeName && serverThemes[s.themeName]) {
+                matchedTheme = s.themeName;
+            } else {
+                // Auto-detect if values match a preset exactly
+                for (const [key, val] of Object.entries(serverThemes)) {
+                    const c = val.colors ? val.colors.primary : val.color;
+                    const b = val.assets ? val.assets.background : val.bg;
+                    if (c === s.themeColor && b === s.themeBg) {
+                        matchedTheme = key;
+                        break;
+                    }
+                }
+            }
+            if(themeSelect) themeSelect.value = matchedTheme;
 
             showModal('themeModal');
         });
 }
 
-function closeThemeSettings() {
-    hideModal('themeModal');
-}
+function closeThemeSettings() { hideModal('themeModal'); }
 
 async function saveThemeSettings() {
-    const newColor = document.getElementById('themeColorInput').value;
+    // Gather all visual settings
+    const themeName = document.getElementById('themePresetSelect').value;
+    const themeColor = document.getElementById('themeColorInput').value;
+    const themeBg = document.getElementById('themeBgInput').value;
 
-    // We reuse the existing settings API but only send the color
-    // The server should merge this, not overwrite everything else.
-    // (Assuming your server does a merge/patch)
     await fetch(`/api/${currentGameId}/settings`, {
-        method: 'PUT', // or PATCH if your server supports it
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ themeColor: newColor })
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            themeName,
+            themeColor,
+            themeBg
+        })
     });
 
     closeThemeSettings();
-    refreshState(); // Force re-render to see changes immediately
+    // No need to reload page, but let's refresh local state to see changes if needed
+    refreshState();
 }
 
 async function uploadLogo() {
@@ -943,27 +937,24 @@ async function uploadLogo() {
             method: 'POST',
             body: formData
         });
-
         if (res.ok) {
             customAlert("Logo Updated! Check the TV View.");
-            input.value = ''; // Clear input
+            input.value = '';
         } else {
             customAlert("Upload failed.");
         }
-    } catch (e) {
-        console.error(e);
-        customAlert("Error uploading logo.");
-    }
+    } catch (e) { console.error(e); }
 }
 
-// --- 7. IMAGE MODAL ---
+
+// --- 8. IMAGE MANAGEMENT ---
+
 window.openImgModal = function(giftId) {
     fetch(`/api/${currentGameId}/state`)
         .then(r => r.json())
         .then(state => {
             const gift = state.gifts.find(g => g.id === giftId);
             if (!gift) return;
-
             currentAdminGiftId = giftId;
             document.getElementById('imgModalTitle').innerText = `Images: ${gift.description}`;
             showModal('imageModal');
@@ -1003,7 +994,7 @@ function renderAdminImages(gift) {
 }
 
 window.deleteImage = async function(giftId, imageId) {
-    if (!customConfirm("Delete this photo?")) return;
+    if (!await customConfirm("Delete this photo?")) return;
     const res = await fetch(`/api/${currentGameId}/images/${giftId}/${imageId}`, { method: 'DELETE' });
     if (res.ok) reloadModal(giftId);
 }
@@ -1039,11 +1030,14 @@ function reloadModal(giftId) {
         .then(r => r.json())
         .then(state => {
             const gift = state.gifts.find(g => g.id === giftId);
-            if(gift) renderAdminImages(gift);
+            if (gift) renderAdminImages(gift);
         });
 }
 
-// --- 8. UTILS & SYNC ---
+
+// --- 9. UTILS & HELPERS ---
+
+// Timer Sync
 setInterval(() => {
     const timers = document.querySelectorAll('.player-timer');
     timers.forEach(el => {
@@ -1063,16 +1057,19 @@ setInterval(() => {
     });
 }, 1000);
 
+// TV Controls
 function setTvMode(mode) {
-    if(!currentGameId) return;
+    if (!currentGameId) return;
     socket.emit('previewSettings', { gameId: currentGameId, settings: { tvMode: mode } });
     document.querySelectorAll('.menu-bar .btn-toggle').forEach(btn => btn.classList.remove('active'));
+    // Visual feedback for buttons (requires correct IDs in HTML)
     if (mode === 'rules') document.getElementById('btnTvRules').classList.add('active');
     else if (mode === 'qr') document.getElementById('btnTvQr').classList.add('active');
     else if (mode === 'catalog') document.getElementById('btnTvGrid').classList.add('active');
     else document.getElementById('btnTvList').classList.add('active');
 }
 
+// Local QR
 function showLocalQr() {
     const url = `${window.location.origin}/scoreboard.html?game=${currentGameId}&mode=mobile`;
     document.getElementById('qrGameIdDisplay').innerText = currentGameId;
@@ -1081,7 +1078,7 @@ function showLocalQr() {
     new QRCode(container, { text: url, width: 200, height: 200 });
 
     let link = document.getElementById('localQrLink');
-    if(!link) {
+    if (!link) {
         link = document.createElement('a');
         link.id = 'localQrLink';
         link.target = "_blank";
@@ -1098,9 +1095,10 @@ function showLocalQr() {
 function closeLocalQr() { hideModal('localQrModal'); }
 
 window.openCatalog = function() {
-    if(currentGameId) window.open(`/catalog.html?game=${currentGameId}`, '_blank');
+    if (currentGameId) window.open(`/catalog.html?game=${currentGameId}`, '_blank');
 }
 
+// Roster UI Helpers
 function toggleRosterInput() {
     const isRosterMode = document.getElementById('settingGameModeToggle').checked;
     const label = document.getElementById('gameModeLabel');
@@ -1153,11 +1151,11 @@ function syncCountFromRoster() {
 
 function updateCountDisplay(n) {
     const el = document.getElementById('rosterCountDisplay');
-    if(el) el.innerText = n;
+    if (el) el.innerText = n;
 }
 
 const rosterAreaRef = document.getElementById('settingRosterNames');
-if(rosterAreaRef) {
+if (rosterAreaRef) {
     rosterAreaRef.addEventListener('blur', function() {
         const cleanText = this.value.split('\n').map(l => l.trim()).filter(l => l.length > 0).join('\n');
         if (this.value !== cleanText) {
@@ -1167,8 +1165,24 @@ if(rosterAreaRef) {
     });
 }
 
-/* --- 9. CUSTOM SYSTEM DIALOGS (Alert/Confirm/Prompt Replacement) --- */
+// Generic Modal Handling
+function showModal(id) {
+    const el = document.getElementById(id);
+    if (el) {
+        el.classList.remove('hidden');
+        el.classList.add('active');
+    }
+}
 
+function hideModal(id) {
+    const el = document.getElementById(id);
+    if (el) {
+        el.classList.remove('active');
+        setTimeout(() => el.classList.add('hidden'), 200);
+    }
+}
+
+// System Dialogs (Custom Alert/Confirm/Prompt)
 function showDialog(type, message, defaultValue = '') {
     return new Promise((resolve) => {
         const modal = document.getElementById('sysDialogModal');
@@ -1178,37 +1192,30 @@ function showDialog(type, message, defaultValue = '') {
         const btnOk = document.getElementById('btnSysOk');
         const btnCancel = document.getElementById('btnSysCancel');
 
-        // Reset State
         input.classList.add('hidden');
         btnCancel.classList.add('hidden');
         btnOk.innerText = "OK";
 
-        // Setup Content
         msg.innerText = message;
         input.value = defaultValue;
 
-        // Configure based on Type
         if (type === 'alert') {
             title.innerText = '⚠️ Notice';
-        }
-        else if (type === 'confirm') {
+        } else if (type === 'confirm') {
             title.innerText = '❓ Confirmation';
             btnCancel.classList.remove('hidden');
             btnOk.innerText = "Yes, Proceed";
-        }
-        else if (type === 'prompt') {
+        } else if (type === 'prompt') {
             title.innerText = '✍️ Input Required';
             input.classList.remove('hidden');
             btnCancel.classList.remove('hidden');
             btnOk.innerText = "Submit";
         }
 
-        // Show Modal
         modal.classList.remove('hidden');
         modal.classList.add('active');
         if (type === 'prompt') setTimeout(() => input.focus(), 100);
 
-        // Handlers
         const close = (val) => {
             modal.classList.remove('active');
             setTimeout(() => modal.classList.add('hidden'), 200);
@@ -1225,7 +1232,6 @@ function showDialog(type, message, defaultValue = '') {
             else close(false);
         };
 
-        // Enter key support for input
         input.onkeydown = (e) => {
             if (e.key === 'Enter') btnOk.click();
             if (e.key === 'Escape') btnCancel.click();
@@ -1233,7 +1239,6 @@ function showDialog(type, message, defaultValue = '') {
     });
 }
 
-// Wrapper Functions to replace browser defaults
 window.customAlert = async (msg) => await showDialog('alert', msg);
 window.customConfirm = async (msg) => await showDialog('confirm', msg);
 window.customPrompt = async (msg, val) => await showDialog('prompt', msg, val);

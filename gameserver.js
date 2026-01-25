@@ -55,6 +55,35 @@ app.use(express.static('public'));
 app.use(express.json());
 
 
+// --- THEME LOADER ---
+const themeDir = path.join(__dirname, 'themes');
+let AVAILABLE_THEMES = [];
+
+function loadThemes() {
+    if (!fs.existsSync(themeDir)) {
+        console.log("⚠️ No 'themes' directory found. Using defaults.");
+        return;
+    }
+
+    const files = fs.readdirSync(themeDir).filter(f => f.endsWith('.json'));
+    AVAILABLE_THEMES = files.map(f => {
+        try {
+            const content = fs.readFileSync(path.join(themeDir, f), 'utf8');
+            return JSON.parse(content);
+        } catch (e) {
+            console.error(`❌ Failed to load theme ${f}:`, e.message);
+            return null;
+        }
+    }).filter(t => t !== null);
+
+    console.log(`🎨 Loaded ${AVAILABLE_THEMES.length} themes from disk.`);
+}
+
+// Load immediately on startup
+loadThemes();
+
+
+
 // --- 4. HELPER FUNCTIONS ---
 
 async function getGameState(gameId) {
@@ -163,6 +192,21 @@ app.put('/api/:gameId/settings', async (req, res) => {
     io.to(gameId).emit('stateUpdate', state);
 
     res.json({ success: true });
+});
+
+// --- SECTION: THEME API ---
+
+// 1. GET Available Themes
+app.get('/api/themes', (req, res) => {
+    res.json(AVAILABLE_THEMES);
+});
+
+// 2. RELOAD Themes (Admin Trigger)
+app.post('/api/admin/reload-themes', (req, res) => {
+    loadThemes();
+    // Optional: Emit to clients so admin UI refreshes instantly
+    // io.emit('themesUpdated', AVAILABLE_THEMES);
+    res.json({ success: true, count: AVAILABLE_THEMES.length });
 });
 
 // 5. Upload Logo
