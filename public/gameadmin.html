@@ -77,7 +77,6 @@
                     </div>
                     <ul id="participantList" class="participant-list"></ul>
                 </div>
-                <div id="displayGameId"></div>
             </aside>
 
             <div class="resizer" id="dragHandle"></div>
@@ -196,5 +195,47 @@
         </div>
     </div>
 
+    <div id="sysDialogModal" class="admin-modal-overlay hidden" style="z-index: 3000;">
+        <div class="admin-modal-content" style="max-width: 400px; text-align: center;">
+            <h3 id="sysDialogTitle" style="margin-top:0; border:none;">Notification</h3>
+            <p id="sysDialogMessage" style="color:#4b5563; margin-bottom:20px; font-size:1.1rem;"></p>
+
+            <input type="text" id="sysDialogInput" class="hidden" style="width:100%; padding:10px; margin-bottom:20px; border:1px solid #d1d5db; border-radius:6px; font-size:1rem;">
+
+            <div id="sysDialogButtons" style="display:flex; justify-content:center; gap:10px;">
+                <button id="btnSysCancel" class="btn-manage hidden">Cancel</button>
+                <button id="btnSysOk" class="btn-play">OK</button>
+            </div>
+        </div>
+    </div>
+
+<div id="openGiftModal" class="admin-modal-overlay hidden">
+        <div class="admin-modal-content" style="max-width: 450px;">
+            <div style="text-align:center; margin-bottom:20px;">
+                <div style="font-size:3rem;">🎁</div>
+                <h3 id="giftModalTitle" style="margin:10px 0 0 0;">Gift Details</h3>
+                <p id="giftModalSubtitle" style="color:#6b7280; margin:5px 0 0 0;">Enter the details below.</p>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:15px; margin-bottom:15px;">
+                <div>
+                    <label style="font-weight:600; font-size:0.9rem; color:#374151; display:block; margin-bottom:5px;">Name (Headline)</label>
+                    <input type="text" id="giftNameInput" placeholder="e.g. Starbucks Gift Card" style="width:100%; padding:12px; border:1px solid #d1d5db; border-radius:6px; font-size:1.1rem;">
+                </div>
+                <div>
+                    <label style="font-weight:600; font-size:0.9rem; color:#374151; display:block; margin-bottom:5px;">Description (Details)</label>
+                    <input type="text" id="giftDescInput" placeholder="e.g. $25 value, includes mug" style="width:100%; padding:12px; border:1px solid #d1d5db; border-radius:6px;">
+                </div>
+            </div>
+
+            <div id="giftModalContext" style="background:#f3f4f6; color:#4b5563; padding:8px; border-radius:6px; font-size:0.9rem; text-align:center; margin-bottom:20px; font-weight:500;">
+                </div>
+
+            <div style="display:flex; justify-content:flex-end; gap:10px;">
+                <button onclick="closeOpenGiftModal()" class="btn-manage" style="background:white !important; color:#6b7280 !important; border-color:#e5e7eb !important;">Cancel</button>
+                <button onclick="submitGiftModal()" class="btn-play" style="padding-left:30px; padding-right:30px;">Save 💾</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

@@ -75,6 +75,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 localStorage.setItem('elephantSidebarWidth', leftPanel.style.width);
             }
         });
+
+        const gName = document.getElementById('giftNameInput');
+        const gDesc = document.getElementById('giftDescInput');
+
+        // Allow hitting "Enter" in the description to submit
+        if(gDesc) {
+            gDesc.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') submitOpenGift();
+            });
+        }
+
     }
 
     // 2. Handle URL Parameters (Auto-Login)
@@ -121,10 +132,10 @@ function sanitizeGameId(str) {
 
 async function handleHostGame() {
     const rawName = document.getElementById('hostNameInput').value;
-    if (!rawName.trim()) return alert("Please enter a name for your party!");
+    if (!rawName.trim()) return customAlert("Please enter a name for your party!");
 
     const baseId = sanitizeGameId(rawName);
-    if (!baseId) return alert("Please use letters and numbers.");
+    if (!baseId) return customAlert("Please use letters and numbers.");
 
     // Check Collisions
     const res = await fetch('/api/admin/games');
@@ -144,7 +155,7 @@ async function handleHostGame() {
 
 async function handleReconnectGame() {
     const input = document.getElementById('joinNameInput').value;
-    if (!input.trim()) return alert("Enter a name to search.");
+    if (!input.trim()) return customAlert("Enter a name to search.");
 
     const term = sanitizeGameId(input);
     const resultsDiv = document.getElementById('searchResults');
@@ -179,7 +190,7 @@ async function handleReconnectGame() {
 async function joinGame(forceId = null, partyName = null) {
     const inputId = document.getElementById('gameIdInput').value.trim().toLowerCase();
     const gameId = forceId || inputId;
-    if(!gameId) return alert("Please enter a Game ID");
+    if(!gameId) return customAlert("Please enter a Game ID");
 
     const isNewSession = !!partyName;
 
@@ -200,7 +211,6 @@ async function joinGame(forceId = null, partyName = null) {
 
             document.getElementById('login-section').classList.add('hidden');
             document.getElementById('dashboard-section').classList.remove('hidden');
-            document.getElementById('displayGameId').innerText = gameId;
 
             initSocket(gameId);
 
@@ -212,7 +222,7 @@ async function joinGame(forceId = null, partyName = null) {
         } else {
             // FIX: ALERT THE USER IF IT FAILS
             const err = await res.json();
-            alert(`Cannot join game: ${err.error || res.statusText}`);
+            customAlert(`Cannot join game: ${err.error || res.statusText}`);
 
             // Optional: If game doesn't exist, clear the URL so they aren't stuck
             if (res.status === 404) {
@@ -224,7 +234,7 @@ async function joinGame(forceId = null, partyName = null) {
 
     } catch (e) {
         console.error(e);
-        alert("Network Error: Could not connect to server.");
+        customAlert("Network Error: Could not connect to server.");
     }
 
 }
@@ -235,7 +245,6 @@ function initSocket(gameId) {
     socket = io();
     socket.on('connect', () => {
         socket.emit('joinGame', gameId);
-        document.getElementById('displayGameId').style.color = "inherit";
     });
     socket.on('stateUpdate', (state) => {
         render(state);
@@ -277,11 +286,28 @@ function renderParticipants(state) {
     pList.innerHTML = '';
     const activeIds = (window.getActiveIds) ? getActiveIds(state) : [];
 
+    // SORTING LOGIC:
+    // 1. Active Players (Top)
+    // 2. Players WITHOUT gifts (Upcoming/Waiting)
+    // 3. Players WITH gifts (Done/Bottom)
+    // 4. Tie-breaker: Player Number
     const sorted = state.participants.sort((a,b) => {
         const aActive = activeIds.includes(a.id);
         const bActive = activeIds.includes(b.id);
+
+        // Priority 1: Active goes to top
         if (aActive && !bActive) return -1;
         if (!aActive && bActive) return 1;
+
+        // Priority 2: Holding a gift? (Sink to bottom)
+        const aHasGift = !!a.heldGiftId;
+        const bHasGift = !!b.heldGiftId;
+
+        // If a has gift and b does not -> b comes first (is waiting)
+        if (aHasGift && !bHasGift) return 1;
+        if (!aHasGift && bHasGift) return -1;
+
+        // Priority 3: Player Number
         return a.number - b.number;
     });
 
@@ -370,6 +396,7 @@ function renderParticipants(state) {
 
 function renderGifts(state) {
     const gList = document.getElementById('giftList');
+    const rawGifts = state.gifts || [];
     const sorted = (window.sortGifts) ? sortGifts(state.gifts, state) : state.gifts;
 
     if (sorted.length === 0) {
@@ -383,14 +410,41 @@ function renderGifts(state) {
         const owner = state.participants.find(p => p.id === g.ownerId);
         const ownerName = owner ? owner.name : 'Unknown';
 
+        // --- 1. INTELLIGENT DATA EXTRACTION ---
+        let mainName = g.name;
+        let subDesc = g.description;
+
+        // Clean up "Empty Object" garbage if present
+        if (String(mainName) === '{}' || String(mainName) === '[object Object]') mainName = null;
+        if (String(subDesc) === '{}' || String(subDesc) === '[object Object]') subDesc = null;
+
+        // Fallback Logic:
+        // If we only have one string, treat it as the Name (Headline).
+        if (!mainName && subDesc) {
+            mainName = subDesc;
+            subDesc = null; // Don't repeat it
+        } else if (!mainName && !subDesc) {
+            mainName = "Mystery Gift";
+        }
+
+        const safeName = String(mainName || "");
+        const safeDesc = String(subDesc || "");
+        const safeOwner = String(ownerName || "Unknown");
+
+        const jsName = safeName.replace(/'/g, "\\'");
+        const jsDesc = safeDesc.replace(/'/g, "\\'");
+        const jsOwner = safeOwner.replace(/'/g, "\\'");
+
+        // --- 2. LAYOUT LOGIC ---
         if (isVoting) {
             const count = g.downvotes?.length || 0;
             const highlight = count > 0 ? "font-weight:bold; color:#ef4444;" : "color:#9ca3af;";
-            return `<li><div><span style="font-size:1.1em; ${highlight}">${count} 👎</span> <span style="margin-left:10px;">${g.description}</span></div><div style="font-size:0.8em; color:#666;">Held by <b>${ownerName}</b></div></li>`;
+            return `<li><div><span style="font-size:1.1em; ${highlight}">${count} 👎</span> <span style="margin-left:10px;">${safeName}</span></div><div style="font-size:0.8em; color:#666;">Held by <b>${ownerName}</b></div></li>`;
         }
 
         let isForbidden = (stealingPlayerId && state.participants.find(p => p.id === stealingPlayerId)?.forbiddenGiftId === g.id);
         const itemStyle = g.isFrozen ? 'opacity: 0.5; background: #f1f5f9;' : '';
+
         let statusBadge = g.isFrozen ? `<span class="badge" style="background:#333; color:#fff;">🔒 LOCKED</span>` :
                           (isForbidden ? `<span class="badge" style="background:#fde68a; color:#92400e;">🚫 NO TAKE-BACKS</span>` :
                           (g.stealCount > 0 ? `<span class="badge stolen">${g.stealCount}/3 Steals</span>` : `<span class="badge">0/3 Steals</span>`));
@@ -401,18 +455,30 @@ function renderGifts(state) {
         const showStealBtn = stealingPlayerId && !g.isFrozen && !isForbidden;
 
         return `
-            <li style="${itemStyle}">
-                <div>
-                    <div style="display:flex; align-items:center; gap:5px;">
-                        <span style="font-weight:500;">${g.description}</span>
-                        <button onclick="editGift('${g.id}', '${g.description.replace(/'/g, "\\'")}')" style="background:none; border:none; padding:0; cursor:pointer; font-size:1em;" title="Edit Name">✏️</button>
-                        <button onclick="openImgModal('${g.id}')" style="background:none; border:none; color:${camColor}; cursor:pointer; font-size:0.9em; margin-left:8px;" title="Manage Images">${camIcon}</button>
+            <li style="${itemStyle}; align-items: flex-start;">
+                <div style="flex: 1; padding-right: 10px;">
+                    <div style="display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
+                        <span style="font-weight:600; font-size: 1.05rem; color:#1f2937;">${safeName}</span>
+
+                        <button onclick="editGift('${g.id}', '${jsName}', '${jsDesc}', '${jsOwner}')"
+                                style="background:none; border:none; padding:0; cursor:pointer; font-size:0.9em; opacity:0.6;"
+                                title="Edit Gift">
+                            ✏️
+                        </button>
+
+                        <button onclick="openImgModal('${g.id}')" style="background:none; border:none; color:${camColor}; cursor:pointer; font-size:0.9em;" title="Manage Images">${camIcon}</button>
                     </div>
-                    <div style="font-size:0.8em; color:#666;">Held by <b>${ownerName}</b></div>
+
+                    ${safeDesc ? `<div style="font-size:0.85em; color:#6b7280; margin-top:2px;">${safeDesc}</div>` : ''}
                 </div>
-                <div style="text-align:right;">
-                    ${statusBadge}
-                    ${showStealBtn ? `<button onclick="attemptSteal('${g.id}', '${g.description.replace(/'/g, "\\'")}')" class="btn-play" style="font-size:0.8em; padding:4px 8px; width:auto; height:auto;">Select</button>` : ''}
+
+                <div style="text-align:right; display:flex; flex-direction:column; align-items:flex-end; gap: 4px;">
+                    <div style="display:flex; align-items:center; gap: 8px;">
+                        <span style="font-size:0.8rem; color:#6b7280;">Held by <b style="color:#374151;">${ownerName}</b></span>
+                        ${statusBadge}
+                    </div>
+
+                    ${showStealBtn ? `<button onclick="attemptSteal('${g.id}', '${safeNameEscaped}')" class="btn-play" style="font-size:0.8rem; padding:4px 10px; height:auto; width:auto;">Select Gift</button>` : ''}
                 </div>
             </li>`;
     }).join('');
@@ -482,7 +548,7 @@ async function addParticipant() {
     const nameInput = document.getElementById('pName');
     const numInput = document.getElementById('pNumber');
     const name = nameInput.value.trim();
-    if (!name) return alert("Enter a name");
+    if (!name) return customAlert("Enter a name");
 
     const manualNum = numInput.value.trim();
     const hasPlayers = document.querySelectorAll('#participantList li').length > 0;
@@ -525,25 +591,25 @@ async function executeAddPlayer(name, manualNum, insertRandomly) {
             document.getElementById('pName').value = '';
             document.getElementById('pNumber').value = '';
             document.getElementById('pName').focus();
-            if (insertRandomly) alert(`🎲 ${name} was assigned Number #${data.player.number}!`);
+            if (insertRandomly) customAlert(`🎲 ${name} was assigned Number #${data.player.number}!`);
         } else {
-            alert(data.error);
+            customAlert(data.error);
         }
     } catch (e) { console.error(e); }
 }
 
 async function deleteParticipant(participantId, name) {
-    if (!confirm(`Are you sure you want to remove ${name}?`)) return;
+    if (!customConfirm(`Are you sure you want to remove ${name}?`)) return;
     await fetch(`/api/${currentGameId}/participants/${participantId}`, { method: 'DELETE' });
 }
 
 async function skipTurn(participantId, name) {
-    if (!confirm(`Skip ${name} for now? They will swap spots with the next player.`)) return;
+    if (!customConfirm(`Skip ${name} for now? They will swap spots with the next player.`)) return;
     await fetch(`/api/${currentGameId}/participants/${participantId}/swap`, { method: 'POST' });
 }
 
 async function resetTimer(playerId) {
-    if(!confirm("Restart the timer for this player?")) return;
+    if(!customConfirm("Restart the timer for this player?")) return;
     await fetch(`/api/${currentGameId}/participants/${playerId}`, {
         method: 'PUT',
         headers: {'Content-Type': 'application/json'},
@@ -551,14 +617,69 @@ async function resetTimer(playerId) {
     });
 }
 
-async function promptOpenGift(playerId) {
-    const description = prompt("What is inside the gift?");
-    if (!description) return;
-    await fetch(`/api/${currentGameId}/open-new`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ description, playerId })
-    });
+/* --- GIFT OPENING (DUAL INPUT) --- */
+let currentOpeningPlayerId = null;
+
+function promptOpenGift(playerId) {
+    giftModalMode = 'OPEN';
+    targetPlayerId = playerId;
+    targetGiftId = null;
+
+    // Find player name for context
+    const player = state.participants.find(p => p.id === playerId);
+    const pName = player ? player.name : "Unknown Player";
+
+    // Setup UI
+    document.getElementById('giftModalTitle').innerText = "Revealed Gift?";
+    document.getElementById('giftModalSubtitle').innerText = "What is inside the package?";
+    document.getElementById('giftModalContext').innerText = `🎁 Opening for: ${pName}`;
+    document.getElementById('giftModalContext').style.color = "#2563eb"; // Blue for Open
+
+    // Clear Fields
+    document.getElementById('giftNameInput').value = '';
+    document.getElementById('giftDescInput').value = '';
+
+    showModal('openGiftModal');
+    setTimeout(() => document.getElementById('giftNameInput').focus(), 100);
+}
+
+async function submitGiftModal() {
+    const name = document.getElementById('giftNameInput').value.trim();
+    const description = document.getElementById('giftDescInput').value.trim();
+
+    if (!name && !description) {
+        return await customAlert("Please enter at least a Name or Description.");
+    }
+
+    try {
+        // CASE A: OPENING NEW GIFT
+        if (giftModalMode === 'OPEN' && targetPlayerId) {
+            await fetch(`/api/${currentGameId}/open-new`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ name, description, playerId: targetPlayerId })
+            });
+        }
+        // CASE B: EDITING EXISTING GIFT
+        else if (giftModalMode === 'EDIT' && targetGiftId) {
+            await fetch(`/api/${currentGameId}/gift/${targetGiftId}`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ name, description })
+            });
+        }
+
+        closeOpenGiftModal();
+    } catch (e) {
+        console.error(e);
+        await customAlert("Failed to save gift details.");
+    }
+}
+
+function closeOpenGiftModal() {
+    hideModal('openGiftModal');
+    targetPlayerId = null;
+    targetGiftId = null;
 }
 
 function enterStealMode(playerId) {
@@ -573,37 +694,54 @@ function cancelStealMode() {
 
 async function attemptSteal(giftId, description) {
     if (!stealingPlayerId) return;
-    if(!confirm(`Confirm steal: ${description}?`)) return;
+
+    // FIX: Must use 'await' with customConfirm
+    if (!await customConfirm(`Confirm steal: ${description}?`)) return;
+
     try {
         const res = await fetch(`/api/${currentGameId}/steal`, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ giftId, thiefId: stealingPlayerId })
         });
-        if(!res.ok) alert((await res.json()).error);
-    } catch (err) { alert("Steal failed."); }
-    finally {
+
+        if(!res.ok) {
+            const err = await res.json();
+            await customAlert(err.error || "Steal failed");
+        }
+    } catch (err) {
+        console.error(err);
+        await customAlert("Network error during steal.");
+    } finally {
         stealingPlayerId = null;
         refreshState();
     }
 }
 
-async function editGift(giftId, currentDesc) {
-    const newDesc = prompt("Update gift description:", currentDesc);
-    if (newDesc && newDesc !== currentDesc) {
-        await fetch(`/api/${currentGameId}/gifts/${giftId}`, {
-            method: 'PUT',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ description: newDesc })
-        });
-    }
+function editGift(giftId, currentName, currentDesc, ownerName) {
+    giftModalMode = 'EDIT';
+    targetGiftId = giftId;
+    targetPlayerId = null; // Not needed for edit
+
+    // Setup UI
+    document.getElementById('giftModalTitle').innerText = "Update Gift";
+    document.getElementById('giftModalSubtitle').innerText = "Correcting gift details.";
+    document.getElementById('giftModalContext').innerText = `👤 Held by: ${ownerName}`;
+    document.getElementById('giftModalContext').style.color = "#4b5563"; // Gray for Edit
+
+    // Fill Fields
+    document.getElementById('giftNameInput').value = currentName || '';
+    document.getElementById('giftDescInput').value = currentDesc || '';
+
+    showModal('openGiftModal');
+    setTimeout(() => document.getElementById('giftNameInput').focus(), 100);
 }
 
 // --- 6. PHASE & SETTINGS ---
 async function confirmEndGame() {
-    const enableVoting = confirm("Would you like to enable 'Worst Gift Voting'?\n\nOK = Yes, Start Voting.\nCancel = No, just end game.");
+    const enableVoting = customConfirm("Would you like to enable 'Worst Gift Voting'?\n\nOK = Yes, Start Voting.\nCancel = No, just end game.");
     if (enableVoting) {
-        const duration = prompt("Voting Duration (seconds)?", "180");
+        const duration = customPrompt("Voting Duration (seconds)?", "180");
         if (!duration) return;
         await fetch(`/api/${currentGameId}/phase/voting`, {
             method: 'POST',
@@ -616,12 +754,12 @@ async function confirmEndGame() {
 }
 
 async function endVoting() {
-    if(!confirm("Close voting early?")) return;
+    if(!customConfirm("Close voting early?")) return;
     await fetch(`/api/${currentGameId}/phase/results`, { method: 'POST' });
 }
 
 async function resetGame() {
-    if(!confirm("⚠️ DANGER: This will delete ALL history.\n\nAre you sure?")) return;
+    if(!customConfirm("⚠️ DANGER: This will delete ALL history.\n\nAre you sure?")) return;
     await fetch(`/api/${currentGameId}/reset`, { method: 'POST' });
 }
 
@@ -783,7 +921,7 @@ async function saveThemeSettings() {
 async function uploadLogo() {
     const input = document.getElementById('themeLogoInput');
     const file = input.files[0];
-    if (!file) return alert("Please select a file first.");
+    if (!file) return customAlert("Please select a file first.");
 
     const formData = new FormData();
     formData.append('logo', file);
@@ -795,14 +933,14 @@ async function uploadLogo() {
         });
 
         if (res.ok) {
-            alert("Logo Updated! Check the TV View.");
+            customAlert("Logo Updated! Check the TV View.");
             input.value = ''; // Clear input
         } else {
-            alert("Upload failed.");
+            customAlert("Upload failed.");
         }
     } catch (e) {
         console.error(e);
-        alert("Error uploading logo.");
+        customAlert("Error uploading logo.");
     }
 }
 
@@ -853,7 +991,7 @@ function renderAdminImages(gift) {
 }
 
 window.deleteImage = async function(giftId, imageId) {
-    if (!confirm("Delete this photo?")) return;
+    if (!customConfirm("Delete this photo?")) return;
     const res = await fetch(`/api/${currentGameId}/images/${giftId}/${imageId}`, { method: 'DELETE' });
     if (res.ok) reloadModal(giftId);
 }
@@ -1016,3 +1154,74 @@ if(rosterAreaRef) {
         }
     });
 }
+
+/* --- 9. CUSTOM SYSTEM DIALOGS (Alert/Confirm/Prompt Replacement) --- */
+
+function showDialog(type, message, defaultValue = '') {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('sysDialogModal');
+        const title = document.getElementById('sysDialogTitle');
+        const msg = document.getElementById('sysDialogMessage');
+        const input = document.getElementById('sysDialogInput');
+        const btnOk = document.getElementById('btnSysOk');
+        const btnCancel = document.getElementById('btnSysCancel');
+
+        // Reset State
+        input.classList.add('hidden');
+        btnCancel.classList.add('hidden');
+        btnOk.innerText = "OK";
+
+        // Setup Content
+        msg.innerText = message;
+        input.value = defaultValue;
+
+        // Configure based on Type
+        if (type === 'alert') {
+            title.innerText = '⚠️ Notice';
+        }
+        else if (type === 'confirm') {
+            title.innerText = '❓ Confirmation';
+            btnCancel.classList.remove('hidden');
+            btnOk.innerText = "Yes, Proceed";
+        }
+        else if (type === 'prompt') {
+            title.innerText = '✍️ Input Required';
+            input.classList.remove('hidden');
+            btnCancel.classList.remove('hidden');
+            btnOk.innerText = "Submit";
+        }
+
+        // Show Modal
+        modal.classList.remove('hidden');
+        modal.classList.add('active');
+        if (type === 'prompt') setTimeout(() => input.focus(), 100);
+
+        // Handlers
+        const close = (val) => {
+            modal.classList.remove('active');
+            setTimeout(() => modal.classList.add('hidden'), 200);
+            resolve(val);
+        };
+
+        btnOk.onclick = () => {
+            if (type === 'prompt') close(input.value);
+            else close(true);
+        };
+
+        btnCancel.onclick = () => {
+            if (type === 'prompt') close(null);
+            else close(false);
+        };
+
+        // Enter key support for input
+        input.onkeydown = (e) => {
+            if (e.key === 'Enter') btnOk.click();
+            if (e.key === 'Escape') btnCancel.click();
+        };
+    });
+}
+
+// Wrapper Functions to replace browser defaults
+window.customAlert = async (msg) => await showDialog('alert', msg);
+window.customConfirm = async (msg) => await showDialog('confirm', msg);
+window.customPrompt = async (msg, val) => await showDialog('prompt', msg, val);

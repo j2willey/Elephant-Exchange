@@ -330,7 +330,7 @@ app.put('/api/:gameId/participants/:pId', async (req, res) => {
 // 10. Open New Gift
 app.post('/api/:gameId/open-new', async (req, res) => {
     const { gameId } = req.params;
-    const { description, playerId } = req.body;
+    const { name, description, playerId } = req.body;
 
     const state = await getGameState(gameId);
     if (!state) return res.status(404).json({ error: "Game not found" });
@@ -341,7 +341,7 @@ app.post('/api/:gameId/open-new', async (req, res) => {
     const giftId = `g_${Date.now()}`;
     const newGift = {
         id: giftId,
-        description: description,
+        name: name,
         ownerId: playerId,
         stealCount: 0,
         isFrozen: false,
@@ -363,6 +363,25 @@ app.post('/api/:gameId/open-new', async (req, res) => {
     res.json({ success: true });
 });
 
+// 10.5. Update Existing Gift (Edit Name/Description)
+app.put('/api/:gameId/gift/:giftId', async (req, res) => {
+    const { gameId, giftId } = req.params;
+    const { name, description } = req.body;
+
+    const state = await getGameState(gameId);
+    if (!state) return res.status(404).json({ error: "Game not found" });
+
+    const gift = state.gifts.find(g => g.id === giftId);
+    if (!gift) return res.status(404).json({ error: "Gift not found" });
+
+    // Update fields
+    if (name !== undefined) gift.name = name;
+    if (description !== undefined) gift.description = description;
+
+    await saveGameState(gameId, state);
+    io.to(gameId).emit('stateUpdate', state);
+    res.json({ success: true });
+});
 
 // 11. Steal Gift
 app.post('/api/:gameId/steal', async (req, res) => {
