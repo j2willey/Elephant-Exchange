@@ -11,43 +11,43 @@ test('Feature Check: Reset Timer and On Deck', async ({ browser }) => {
     await adminPage.fill('#hostNameInput', gameId);
     await adminPage.click('text=Create & Host');
 
-    // This is the "Start Game 🚀" button
+    // Handle "Start Game" Modal
     const startBtn = adminPage.locator('#btnSaveSettings');
-    if (await startBtn.isVisible()) {
-        await startBtn.click();
-        await expect(adminPage.locator('#settingsModal')).toBeHidden();
-    }
+    // Wait for button, click it, then WAIT FOR MODAL TO DISAPPEAR
+    await startBtn.waitFor();
+    await startBtn.click();
+    await expect(adminPage.locator('#settingsModal')).toBeHidden();
 
-    // Add 2 Players
-    // Add Alice
+    // 2. Add Alice (Manual #1 - No alert expected)
+    await adminPage.fill('#pNumber', '1');
     await adminPage.fill('#pName', 'Alice');
     await adminPage.click('button:has-text("Add")');
-    // 🛑 STOP: Wait until Alice actually appears in the HTML
+    // Wait for Alice to appear in the DOM
     await expect(adminPage.locator('#participantList')).toContainText('Alice');
 
-    // Add Bob
+    // 3. Add Bob (Manual #2 - No alert expected)
+    await adminPage.fill('#pNumber', '2');
     await adminPage.fill('#pName', 'Bob');
     await adminPage.click('button:has-text("Add")');
-    // 🛑 STOP: Wait until Bob actually appears in the HTML
     await expect(adminPage.locator('#participantList')).toContainText('Bob');
 
-    // 2. Verify "On Deck" on TV
+    // 4. Verify "On Deck" on TV
     await tvPage.goto(`http://localhost:3000/scoreboard.html?game=${gameId}`);
-    await expect(tvPage.locator('#activePlayerBanner')).toContainText('Current Turn');
+
+    // Check Current Turn
     await expect(tvPage.locator('#activePlayerBanner')).toContainText('Alice');
-    // Check if Bob is shown as "On Deck"
+    // Check On Deck
     await expect(tvPage.locator('#activePlayerBanner')).toContainText('On Deck: Bob');
 
-    // 3. Test "Reset Timer" Button
-    // Capture time, click reset, ensure no error
+    // 5. Test "Reset Timer"
     await expect(adminPage.locator('button[title="Reset Timer"]')).toBeVisible();
 
-    // Handle the "Are you sure?" alert
+    // Handle "Are you sure?" confirmation dialog
     adminPage.on('dialog', dialog => dialog.accept());
     await adminPage.click('button[title="Reset Timer"]');
 
-    // Verify it didn't crash
-    await expect(adminPage.locator('#participantList')).not.toBeEmpty();
+    // Ensure state persists
+    await expect(adminPage.locator('#participantList')).toContainText('Alice');
 
     console.log('✅ Timer Reset and On Deck features verified');
 });

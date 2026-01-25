@@ -5,7 +5,6 @@
       - Allow players to post short text messages (140 chars) to the TV.
       - Display a scrolling "News Ticker" at the bottom of the scoreboard.
 - [ ] - Add more themes and customization,
-- [ ] - convert all dialogs to modal overlays to get common look/feel.
 
 ## Security & Accounts
 - [ ] **Host Accounts:** Implement User ID/Password so random people cannot admin games they didn't create.
@@ -37,3 +36,9 @@
       - Logic to handle "Late Arrivals" (Insert them into the random pool for upcoming turns).
 - [x] **Sandbagging Prevention:**
       - Instead of a fixed order (1..N), randomly choose the *next* player from the pool of remaining players. (Prevents the last person from knowing they have the power position).
+- [x] **Test infrastructure and passing tests**
+      - playwright enabled
+      - initial tests passing
+      **Additional Enhancements**
+- [x] - convert all dialogs to modal overlays to get common look/feel.
+- [x] - Add themes and customization infrastructure

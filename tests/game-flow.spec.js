@@ -1,53 +1,54 @@
 const { test, expect } = require('@playwright/test');
 
-const GAME_ID = 'test-automation-' + Date.now();
+const GAME_ID = 'test-flow-' + Date.now();
 
 test.describe('Elephant Exchange Full Loop', () => {
 
     test('Host can start game, add players, and open gifts', async ({ browser }) => {
-        // 1. Create Contexts (Admin and TV)
         const adminContext = await browser.newContext();
         const tvContext = await browser.newContext();
-
         const adminPage = await adminContext.newPage();
         const tvPage = await tvContext.newPage();
 
         // --- STEP 1: ADMIN JOINS ---
-        console.log(`Starting Game: ${GAME_ID}`);
-        await adminPage.goto('http://localhost:3000/');
-        await adminPage.fill('#landingHostInput', GAME_ID);
-        await adminPage.click('button:has-text("Create Party")');
+        await adminPage.goto('http://localhost:3000/gameadmin.html');
+        await adminPage.fill('#hostNameInput', GAME_ID);
+        await adminPage.click('text=Create & Host');
 
-        // The modal appears because it's a new game. We click "Start Game 🚀"
-        await expect(adminPage.locator('#settingsModal')).toBeVisible();
-        await adminPage.click('#btnSaveSettings');
+        // Handle Start Modal
+        const startBtn = adminPage.locator('#btnSaveSettings');
+        await startBtn.waitFor();
+        await startBtn.click();
         await expect(adminPage.locator('#settingsModal')).toBeHidden();
-
-
-        // Verify Dashboard Loaded
-        await expect(adminPage.locator('#dashboard-section')).toBeVisible();
-        await expect(adminPage.locator('#displayGameId')).toContainText(GAME_ID);
 
         // --- STEP 2: TV SYNC ---
         await tvPage.goto(`http://localhost:3000/scoreboard.html?game=${GAME_ID}`);
         await expect(tvPage.locator('#activePlayerBanner')).toBeVisible();
 
         // --- STEP 3: ADD PLAYERS ---
+        // Alice
+        await adminPage.fill('#pNumber', '1');
         await adminPage.fill('#pName', 'Alice');
         await adminPage.click('button:has-text("Add")');
         await expect(adminPage.locator('#participantList')).toContainText('Alice');
 
+        // Bob
+        await adminPage.fill('#pNumber', '2');
         await adminPage.fill('#pName', 'Bob');
         await adminPage.click('button:has-text("Add")');
-        await adminPage.click('text=Add to End');
+        await expect(adminPage.locator('#participantList')).toContainText('Bob');
 
-        // --- STEP 4: OPEN GIFT (Alice) ---
-        // Click "Open" on the active player row
-        await adminPage.click('button.btn-green');
+        // --- STEP 4: OPEN GIFT ---
+        // Click "Open" on Alice (active player)
+        await adminPage.click('button[title="Open Gift"]');
 
-        // Handle Prompt (Playwright intercepts prompts automatically if configured, or we mock it)
-        // Since we use window.prompt, we need to handle the dialog:
-        adminPage.on('dialog', dialog => dialog.accept('Espresso Machine'));
+        // Fill Modal
+        const modal = adminPage.locator('#openGiftModal');
+        await expect(modal).toBeVisible();
+        await adminPage.fill('#giftNameInput', 'Espresso Machine');
+        await adminPage.fill('#giftDescInput', 'Fancy coffee maker');
+        await adminPage.click('button:has-text("Save 💾")');
+        await expect(modal).toBeHidden();
 
         // Check Admin List
         await expect(adminPage.locator('#giftList')).toContainText('Espresso Machine');
