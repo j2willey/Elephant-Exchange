@@ -863,14 +863,25 @@ async function saveSettings() {
         roster = rawText.split('\n').map(n => n.trim()).filter(n => n.length > 0);
     }
 
+    // 1. Get the current values from the inputs
+    // We use parseInt to ensure they are saved as Math-safe Numbers
+    const turnDuration = parseInt(document.getElementById('settingDuration').value) || 60;
+    const maxSteals = parseInt(document.getElementById('settingMaxSteals').value) || 3;
+
+    // CORRECTION: Respect user input. Only default to 1 if the field is blank/invalid.
+    // If you type "3", this saves 3.
+    const activeCount = parseInt(document.getElementById('settingActiveCount').value) || 1;
+
+    const totalCount = parseInt(document.getElementById('settingTotalPlayers').value) || 0;
+
     const payload = {
         partyName: document.getElementById('settingPartyName').value,
         tagline: document.getElementById('settingTagline').value,
-        turnDurationSeconds: document.getElementById('settingDuration').value,
-        maxSteals: document.getElementById('settingMaxSteals').value,
-        activePlayerCount: document.getElementById('settingActiveCount').value,
+        turnDurationSeconds: turnDuration,
+        maxSteals: maxSteals,
+        activePlayerCount: activeCount, // Saves "3" (or whatever you set)
         gameMode: mode,
-        totalPlayerCount: document.getElementById('settingTotalPlayers').value,
+        totalPlayerCount: totalCount,
         rosterNames: (isRoster && roster.length > 0) ? roster : null
     };
 
@@ -879,6 +890,7 @@ async function saveSettings() {
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(payload)
     });
+
     hideModal('settingsModal');
 }
 
