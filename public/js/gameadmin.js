@@ -358,7 +358,7 @@ function renderParticipants(state) {
                 html += `<div style="font-size:0.8em; color:#ccc;">Waiting...</div>`;
             } else {
                 const isRosterMode = state.settings && state.settings.gameMode === 'roster';
-                const btnOpen = `<button id="${safePId}_open" onclick="promptOpenGift('${p.id}')" class="btn-play" title="Open Gift">🎁</button>`;
+                const btnOpen = `<button id="${safePId}_open" onclick="promptOpenGift('${p.id}', '${safeName}')" class="btn-play" title="Open Gift">🎁</button>`;
                 const btnSteal = `<button id="${safePId}_steal" onclick="enterStealMode('${p.id}')" class="btn-play" title="Steal Gift">😈</button>`;
                 const btnReset = `<button id="${safePId}_reset" onclick="resetTimer('${p.id}')" class="btn-manage" title="Reset Timer">🕒</button>`;
                 const btnSkip = isRosterMode ? `<button id="${safePId}_skip" onclick="skipTurn('${p.id}', '${safeName}')" class="btn-manage" title="Skip Turn">⤵️</button>` : '';
@@ -510,11 +510,13 @@ async function resetTimer(playerId) {
 // --- 5. GIFT ACTIONS ---
 let giftModalMode = 'OPEN'; let targetPlayerId = null; let targetGiftId = null;
 
-function promptOpenGift(playerId) {
-    giftModalMode = 'OPEN'; targetPlayerId = playerId; targetGiftId = null;
+function promptOpenGift(playerId, playerName) {
+    giftModalMode = 'OPEN';
+    targetPlayerId = playerId;
+    targetGiftId = null;
     document.getElementById('giftModalTitle').innerText = "Revealed Gift?";
     document.getElementById('giftModalSubtitle').innerText = "What is inside the package?";
-    document.getElementById('giftModalContext').innerText = `🎁 Opening Gift`;
+    document.getElementById('giftModalContext').innerText = `🎁 Opening Gift for ${playerName}`;
     document.getElementById('giftModalContext').style.color = "#2563eb";
     document.getElementById('giftNameInput').value = ''; document.getElementById('giftDescInput').value = '';
     showModal('openGiftModal');

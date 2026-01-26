@@ -11,7 +11,7 @@ const { chromium } = require('playwright');
     // 1. SETUP BROWSER
     const browser = await chromium.launch({
         headless: false,
-        slowMo: 1000, // 1 second per action (Readable speed)
+        slowMo: 2000, // 1 second per action (Readable speed)
         args: ['--start-maximized']
     });
 
