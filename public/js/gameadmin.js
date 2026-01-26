@@ -277,6 +277,33 @@ function render(state) {
     }
     renderParticipants(state);
     renderGifts(state);
+
+    // NEW: Dynamic Footer Button Logic
+    const btnFooter = document.getElementById('btnGameState');
+    if (btnFooter) {
+        if (state.phase === 'voting') {
+            btnFooter.innerHTML = "🗳️ End Voting & Show Results";
+            btnFooter.onclick = endVoting; // Direct call to endVoting function
+            btnFooter.className = "btn-nav";
+            btnFooter.style.background = "#d97706"; // Orange
+            btnFooter.style.borderColor = "#d97706";
+        }
+        else if (state.phase === 'results') {
+            btnFooter.innerHTML = "🔄 Reset Game";
+            btnFooter.onclick = resetGame;
+            btnFooter.className = "btn-nav";
+            btnFooter.style.background = "#dc2626"; // Red
+            btnFooter.style.borderColor = "#dc2626";
+        }
+        else {
+            // Default Active State
+            btnFooter.innerHTML = "🛑 End Game";
+            btnFooter.onclick = confirmEndGame;
+            btnFooter.className = "btn-nav";
+            btnFooter.style.background = ""; // Reset to default CSS
+            btnFooter.style.borderColor = "";
+        }
+    }
 }
 
 function renderParticipants(state) {

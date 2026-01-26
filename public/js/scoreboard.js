@@ -136,37 +136,32 @@ function renderView(state) {
 function renderActiveBanner(state) {
     const banner = document.getElementById('activePlayerBanner');
 
-    // Voting / Results Phase
+    // 1. PHASE: VOTING
     if (state.phase === 'voting') {
         banner.innerHTML = "<div style='padding:20px; font-size:2.5rem;'>🗳️ Voting in Progress!</div>";
         banner.style.background = "#d97706";
         return;
     }
+
+    // 2. PHASE: RESULTS
     if (state.phase === 'results') {
         banner.innerHTML = "<div style='padding:20px; font-size:2.5rem;'>🏆 The Results</div>";
         banner.style.background = "#16a34a";
         return;
     }
 
+    // 3. PHASE: ACTIVE GAME
+    // Use the shared helper if available, otherwise fallback
     const activeIds = (window.getActiveIds) ? getActiveIds(state) : [];
 
     if (activeIds.length > 0) {
-        // Determine "On Deck" Player (Next non-victim player)
+        // FIX 1: "On Deck" must exclude anyone currently active!
         const nextPlayer = state.participants
-            .filter(p => p.number > state.currentTurn && !p.isVictim)
+            .filter(p => !activeIds.includes(p.id) && !p.isVictim && !p.heldGiftId)
             .sort((a, b) => a.number - b.number)[0];
 
-        let onDeckHtml = '';
-        if (nextPlayer) {
-            onDeckHtml = `
-                <div style="background:rgba(0,0,0,0.2); padding:5px 15px; font-size:1rem; color:#e5e7eb; display:flex; justify-content:space-between; align-items:center;">
-                    <span><span style="opacity:0.6; text-transform:uppercase; font-size:0.8em; margin-right:5px;">On Deck:</span> <b>${nextPlayer.name}</b></span>
-                    <span style="opacity:0.6;">#${nextPlayer.number}</span>
-                </div>
-            `;
-        }
-
-        const html = activeIds.map(id => {
+        // Render Active Players
+        const playersHtml = activeIds.map(id => {
             const p = state.participants.find(x => x.id === id);
             if (!p) return '';
 
@@ -178,7 +173,7 @@ function renderActiveBanner(state) {
             }
 
             return `
-                <table class="active-table" style="margin-bottom:0;">
+                <table class="active-table" style="margin-bottom:0; border-bottom: 1px solid rgba(255,255,255,0.1);">
                     <tr>
                         <td class="col-active-name" style="width: 50%;">
                             <span style="font-size:0.4em; text-transform:uppercase; color:white; opacity:0.7; display:block;">Current Turn</span>
@@ -188,20 +183,30 @@ function renderActiveBanner(state) {
                             ${timerHtml}
                         </td>
                     </tr>
-                </table>
-                ${onDeckHtml} `;
+                </table>`;
         }).join('');
+
+        // FIX 2: Render "On Deck" ONCE at the bottom
+        let footerHtml = '';
+        if (nextPlayer) {
+            footerHtml = `
+                <div style="background:rgba(0,0,0,0.2); padding:8px 15px; font-size:1rem; color:#e5e7eb; display:flex; justify-content:space-between; align-items:center;">
+                    <span><span style="opacity:0.6; text-transform:uppercase; font-size:0.8em; margin-right:5px;">On Deck:</span> <b>${nextPlayer.name}</b></span>
+                    <span style="opacity:0.6;">#${nextPlayer.number}</span>
+                </div>`;
+        }
 
         banner.dataset.active = "true";
         banner.style.background = "var(--primary, #2563eb)";
-        banner.innerHTML = html;
+        banner.innerHTML = playersHtml + footerHtml;
+
     } else {
-        // Game Wait / End States
+        // ... (Keep existing Wait/End states) ...
         const totalPlayers = state.participants.length;
         if (state.participants.length === 0) {
             banner.innerHTML = "<div style='padding:20px;'>Waiting for Players...</div>";
         } else if (state.currentTurn > totalPlayers) {
-            banner.innerHTML = `
+             banner.innerHTML = `
                 <div style='padding:20px; animation: pulse 2s infinite;'>
                     <div style="font-size:2.5rem; margin-bottom:10px;">🎁 All Gifts Opened!</div>
                     <div style="font-size:1.2rem; color:#9ca3af;">Waiting for Host to start voting...</div>
