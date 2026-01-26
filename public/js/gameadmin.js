@@ -77,6 +77,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const joinInput = document.getElementById('joinNameInput');
     if (joinInput) joinInput.addEventListener('keypress', e => e.key === 'Enter' && handleReconnectGame());
 
+    // Roster Count Listener (NEW)
+    const countInput = document.getElementById('settingTotalPlayers');
+    if (countInput) {
+        countInput.addEventListener('input', syncRosterFromCount);
+    }
+
     // Theme Logic
     const themeSelect = document.getElementById('themePresetSelect');
     const themeColor = document.getElementById('themeColorInput');
@@ -564,8 +570,16 @@ function openSettings(mode = 'edit') {
     const title = document.getElementById('settingsModalTitle');
     const btnSave = document.getElementById('btnSaveSettings');
     const btnCancel = document.getElementById('btnCancelSettings');
-    if (mode === 'defaults') { title.innerText = "Setup Game Defaults"; btnSave.innerText = "Start Game 🚀"; btnCancel.style.display = 'none'; }
-    else { title.innerText = "Game Settings"; btnSave.innerText = "Save Changes"; btnCancel.style.display = 'inline-block'; }
+
+    if (mode === 'defaults') {
+        title.innerText = "Setup Game Defaults";
+        btnSave.innerText = "Start Game 🚀";
+        btnCancel.style.display = 'none';
+    } else {
+        title.innerText = "Game Settings";
+        btnSave.innerText = "Save Changes";
+        btnCancel.style.display = 'inline-block';
+    }
 
     fetch(`/api/${currentGameId}/state`).then(res => res.json()).then(state => {
         const s = state.settings || {};
@@ -575,39 +589,53 @@ function openSettings(mode = 'edit') {
         document.getElementById('settingMaxSteals').value = s.maxSteals || 3;
         document.getElementById('settingActiveCount').value = s.activePlayerCount || 1;
         document.getElementById('settingTotalPlayers').value = s.totalPlayerCount || '';
-        const gameMode = s.gameMode || 'open';
-        document.getElementById('settingGameModeToggle').checked = (gameMode === 'roster');
+
+        // RADIO BUTTON LOGIC
+        const assignmentMode = s.assignmentMode || 'manual';
+        const radios = document.getElementsByName('assignmentMode');
+        for(const r of radios) {
+            r.checked = (r.value === assignmentMode);
+        }
+
+        // Populate Roster Text
         let rosterText = '';
         if (state.participants && state.participants.length > 0) {
             const sorted = state.participants.sort((a, b) => a.number - b.number);
             rosterText = sorted.map(p => p.name).join('\n');
             document.getElementById('settingTotalPlayers').value = sorted.length;
-        } else if (s.rosterNames) rosterText = s.rosterNames.join('\n');
+        } else if (s.rosterNames) {
+            rosterText = s.rosterNames.join('\n');
+        }
         document.getElementById('settingRosterNames').value = rosterText;
-        toggleRosterInput();
+
+        toggleRosterInput(); // Update UI visibility based on what we just loaded
         showModal('settingsModal');
     });
 }
 function cancelSettings() { hideModal('settingsModal'); }
 
 async function saveSettings() {
-    const isRoster = document.getElementById('settingGameModeToggle').checked;
-    const mode = isRoster ? 'roster' : 'open';
+    // Get checked radio value
+    const selected = document.querySelector('input[name="assignmentMode"]:checked');
+    const mode = selected ? selected.value : 'manual';
+
     let roster = [];
-    if (isRoster) {
+    if (mode !== 'manual') {
         const rawText = document.getElementById('settingRosterNames').value;
         roster = rawText.split('\n').map(n => n.trim()).filter(n => n.length > 0);
     }
+
     const payload = {
         partyName: document.getElementById('settingPartyName').value,
         tagline: document.getElementById('settingTagline').value,
         turnDurationSeconds: parseInt(document.getElementById('settingDuration').value) || 60,
         maxSteals: parseInt(document.getElementById('settingMaxSteals').value) || 3,
-        activePlayerCount: parseInt(document.getElementById('settingActiveCount').value) || 1,
-        gameMode: mode,
+        activePlayerCount: Math.max(1, parseInt(document.getElementById('settingActiveCount').value) || 1),
+        assignmentMode: mode,
         totalPlayerCount: parseInt(document.getElementById('settingTotalPlayers').value) || 0,
-        rosterNames: (isRoster && roster.length > 0) ? roster : null,
+        rosterNames: (mode !== 'manual' && roster.length > 0) ? roster : null,
     };
+
     await authenticatedFetch(`/api/${currentGameId}/settings`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     hideModal('settingsModal');
 }
@@ -731,26 +759,77 @@ function closeLocalQr() { hideModal('localQrModal'); }
 window.openCatalog = function() { if (currentGameId) window.open(`/catalog.html?game=${currentGameId}`, '_blank'); }
 
 function toggleRosterInput() {
-    const isRosterMode = document.getElementById('settingGameModeToggle').checked;
-    const label = document.getElementById('gameModeLabel');
-    const rosterSection = document.getElementById('rosterInputSection');
+    // Find checked radio
+    const selected = document.querySelector('input[name="assignmentMode"]:checked');
+    const mode = selected ? selected.value : 'manual';
+
+    const rosterArea = document.getElementById('settingRosterNames');
     const countInput = document.getElementById('settingTotalPlayers');
-    if (isRosterMode) {
-        label.innerText = "Auto-Shuffle Names"; label.style.color = "#2563eb"; rosterSection.style.display = 'block'; countInput.disabled = true; countInput.style.backgroundColor = "#f3f4f6";
-        if (!countInput.value || parseInt(countInput.value) === 0) { countInput.value = 5; syncRosterFromCount(); } else syncCountFromRoster();
+
+    if (mode === 'manual') {
+        // DISABLE
+        rosterArea.disabled = true;
+        rosterArea.style.backgroundColor = "#f3f4f6"; // Gray
+        rosterArea.style.color = "#9ca3af";           // Muted text
+        rosterArea.placeholder = "Select a 'Pre-Enter' option above to enable editing...";
+
+        // Disable Count Input (User Request)
+        countInput.disabled = true;
+        countInput.style.backgroundColor = "#f3f4f6";
     } else {
-        label.innerText = "Manual Numbers"; label.style.color = "#374151"; rosterSection.style.display = 'none'; countInput.disabled = false; countInput.style.backgroundColor = "#ffffff";
+        // ENABLE
+        rosterArea.disabled = false;
+        rosterArea.style.backgroundColor = "#ffffff"; // White
+        rosterArea.style.color = "#000000";           // Normal text
+        rosterArea.placeholder = "Alice\nBob\nCharlie...";
+
+        // Enable Count Input
+        countInput.disabled = false;
+        countInput.style.backgroundColor = "#ffffff";
+
+        // Auto-init count if needed
+        if (!countInput.value || parseInt(countInput.value) === 0) {
+            countInput.value = 5;
+            syncRosterFromCount();
+        } else {
+            syncRosterFromCount();
+        }
     }
 }
+
 function syncRosterFromCount() {
-    if (!document.getElementById('settingGameModeToggle').checked) return;
+    const selected = document.querySelector('input[name="assignmentMode"]:checked');
+    const mode = selected ? selected.value : 'manual';
+
+    // If we are in Manual/Live mode, do not run this logic.
+    if (mode === 'manual') return;
+
     const countInput = document.getElementById('settingTotalPlayers');
     const rosterArea = document.getElementById('settingRosterNames');
-    const count = parseInt(countInput.value) || 0;
-    if (count > 100) return;
-    let lines = []; for (let i = 1; i <= count; i++) lines.push(`Player ${i}`);
-    rosterArea.value = lines.join('\n'); updateCountDisplay(count);
+
+    const targetCount = parseInt(countInput.value) || 0;
+    if (targetCount > 100) return;
+
+    let currentLines = rosterArea.value.split('\n').map(s => s.trim()).filter(s => s.length > 0);
+
+    // If we have fewer lines than target, add placeholders
+    if (currentLines.length < targetCount) {
+        for (let i = currentLines.length + 1; i <= targetCount; i++) {
+            currentLines.push(`Player ${i}`);
+        }
+    }
+    // If we have more lines (user reduced count), we respect the count input?
+    // Usually safer to NOT delete names automatically.
+    // But user requirement says "auto fill", let's just match count for now.
+    // Ideally, we'd only trim placeholders, but simpler logic matches expectations.
+    else if (currentLines.length > targetCount) {
+         currentLines = currentLines.slice(0, targetCount);
+    }
+
+    rosterArea.value = currentLines.join('\n');
+    updateCountDisplay(targetCount);
 }
+
 function syncCountFromRoster() {
     const rosterArea = document.getElementById('settingRosterNames');
     const countInput = document.getElementById('settingTotalPlayers');
@@ -763,6 +842,7 @@ function updateCountDisplay(n) { const el = document.getElementById('rosterCount
 const rosterAreaRef = document.getElementById('settingRosterNames');
 if (rosterAreaRef) {
     rosterAreaRef.addEventListener('blur', function() {
+        // Clean up empty lines on blur
         const cleanText = this.value.split('\n').map(l => l.trim()).filter(l => l.length > 0).join('\n');
         if (this.value !== cleanText) { this.value = cleanText; syncCountFromRoster(); }
     });

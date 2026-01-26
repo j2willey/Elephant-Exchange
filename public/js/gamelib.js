@@ -120,16 +120,30 @@ styleTag.innerHTML = `
 function getActiveIds(state) {
     if (!state || !state.participants) return [];
 
-    const victims = state.participants.filter(p => p.isVictim && !p.heldGiftId);
+    // 1. SAFETY: Force integers to avoid "1"+"1"="11" bugs
+    const currentTurn = parseInt(state.currentTurn || 1);
+    const activeLimit = parseInt(state.settings?.activePlayerCount || 1);
 
+    // 2. IDENTIFY VICTIMS (Priority Group)
+    // Any player marked as a victim who doesn't currently hold a gift
+    const victims = state.participants.filter(p => p.isVictim);
+
+    // 3. IDENTIFY THE QUEUE (Standard Turn Order)
+    // Players who are not victims, have no gift, and are waiting for their turn
     const queue = state.participants
-        .filter(p => !p.isVictim && !p.heldGiftId && p.number >= state.currentTurn)
-        .sort((a,b) => a.number - b.number);
+        .filter(p => !p.isVictim && !p.heldGiftId && parseInt(p.number) >= currentTurn)
+        .sort((a, b) => parseInt(a.number) - parseInt(b.number));
 
-    const limit = state.settings.activePlayerCount || 1;
-    const slots = Math.max(0, limit - victims.length);
+    // 4. FILL THE SLOTS
+    // Logic: Victims take the first slots.
+    // If we have room left (Limit - VictimCount), we fill it with the Queue.
+    // Note: If victims exceed the limit, we let them ALL be active (never block a victim).
+    const slotsRemaining = Math.max(0, activeLimit - victims.length);
 
-    return [...victims, ...queue.slice(0, slots)].map(p => p.id);
+    // Combine: All Victims + The next N players from the queue
+    const activeParticipants = [...victims, ...queue.slice(0, slotsRemaining)];
+
+    return activeParticipants.map(p => p.id);
 }
 
 

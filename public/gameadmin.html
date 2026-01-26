@@ -118,21 +118,93 @@
         <div class="admin-modal-content">
             <h3 id="settingsModalTitle">Game Settings</h3>
             <div class="settings-grid">
-                 <div class="setting-label-group"><label>Party Name</label></div><input type="text" id="settingPartyName">
-                 <div class="setting-label-group"><label>Tagline</label></div><input type="text" id="settingTagline">
-                 <div class="setting-label-group"><label>Turn Duration</label></div><input type="number" id="settingDuration">
-                 <div class="setting-label-group"><label>Max Steals</label></div><input type="number" id="settingMaxSteals">
-                 <div class="setting-label-group"><label>Active Players (Simultaneous Turns)</label></div><input type="number" id="settingActiveCount" placeholder="Default: 1">
-                 <div class="setting-label-group"><label>Turn Order</label></div>
-                 <label class="toggle-switch" style="width:100%;">
-                    <input type="checkbox" id="settingGameModeToggle" onchange="toggleRosterInput()">
-                    <span class="slider round"></span>
-                    <span class="toggle-label" id="gameModeLabel" style="margin-left:10px;">Manual Numbers</span>
-                </label>
-                <div class="setting-label-group"><label>Total Players</label></div><input type="number" id="settingTotalPlayers" oninput="syncRosterFromCount()">
-            </div>
-            <div id="rosterInputSection" style="display:none; margin-top:10px;"><textarea id="settingRosterNames" rows="6" oninput="syncCountFromRoster()" style="width:100%;"></textarea></div>
+                <div class="setting-label-group">
+                    <label>Party Name</label>
+                </div>
+                <div class="setting-input-group">
+                    <input type="text" id="settingPartyName" class="form-input">
+                </div>
 
+                <div class="setting-label-group">
+                    <label>Tagline</label>
+                </div>
+                <div class="setting-input-group">
+                    <input type="text" id="settingTagline" class="form-input">
+                </div>
+
+                <div class="setting-label-group">
+                    <label>Turn Duration</label>
+                </div>
+                <div class="setting-input-group">
+                    <input type="number" id="settingDuration" class="form-input">
+                </div>
+
+                <div class="setting-label-group">
+                    <label>Max Steals</label>
+                </div>
+                <div class="setting-input-group">
+                    <input type="number" id="settingMaxSteals" class="form-input">
+                </div>
+
+                <div class="setting-label-group">
+                    <label>Active Players</label>
+                    <div style="font-size:0.8rem; color:#6b7280; margin-top:4px;">(Simultaneous Turns)</div>
+                </div>
+                <div class="setting-input-group">
+                    <input type="number" id="settingActiveCount" class="form-input" placeholder="Default: 1">
+                </div>
+
+                <div class="setting-label-group" style="align-self: flex-start; padding-top: 10px;">
+                    <label>Play Sequencing</label>
+                </div>
+                <div class="setting-input-group">
+                    <div style="display:flex; flex-direction:column; gap:12px;">
+                        <label style="display:flex; gap:10px; cursor:pointer; align-items:flex-start;">
+                            <input type="radio" name="assignmentMode" value="manual" checked onchange="toggleRosterInput()" style="margin-top:4px;">
+                            <div>
+                                <span style="display:block; font-weight:bold; color:#1f2937;">Live Entry</span>
+                                <span style="font-size:0.85rem; color:#6b7280;">Host enters names one-by-one as play proceeds.</span>
+                            </div>
+                        </label>
+
+                        <label style="display:flex; gap:10px; cursor:pointer; align-items:flex-start;">
+                            <input type="radio" name="assignmentMode" value="random" onchange="toggleRosterInput()" style="margin-top:4px;">
+                            <div>
+                                <span style="display:block; font-weight:bold; color:#1f2937;">Pre-Enter, Random Selection</span>
+                                <span style="font-size:0.85rem; color:#6b7280;">Paste list. Server shuffles order.</span>
+                            </div>
+                        </label>
+
+                        <label style="display:flex; gap:10px; cursor:pointer; align-items:flex-start;">
+                            <input type="radio" name="assignmentMode" value="fixed" onchange="toggleRosterInput()" style="margin-top:4px;">
+                            <div>
+                                <span style="display:block; font-weight:bold; color:#1f2937;">Pre-Enter, Fixed Order / Demo</span>
+                                <span style="font-size:0.85rem; color:#6b7280;">Paste list. Exact order kept.</span>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="setting-label-group">
+                    <label>Total Players</label>
+                </div>
+                <div class="setting-input-group">
+                    <input type="number" id="settingTotalPlayers" class="form-input" oninput="syncRosterFromCount()">
+                </div>
+
+                <div class="setting-label-group">
+                    <label>Roster Names</label>
+                    <div style="font-size:0.8rem; color:#6b7280; margin-top:4px;">(One per line)</div>
+                </div>
+
+                <textarea id="settingRosterNames" rows="6"
+                        class="form-input"
+                        style="width:100%; padding:8px; border:1px solid #d1d5db; border-radius:6px; background-color: #f3f4f6; color: #9ca3af;"
+                        placeholder="Select a 'Pre-Enter' option above to enable editing..."
+                        disabled
+                        oninput="syncCountFromRoster()">
+                </textarea>
+            </div>
             <div style="margin-top:25px; text-align:right; display:flex; justify-content:flex-end; gap:10px;">
                 <button id="btnCancelSettings" onclick="cancelSettings()" class="btn-nav">Cancel</button>
                 <button id="btnSaveSettings" onclick="saveSettings()" class="btn-nav">Save Changes</button>
