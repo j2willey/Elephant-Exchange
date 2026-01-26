@@ -23,6 +23,7 @@
                 <p>Start a brand new game.</p>
                 <div class="input-group">
                     <input type="text" id="hostNameInput" placeholder="e.g. Smith Family Xmas">
+                    <input type="password" id="createPasswordInput" placeholder="Admin PIN (Optional)" style="max-width: 120px; margin-left: 5px;">
                     <button onclick="handleHostGame()" class="btn-nav">Create & Host 🚀</button>
                 </div>
             </div>
@@ -253,5 +254,21 @@
             </div>
         </div>
     </div>
+
+    <div id="authModal" class="admin-modal-overlay hidden" style="z-index: 5000;">
+        <div class="admin-modal-content" style="max-width: 400px; text-align: center;">
+            <div style="font-size: 3rem; margin-bottom: 10px;">🔒</div>
+            <h3>Admin Access Required</h3>
+            <p>This game is protected. Enter the Host PIN.</p>
+
+            <input type="password" id="authPasswordInput"
+                style="font-size: 1.5rem; text-align: center; letter-spacing: 4px; padding: 10px; width: 80%; margin: 15px 0; border: 2px solid #2563eb; border-radius: 8px;">
+
+            <div style="display:flex; gap:10px; justify-content:center;">
+                <button onclick="submitAuthPassword()" class="btn-play" style="width: 100%;">Unlock</button>
+            </div>
+        </div>
+    </div>
+
 </body>
 </html>

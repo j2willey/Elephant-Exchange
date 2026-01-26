@@ -34,6 +34,44 @@ redisClient.on('error', (err) => console.log('Redis Client Error', err));
 
 const getGameKey = (gameId) => `game:${gameId}`;
 
+// --- AUTH MIDDLEWARE (The Bouncer) ---
+async function verifyGameAdmin(req, res, next) {
+    const gameId = req.params.gameId || req.body.gameId;
+    const clientSecret = req.headers['x-admin-secret'];
+
+    if (!gameId) return res.status(400).json({ error: "Missing Game ID" });
+
+    // Fetch state to check password
+    const stateStr = await redisClient.get(`game:${gameId}`);
+    if (!stateStr) return res.status(404).json({ error: "Game not found" });
+
+    const state = JSON.parse(stateStr);
+    const serverSecret = state.adminPassword;
+
+    // 1. If no password was set during creation, anyone is Admin (Legacy/Open Mode)
+    if (!serverSecret) return next();
+
+    // 2. If password matches, come on in
+    if (clientSecret === serverSecret) return next();
+
+    // 3. Otherwise, Access Denied
+    console.log(`🔒 Blocked unauthorized access to ${gameId}`);
+    return res.status(401).json({ error: "Unauthorized: Invalid Host Password" });
+}
+
+// --- SITE ADMIN MIDDLEWARE (The "Super Bouncer") ---
+// Usage: Delete games, Flush DB
+function verifySiteAdmin(req, res, next) {
+    // Default to a hard fallback if env var is missing
+    const masterKey = process.env.SITE_ADMIN_KEY || "elephant_master_key_2026";
+    const clientKey = req.headers['x-site-admin-key'];
+
+    if (clientKey === masterKey) return next();
+
+    console.log(`🚫 Blocked Super Admin attempt from ${req.ip}`);
+    return res.status(403).json({ error: "Forbidden: Site Admin Access Required" });
+}
+
 // --- 3. FILE UPLOAD CONFIGURATION ---
 const uploadDir = path.join(__dirname, 'public/uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
@@ -109,20 +147,26 @@ function generateId(index = 'late_add') {
 
 // 1. Create or Join Game
 app.post('/api/create', async (req, res) => {
-    const { gameId, partyName } = req.body;
-    if (!gameId) return res.status(400).json({ error: "Game ID required" });
+    const { gameId, partyName, adminPassword } = req.body; // <--- Extract Password
+    const cleanId = gameId.toLowerCase().trim();
 
-    const key = getGameKey(gameId);
-    const exists = await redisClient.exists(key);
+    const exists = await redisClient.exists(`game:${cleanId}`);
 
     if (!exists) {
-        const newState = getDefaultState(gameId);
-        newState.createdAt = Date.now(); // Track creation
+        let newState = getDefaultState(cleanId);
         if (partyName) newState.settings.partyName = partyName;
-        await saveGameState(gameId, newState);
-        console.log(`✨ New Game Created: ${gameId}`);
+
+        // SAVE THE PASSWORD
+        if (adminPassword) newState.adminPassword = adminPassword;
+
+        await saveGameState(cleanId, newState);
+        console.log(`✨ Created new game: ${cleanId} ${adminPassword ? '(Protected 🔒)' : ''}`);
+    } else {
+        // If re-joining, we don't overwrite the password
+        console.log(`👋 Re-joining existing game: ${cleanId}`);
     }
-    res.json({ success: true, gameId });
+
+    res.json({ success: true, gameId: cleanId });
 });
 
 // 2. Get Game State (Polling/Refresh)
@@ -133,7 +177,7 @@ app.get('/api/:gameId/state', async (req, res) => {
 });
 
 // 3. Reset Game (Clear Data)
-app.post('/api/:gameId/reset', async (req, res) => {
+app.post('/api/:gameId/reset', verifyGameAdmin, async (req, res) => {
     const { gameId } = req.params;
     const newState = getDefaultState(gameId);
     // Preserve Branding Settings if they exist in the old state
@@ -148,7 +192,7 @@ app.post('/api/:gameId/reset', async (req, res) => {
 });
 
 // 4. Update Settings & Handle Roster Import
-app.put('/api/:gameId/settings', async (req, res) => {
+app.put('/api/:gameId/settings', verifyGameAdmin, async (req, res) => {
     const { gameId } = req.params;
     const { rosterNames, ...settingsUpdates } = req.body; // Extract rosterNames separately
 
@@ -202,7 +246,7 @@ app.get('/api/themes', (req, res) => {
 });
 
 // 2. RELOAD Themes (Admin Trigger)
-app.post('/api/admin/reload-themes', (req, res) => {
+app.post('/api/admin/reload-themes', verifyGameAdmin, (req, res) => {
     loadThemes();
     // Optional: Emit to clients so admin UI refreshes instantly
     // io.emit('themesUpdated', AVAILABLE_THEMES);
@@ -210,7 +254,7 @@ app.post('/api/admin/reload-themes', (req, res) => {
 });
 
 // 5. Upload Logo
-app.post('/api/:gameId/upload-logo', upload.single('logo'), async (req, res) => {
+app.post('/api/:gameId/upload-logo', verifyGameAdmin, upload.single('logo'), async (req, res) => {
     const { gameId } = req.params;
     const state = await getGameState(gameId);
     if (!state) return res.status(404).json({ error: "Game not found" });
@@ -229,7 +273,7 @@ app.post('/api/:gameId/upload-logo', upload.single('logo'), async (req, res) => 
 // --- SECTION B: PHASE MANAGEMENT ---
 
 // 6. Start Voting
-app.post('/api/:gameId/phase/voting', async (req, res) => {
+app.post('/api/:gameId/phase/voting', verifyGameAdmin, async (req, res) => {
     const { gameId } = req.params;
     const { durationSeconds } = req.body;
 
@@ -245,7 +289,7 @@ app.post('/api/:gameId/phase/voting', async (req, res) => {
 });
 
 // 7. End Game / Show Results
-app.post('/api/:gameId/phase/results', async (req, res) => {
+app.post('/api/:gameId/phase/results', verifyGameAdmin,async (req, res) => {
     const { gameId } = req.params;
     const state = await getGameState(gameId);
     if (!state) return res.status(404).json({ error: "Game not found" });
@@ -260,7 +304,7 @@ app.post('/api/:gameId/phase/results', async (req, res) => {
 // --- SECTION C: PARTICIPANTS ---
 
 // 8. ADD PARTICIPANT (With Late Arrival Logic)
-app.post('/api/:gameId/participants', async (req, res) => {
+app.post('/api/:gameId/participants', verifyGameAdmin, async (req, res) => {
     const { gameId } = req.params;
     const { name, number, insertRandomly } = req.body; // <--- Added insertRandomly
 
@@ -350,7 +394,7 @@ app.post('/api/:gameId/participants', async (req, res) => {
 });
 
 // 9. Update Participant (Reset Timer, etc)
-app.put('/api/:gameId/participants/:pId', async (req, res) => {
+app.put('/api/:gameId/participants/:pId', verifyGameAdmin, async (req, res) => {
     const { gameId, pId } = req.params;
     const updates = req.body;
 
@@ -372,7 +416,7 @@ app.put('/api/:gameId/participants/:pId', async (req, res) => {
 // --- SECTION D: GAMEPLAY ACTIONS ---
 
 // 10. Open New Gift
-app.post('/api/:gameId/open-new', async (req, res) => {
+app.post('/api/:gameId/open-new', verifyGameAdmin, async (req, res) => {
     const { gameId } = req.params;
     const { name, description, playerId } = req.body;
 
@@ -408,7 +452,7 @@ app.post('/api/:gameId/open-new', async (req, res) => {
 });
 
 // 10.5. Update Existing Gift (Edit Name/Description)
-app.put('/api/:gameId/gift/:giftId', async (req, res) => {
+app.put('/api/:gameId/gift/:giftId', verifyGameAdmin, async (req, res) => {
     const { gameId, giftId } = req.params;
     const { name, description } = req.body;
 
@@ -428,7 +472,7 @@ app.put('/api/:gameId/gift/:giftId', async (req, res) => {
 });
 
 // 11. Steal Gift
-app.post('/api/:gameId/steal', async (req, res) => {
+app.post('/api/:gameId/steal', verifyGameAdmin, async (req, res) => {
     const { gameId } = req.params;
     const { giftId, thiefId } = req.body;
 
@@ -476,7 +520,7 @@ app.post('/api/:gameId/steal', async (req, res) => {
 
 
 // 11. SWAP/SKIP TURN (Bathroom Break)
-app.post('/api/:gameId/participants/:participantId/swap', async (req, res) => {
+app.post('/api/:gameId/participants/:participantId/swap', verifyGameAdmin, async (req, res) => {
     const { gameId, participantId } = req.params;
     const state = await getGameState(gameId);
     if (!state) return res.status(404).json({ error: "Game not found" });
@@ -513,7 +557,7 @@ app.post('/api/:gameId/participants/:participantId/swap', async (req, res) => {
 });
 
 // 12. Upload Photo
-app.post('/api/:gameId/upload', upload.single('photo'), async (req, res) => {
+app.post('/api/:gameId/upload', verifyGameAdmin, upload.single('photo'), async (req, res) => {
     const { gameId } = req.params;
     const { giftId, uploaderName } = req.body;
 
@@ -542,7 +586,7 @@ app.post('/api/:gameId/upload', upload.single('photo'), async (req, res) => {
 });
 
 // 13. Set Primary Image
-app.put('/api/:gameId/images/:giftId/primary', async (req, res) => {
+app.put('/api/:gameId/images/:giftId/primary', verifyGameAdmin, async (req, res) => {
     const { gameId, giftId } = req.params;
     const { imageId } = req.body;
 
@@ -560,7 +604,7 @@ app.put('/api/:gameId/images/:giftId/primary', async (req, res) => {
 });
 
 // 14. Delete Image
-app.delete('/api/:gameId/images/:giftId/:imageId', async (req, res) => {
+app.delete('/api/:gameId/images/:giftId/:imageId', verifyGameAdmin, async (req, res) => {
     const { gameId, giftId, imageId } = req.params;
 
     const state = await getGameState(gameId);
@@ -628,13 +672,13 @@ app.get('/api/admin/games', async (req, res) => {
     res.json(games);
 });
 
-app.delete('/api/admin/games/:gameId', async (req, res) => {
+app.delete('/api/admin/games/:gameId', verifySiteAdmin, async (req, res) => {
     const { gameId } = req.params;
     await redisClient.del(getGameKey(gameId));
     res.json({ success: true });
 });
 
-app.delete('/api/admin/flush', async (req, res) => {
+app.delete('/api/admin/flush', verifySiteAdmin, async (req, res) => {
     const keys = await redisClient.keys('game:*');
     if (keys.length > 0) await redisClient.del(keys);
     res.json({ success: true, count: keys.length });
@@ -642,7 +686,7 @@ app.delete('/api/admin/flush', async (req, res) => {
 
 
 // DELETE PARTICIPANT (Safety Valve)
-app.delete('/api/:gameId/participants/:participantId', async (req, res) => {
+app.delete('/api/:gameId/participants/:participantId', verifyGameAdmin, async (req, res) => {
     const { gameId, participantId } = req.params;
     const state = await getGameState(gameId);
 

@@ -11,21 +11,19 @@ test('Feature Check: Reset Timer and On Deck', async ({ browser }) => {
     await adminPage.fill('#hostNameInput', gameId);
     await adminPage.click('text=Create & Host');
 
-    // Handle "Start Game" Modal
+    // Handle "Start Game" Modal (Robust Wait)
     const startBtn = adminPage.locator('#btnSaveSettings');
-    // Wait for button, click it, then WAIT FOR MODAL TO DISAPPEAR
     await startBtn.waitFor();
     await startBtn.click();
     await expect(adminPage.locator('#settingsModal')).toBeHidden();
 
-    // 2. Add Alice (Manual #1 - No alert expected)
+    // 2. Add Alice (Manual #1)
     await adminPage.fill('#pNumber', '1');
     await adminPage.fill('#pName', 'Alice');
     await adminPage.click('button:has-text("Add")');
-    // Wait for Alice to appear in the DOM
     await expect(adminPage.locator('#participantList')).toContainText('Alice');
 
-    // 3. Add Bob (Manual #2 - No alert expected)
+    // 3. Add Bob (Manual #2 - Bypasses "Late Arrival" Modal)
     await adminPage.fill('#pNumber', '2');
     await adminPage.fill('#pName', 'Bob');
     await adminPage.click('button:has-text("Add")');
