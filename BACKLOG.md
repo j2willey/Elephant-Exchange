@@ -1,5 +1,9 @@
 # Product Backlog
 
+## Issues
+- [ ] ** Fix End Game Button in footer
+      - restore end voting and results display
+
 ## Future Features
 - [ ] **"Twits" / Live Commentary:**
       - Allow players to post short text messages (140 chars) to the TV.
