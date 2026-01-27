@@ -10,6 +10,11 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="js/gamelib.js" defer></script>
     <script src="js/gameadmin.js" defer></script>
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+    <link rel="manifest" href="/site.webmanifest">
+    <link rel="icon" href="/favicon.ico"> ```
 </head>
 <body>
 
@@ -23,7 +28,7 @@
                 <p>Start a brand new game.</p>
                 <div class="input-group">
                     <input type="text" id="hostNameInput" placeholder="e.g. Smith Family Xmas">
-                    <input type="password" id="createPasswordInput" placeholder="Admin PIN (Optional)" style="max-width: 120px; margin-left: 5px;">
+                    <input type="text" id="createPasswordInput" placeholder="Admin PIN (Optional)" style="max-width: 120px; margin-left: 5px;" class="pin-mask">
                     <button onclick="handleHostGame()" class="btn-nav">Create & Host 🚀</button>
                 </div>
             </div>
@@ -35,6 +40,7 @@
                 <p>Manage an existing game.</p>
                 <div class="input-group">
                     <input type="text" id="joinNameInput" placeholder="Search Party Name...">
+                    <input type="text" id="joinPasswordInput" placeholder="Admin PIN (Optional)" style="max-width: 120px; margin-left: 5px;" class="pin-mask">
                     <button onclick="handleReconnectGame()" class="btn-nav">Search 🔍</button>
                 </div>
                 <div id="searchResults" style="margin-top:10px; text-align:left;"></div>
@@ -333,7 +339,7 @@
             <h3>Admin Access Required</h3>
             <p>This game is protected. Enter the Host PIN.</p>
 
-            <input type="password" id="authPasswordInput"
+            <input type="text" id="authPasswordInput" class="pin-mask"
                 style="font-size: 1.5rem; text-align: center; letter-spacing: 4px; padding: 10px; width: 80%; margin: 15px 0; border: 2px solid #2563eb; border-radius: 8px;">
 
             <div style="display:flex; gap:10px; justify-content:center;">

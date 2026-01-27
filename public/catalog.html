@@ -8,9 +8,14 @@
     <script src="/socket.io/socket.io.js"></script>
     <script src="js/gamelib.js" defer></script>
     <script src="js/catalog.js" defer></script>
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+    <link rel="manifest" href="/site.webmanifest">
+    <link rel="icon" href="/favicon.ico"> ```
 </head>
 <body class="tv-mode">
-    
+
     <div style="padding: 20px; background: #111827; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #374151;">
         <h1 style="margin:0; font-size:1.5rem;">🐘 Visual Catalog</h1>
         <div id="connectionStatus" style="color:#10b981; font-size:0.9rem;">Connecting...</div>
@@ -30,7 +35,7 @@
                 <h2 id="modalTitle" style="margin:0;">Blue Blender</h2>
                 <button class="close-btn" onclick="closeModal()">×</button>
             </div>
-            
+
             <div class="modal-body">
                 <img id="heroImage" src="" alt="Selected Gift" class="modal-hero-img" style="display:none;">
                 <div id="heroPlaceholder" class="card-placeholder" style="display:none; height:200px; display:flex; align-items:center;">🐘 No Photos Yet</div>

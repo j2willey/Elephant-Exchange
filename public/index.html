@@ -6,6 +6,11 @@
     <title>Elephant Exchange</title>
     <link rel="stylesheet" href="css/style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+    <link rel="manifest" href="/site.webmanifest">
+    <link rel="icon" href="/favicon.ico"> ```
 </head>
 <body class="landing-page">
 
@@ -25,8 +30,8 @@
                         <input type="text" id="landingHostInput" placeholder="New Party Name"
                                style="width:100%; padding:12px; border:1px solid #cbd5e1; border-radius:6px; margin-bottom:10px; font-size:1rem;">
 
-                        <input type="password" id="landingHostPassword" placeholder="Admin PIN (Optional)"
-                               style="width:100%; padding:12px; border:1px solid #cbd5e1; border-radius:6px; margin-bottom:10px; font-size:1rem;">
+                        <input type="text" id="landingHostPassword" placeholder="Admin PIN (Optional)"
+                               style="width:100%; padding:12px; border:1px solid #cbd5e1; border-radius:6px; margin-bottom:10px; font-size:1rem;" class="pin-mask">
 
                         <button onclick="goToHost()" class="btn-primary" style="width:100%;">Start Party</button>
                     </div>
@@ -38,8 +43,8 @@
                         <input type="text" id="landingJoinInput" placeholder="Game Name or ID"
                                style="width:100%; padding:12px; border:1px solid #cbd5e1; border-radius:6px; margin-bottom:10px; font-size:1rem;">
 
-                        <input type="password" id="landingJoinPassword" placeholder="Admin PIN (Optional)"
-                               style="width:100%; padding:12px; border:1px solid #cbd5e1; border-radius:6px; margin-bottom:10px; font-size:1rem;">
+                        <input type="text" id="landingJoinPassword" placeholder="Admin PIN (Optional)"
+                               style="width:100%; padding:12px; border:1px solid #cbd5e1; border-radius:6px; margin-bottom:10px; font-size:1rem;" class="pin-mask">
 
                          <button onclick="goToJoin()" class="btn-primary" style="width:100%;" >Find Game</button>
                     </div>
