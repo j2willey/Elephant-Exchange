@@ -40,9 +40,16 @@ test('Feature Check: Reset Timer and On Deck', async ({ browser }) => {
     // 5. Test "Reset Timer"
     await expect(adminPage.locator('button[title="Reset Timer"]')).toBeVisible();
 
-    // Handle "Are you sure?" confirmation dialog
-    adminPage.on('dialog', dialog => dialog.accept());
+    // Trigger the modal
     await adminPage.click('button[title="Reset Timer"]');
+
+    // FIX: Handle Custom HTML Modal instead of Native Dialog
+    const btnOk = adminPage.locator('#btnSysOk');
+    await btnOk.waitFor();
+    await btnOk.click();
+
+    // Ensure the modal closes
+    await expect(adminPage.locator('#sysDialogModal')).toBeHidden();
 
     // Ensure state persists
     await expect(adminPage.locator('#participantList')).toContainText('Alice');

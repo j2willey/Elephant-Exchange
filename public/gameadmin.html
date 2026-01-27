@@ -52,7 +52,8 @@
 
         <div class="menu-bar">
             <div style="margin-right: auto; display: flex; gap: 8px; align-items: center;">
-                <span class="menu-label">TV View:</span>
+                <button onclick="window.open(`/scoreboard.html?game=${currentGameId}`, '_blank')" class="btn-ghost" title="Open Big Screen View"> 📺</button>
+                <span class="menu-label">Scoreboard:</span>
                 <button id="btnTvRules"  onclick="setTvMode('rules')"   class="btn-ghost" title="Show Rules">Rules</button>
                 <button id="btnTvQr"     onclick="setTvMode('qr')"      class="btn-ghost" title="Show Join QR">QR</button>
                 <button id="btnTvGrid"   onclick="setTvMode('catalog')" class="btn-ghost" title="Show Grid View">Catalog</button>
@@ -337,6 +338,36 @@
 
             <div style="display:flex; gap:10px; justify-content:center;">
                 <button onclick="submitAuthPassword()" class="btn-play" style="width: 100%;">Unlock</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="systemModal" class="admin-modal-overlay hidden" style="z-index: 4000;">
+        <div class="admin-modal-content" style="max-width: 550px; text-align: center;">
+            <h3 id="sysModalTitle" style="margin-top:0;">🛑 End Game Options</h3>
+
+            <div id="sysModalMessage" style="color:#4b5563; margin-bottom:20px; text-align:left; line-height:1.5;">
+                </div>
+
+            <div style="display:flex; flex-direction:column; align-items:flex-end; margin-bottom:10px;">
+                <label style="font-size:0.8rem; color:#6b7280; margin-bottom:3px; font-weight:600; width:140px; text-align:center;">Voting Timer</label>
+                <input type="number" id="sysModalInput" value="180" class="form-input"
+                       style="width:140px; text-align:center; font-size:1.1rem; padding:8px;">
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; gap:10px; flex-wrap:wrap; align-items: center;">
+
+                <button id="btnEndCancel" class="btn-manage" style="width:150px; opacity:0.6;" title="Cancel">
+                    Cancel
+                </button>
+
+                <button id="btnEndInstant" class="btn-play" style="width:150px; opacity:0.6;" title="End game without voting">
+                    End (No Vote)
+                </button>
+
+                <button id="btnEndVote" class="btn-play" style="width:150px; opacity:0.6;" title="Start voting phase">
+                    Start Voting
+                </button>
             </div>
         </div>
     </div>

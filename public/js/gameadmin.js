@@ -107,16 +107,39 @@ document.addEventListener('DOMContentLoaded', () => {
     const params = new URLSearchParams(window.location.search);
     const urlGameId = params.get('game');
     const startVal = params.get('start');
+    const joinVal = params.get('join'); // Handle the new 'join' param from index.html
+    const secretVal = params.get('secret'); // Handle the password
+
+    if (secretVal) {
+        adminPassword = secretVal;
+        sessionStorage.setItem('elephant_password', secretVal);
+
+        const createInput = document.getElementById('createPasswordInput');
+        if (createInput) createInput.value = secretVal;
+    }
+
     if (urlGameId) {
         document.getElementById('gameIdInput').value = urlGameId;
         joinGame(urlGameId);
         return;
     }
+
+    // Handle the "Join" param from the landing page
+    if (joinVal) {
+        const decoded = decodeURIComponent(joinVal);
+        const cleanId = sanitizeGameId(decoded);
+        if (cleanId) {
+            document.getElementById('gameIdInput').value = cleanId;
+            joinGame(cleanId);
+        }
+    }
+
     if (startVal) {
         const decoded = decodeURIComponent(startVal);
         const cleanId = sanitizeGameId(decoded);
         if (cleanId) joinGame(cleanId, decoded);
     }
+
 });
 
 // WRAPPER: Automatically adds password header & handles 401 errors
@@ -278,32 +301,55 @@ function render(state) {
     renderParticipants(state);
     renderGifts(state);
 
-    // NEW: Dynamic Footer Button Logic
+    // --- FOOTER BUTTON STATE MACHINE ---
     const btnFooter = document.getElementById('btnGameState');
     if (btnFooter) {
+
+        // 1. VOTING PHASE: "Stop & Show Results"
         if (state.phase === 'voting') {
-            btnFooter.innerHTML = "🗳️ End Voting & Show Results";
-            btnFooter.onclick = endVoting; // Direct call to endVoting function
+            btnFooter.innerHTML = "🗳️ Stop Voting & Show Results";
             btnFooter.className = "btn-nav";
-            btnFooter.style.background = "#d97706"; // Orange
+            btnFooter.style.background = "#d97706"; // Orange Warning Color
             btnFooter.style.borderColor = "#d97706";
+            btnFooter.disabled = false;
+            btnFooter.style.cursor = "pointer";
+
+            // Direct Action: End voting immediately
+            btnFooter.onclick = async () => {
+                const confirmStop = await customConfirm("Close voting and reveal the winners?");
+                if (confirmStop) {
+                    await authenticatedFetch(`/api/${currentGameId}/phase/results`, { method: 'POST' });
+                }
+            };
         }
+
+        // 2. RESULTS PHASE: "Game Over" (Disabled)
         else if (state.phase === 'results') {
-            btnFooter.innerHTML = "🔄 Reset Game";
-            btnFooter.onclick = resetGame;
+            btnFooter.innerHTML = "🏁 Game Over";
             btnFooter.className = "btn-nav";
-            btnFooter.style.background = "#dc2626"; // Red
-            btnFooter.style.borderColor = "#dc2626";
+            btnFooter.style.background = "#9ca3af"; // Grey
+            btnFooter.style.borderColor = "#9ca3af";
+            btnFooter.style.color = "#f3f4f6";
+            btnFooter.disabled = true; // Disabled as requested
+            btnFooter.style.cursor = "not-allowed";
+            btnFooter.onclick = null;
         }
+
+        // 3. ACTIVE PHASE: "End Game" (Default)
         else {
-            // Default Active State
             btnFooter.innerHTML = "🛑 End Game";
-            btnFooter.onclick = confirmEndGame;
             btnFooter.className = "btn-nav";
-            btnFooter.style.background = ""; // Reset to default CSS
+            btnFooter.style.background = ""; // Reset to default CSS (Red/Dark)
             btnFooter.style.borderColor = "";
+            btnFooter.style.color = "";
+            btnFooter.disabled = false;
+            btnFooter.style.cursor = "pointer";
+
+            // Opens the Tri-State Modal we built
+            btnFooter.onclick = confirmEndGame;
         }
     }
+
 }
 
 function renderParticipants(state) {
@@ -563,16 +609,59 @@ async function attemptSteal(giftId, description) {
 }
 
 // --- 6. GAME CONTROL ---
-async function confirmEndGame() {
-    const enableVoting = await customConfirm("Would you like to enable 'Worst Gift Voting'?\n\nOK = Yes, Start Voting.\nCancel = No, just end game.");
-    if (enableVoting) {
-        const duration = await customPrompt("Voting Duration (seconds)?", "180");
-        if (!duration) return;
-        await authenticatedFetch(`/api/${currentGameId}/phase/voting`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ durationSeconds: parseInt(duration) }) });
-    } else {
+function confirmEndGame() {
+    const modal = document.getElementById('systemModal');
+    const msg = document.getElementById('sysModalMessage');
+
+    // UPDATED IDs
+    const input = document.getElementById('sysModalInput');
+    const btnCancel = document.getElementById('btnEndCancel');
+    const btnInstant = document.getElementById('btnEndInstant');
+    const btnVote = document.getElementById('btnEndVote');
+
+    // 1. Set Explanation Text
+    msg.innerHTML = `
+        <p>The game is ending. How would you like to proceed?</p>
+        <ul style="margin:10px 0; padding-left:20px; font-size:0.9rem;">
+            <li style="margin-bottom:8px;"><b>Start Voting:</b> Run a timer for "Worst Gift" voting, then show results.</li>
+            <li><b>End Immediately:</b> Skip the voting phase and display the leaderboard now.</li>
+        </ul>
+    `;
+
+    // 2. Configure Buttons
+
+    // LEFT: Cancel
+    btnCancel.onclick = () => {
+        modal.classList.remove('active');
+        setTimeout(() => modal.classList.add('hidden'), 200);
+    };
+
+    // MIDDLE: End Immediately
+    btnInstant.onclick = async () => {
+        modal.classList.remove('active');
+        setTimeout(() => modal.classList.add('hidden'), 200);
         await authenticatedFetch(`/api/${currentGameId}/phase/results`, { method: 'POST' });
-    }
+    };
+
+    // RIGHT: Start Voting
+    btnVote.onclick = async () => {
+        const seconds = parseInt(input.value) || 180;
+        modal.classList.remove('active');
+        setTimeout(() => modal.classList.add('hidden'), 200);
+
+        await authenticatedFetch(`/api/${currentGameId}/phase/voting`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ durationSeconds: seconds })
+        });
+    };
+
+    // 3. Show Modal
+    modal.classList.remove('hidden');
+    modal.classList.add('active');
+    setTimeout(() => input.focus(), 100);
 }
+
 async function endVoting() { if (!await customConfirm("Close voting early?")) return; await authenticatedFetch(`/api/${currentGameId}/phase/results`, { method: 'POST' }); }
 async function resetGame() { if (!await customConfirm("⚠️ DANGER: This will delete ALL history.\n\nAre you sure?")) return; await authenticatedFetch(`/api/${currentGameId}/reset`, { method: 'POST' }); }
 

@@ -78,7 +78,7 @@ const { chromium } = require('playwright');
 
         // Confirm the Steal
         // Handle the "Are you sure?" dialog
-        adminPage.once('dialog', dialog => dialog.accept());
+        await adminPage.click('#btnSysOk');
         // (The click above triggers the dialog instantly in standard JS,
         // but Playwright handles the listener nicely)
 
