@@ -1,8 +1,6 @@
 # Product Backlog
 
 ## Issues
-- [ ] ** Fix End Game Button in footer
-      - restore end voting and results display
 
 ## Future Features
 - [ ] **"Twits" / Live Commentary:**
@@ -43,5 +41,7 @@
       **Additional Enhancements**
 - [x] - convert all dialogs to modal overlays to get common look/feel.
 - [x] - Add themes and customization infrastructure
+- [x] ** Fix End Game Button in footer
+      - restore end voting and results display
 ## Security & Accounts
 - [x] **Host Accounts:** Implement User ID/Password so random people cannot admin games they didn't create.
