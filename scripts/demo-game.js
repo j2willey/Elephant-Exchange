@@ -1,96 +1,141 @@
 /*
- * ELEPHANT EXCHANGE - "BOB'S GAME" DEMO
- * Usage: node scripts/demo-bob.js
+ * ELEPHANT EXCHANGE - "BOB'S GAME" DEMO (PRESENTER MODE)
+ * Usage:
+ * node scripts/demo-game.js              -> Auto-run (2s delay between chapters)
+ * node scripts/demo-game.js 5            -> Auto-run (5s delay between chapters)
+ * node scripts/demo-game.js interactive  -> PRESENTER MODE (Waits for Spacebar or 30s)
  */
 
 const { chromium } = require('playwright');
+const readline = require('readline');
+
+// --- CONFIGURATION ---
+const args = process.argv.slice(2);
+const IS_INTERACTIVE = args.includes('interactive') || args.includes('present');
+let CHAPTER_DELAY = 2000; // Default 2 seconds
+
+const numArg = args.find(a => !isNaN(parseFloat(a)));
+if (numArg) CHAPTER_DELAY = parseFloat(numArg) * 1000;
+
+const MAX_PRESENTER_WAIT = 30000;
+
+// --- HELPER: NARRATIVE PAUSE ---
+async function narrativePause(message) {
+    console.log(`\n📘 [STORY]: ${message}`);
+
+    if (!IS_INTERACTIVE) {
+        console.log(`   (Waiting ${CHAPTER_DELAY/1000}s...)`);
+        return new Promise(resolve => setTimeout(resolve, CHAPTER_DELAY));
+    }
+
+    return new Promise(resolve => {
+        process.stdout.write(`   👉 Press SPACE to continue (or wait ${MAX_PRESENTER_WAIT/1000}s)...`);
+        const timer = setTimeout(() => { cleanup(); console.log(" (Timeout)"); resolve(); }, MAX_PRESENTER_WAIT);
+        const rl = readline.createInterface({ input: process.stdin, output: process.stdout, terminal: true });
+        process.stdin.setRawMode(true);
+
+        const listener = (key) => {
+            if (key[0] === 3) process.exit(); // Ctrl+C
+            if (key[0] === 32 || key[0] === 13) { cleanup(); process.stdout.write(" ✅\n"); resolve(); }
+        };
+        process.stdin.on('data', listener);
+        function cleanup() { clearTimeout(timer); process.stdin.removeListener('data', listener); process.stdin.setRawMode(false); rl.close(); }
+    });
+}
 
 (async () => {
     console.log("🐘 Starting Bob's Demo...");
+    if (IS_INTERACTIVE) console.log("🎤 PRESENTER MODE ACTIVE: Get ready to talk!");
 
-    // 1. SETUP BROWSER
     const browser = await chromium.launch({
         headless: false,
-        slowMo: 2000, // 1 second per action (Readable speed)
+        slowMo: 100, // Fast UI actions, we control the pacing
         args: ['--start-maximized']
     });
 
-    const context = await browser.newContext({ viewport: { width: 1500, height: 900 } });
+    const context = await browser.newContext({ viewport: { width: 1600, height: 900 } });
     const page = await context.newPage();
 
-    // 2. GAME CONFIGURATION
+    // GAME DATA
     const GAME_ID = 'bob-party';
     const PLAYERS = [
         "Andy", "Bob", "Cheryl", "David", "Emily",
         "Fred", "Greg", "Henry", "Ingrid", "Jim",
         "Kim", "Larry", "Minnie"
     ];
-    const ACTIVE_PLAYERS = "3"; // Simultaneous turns
 
     try {
-        // --- LOGIN & CREATE ---
-        console.log(`🌍 navigating to http://localhost:3000/gameadmin.html...`);
-        await page.goto('http://localhost:3000/gameadmin.html');
+        // --- CHAPTER 1: INTRO ---
+        await narrativePause("Welcome. We are hosting a game for 13 people.");
 
+        await page.goto('http://localhost:3000/gameadmin.html');
         await page.fill('#hostNameInput', GAME_ID);
         await page.fill('#createPasswordInput', 'demo');
+
+        await narrativePause("Details entered. Creating the party...");
         await page.click('text=Create & Host');
 
-        // --- SETTINGS (The Complex Part) ---
+        // --- CHAPTER 2: SETTINGS (ROSTER IMPORT) ---
         console.log("⚙️ Configuring Settings...");
         const saveBtn = page.locator('#btnSaveSettings');
         await saveBtn.waitFor();
 
         // 1. Set Active Players to 3
-        await page.fill('#settingActiveCount', ACTIVE_PLAYERS);
+        await page.fill('#settingActiveCount', "3");
 
-        // 2. Select "Fixed Order / Demo" Mode (Radio Button)
+        // 2. Select "Fixed Order" (Enables the textarea)
         await page.check('input[value="fixed"]');
 
         // 3. Paste Roster
         await page.fill('#settingRosterNames', PLAYERS.join('\n'));
 
-        // 4. Save
+        await narrativePause("We've pasted the guest list. Saving...");
         await page.click('#btnSaveSettings');
-        await page.waitForTimeout(1000); // Let server process
-        console.log("✅ Game Created & Roster Imported!");
 
-        // --- HELPER FUNCTIONS ---
+        // Wait for dashboard to load
+        await page.locator('#dashboard-section').waitFor();
+        await page.waitForTimeout(500); // Visual settling
+
+        // --- HELPERS (Defined inside context to access 'page') ---
         async function openGift(playerName, giftName) {
-            console.log(`🎁 ${playerName} opens: ${giftName}`);
-            // Find row containing player name
-            const row = page.locator(`li:has-text("${playerName}")`);
-            // Click "Open Gift" (Gift Icon) inside that row
-            const btn = row.locator('button[title="Open Gift"]');
+            await narrativePause(`${playerName} opens a gift: ${giftName}`);
 
-            // Wait for it to be actionable (in case of animation)
-            await btn.waitFor();
-            await btn.click();
+            // 1. Find the Player Row
+            const row = page.locator('#participantList li', { hasText: playerName });
 
+            // 2. Click "Open Gift" inside that row
+            await row.locator('button[title="Open Gift"]').click();
+
+            // 3. Fill Modal
             await page.fill('#giftNameInput', giftName);
             await page.click('text=Save 💾');
         }
 
         async function stealGift(thiefName, giftName) {
-            console.log(`😈 ${thiefName} steals: ${giftName}`);
-            const row = page.locator(`li:has-text("${thiefName}")`);
-            const btn = row.locator('button[title="Steal Gift"]');
-            await btn.waitFor();
-            await btn.click();
+            await narrativePause(`${thiefName} decides to STEAL the ${giftName}!`);
 
-            // Select the gift from the list
-            // We look for the row in the Gift List that has the gift name, then click "Select Gift"
-            const giftRow = page.locator(`#giftList li:has-text("${giftName}")`);
-            await giftRow.locator('text=Select Gift').click();
+            // 1. Find Thief Row -> Click Steal Icon
+            const thiefRow = page.locator('#participantList li', { hasText: thiefName });
+            await thiefRow.locator('button[title="Steal Gift"]').click();
 
-            // Handle Confirm Dialog
-            // Note: Playwright auto-dismisses dialogs, but our customConfirm uses the DOM modal
+            // 2. Wait for UI to flip to "Select Mode"
+            await page.waitForTimeout(300);
+
+            // 3. ROBUST SELECTOR: Find the list item that has the gift name
+            // Then click the "Select Gift" button INSIDE that list item.
+            const giftCard = page.locator('#giftList li', { hasText: giftName });
+            await giftCard.locator('button', { hasText: 'Select Gift' }).click();
+
+            // 4. Handle Confirmation Modal (New System)
             const confirmBtn = page.locator('#btnSysOk');
             await confirmBtn.waitFor();
             await confirmBtn.click();
+
+            // 5. Wait for animation
+            await page.waitForTimeout(1000);
         }
 
-        // --- THE SCRIPT (From 'bob' file) ---
+        // --- CHAPTER 3: THE GAME SCRIPT ---
 
         // 1. Andy opens Coffee mug
         await openGift('Andy', 'Coffee mug');
@@ -113,9 +158,6 @@ const { chromium } = require('playwright');
         // 7. Fred steals Notebook (from Bob)
         await stealGift('Fred', 'Notebook');
 
-        // NOTE: Re-ordered to satisfy logical causality:
-        // Bob must resolve victimhood, Greg must steal knife for Cheryl to act.
-
         // 8. Bob (Victim) opens water bottle
         await openGift('Bob', 'water bottle');
 
@@ -131,8 +173,6 @@ const { chromium } = require('playwright');
         // 12. Ingrid steals lego set (from Emily)
         await stealGift('Ingrid', 'lego set');
 
-        // --- CHAIN REACTION START ---
-
         // 13. Emily (Victim) steals Coffee mug (from David)
         await stealGift('Emily', 'Coffee mug');
 
@@ -143,8 +183,6 @@ const { chromium } = require('playwright');
         await stealGift('Fred', 'Coffee mug');
 
         // 16. Emily (Victim) opens Starbux card
-        // (Note: Log said David opens compass, but Emily is the victim here.
-        // We assume Emily opens card, clearing the stack).
         await openGift('Emily', 'Starbux card');
 
         // 17. Jim steals Notebook (from David)
@@ -157,9 +195,6 @@ const { chromium } = require('playwright');
         await stealGift('Larry', 'headphones');
 
         // 20. Kim opens flashlight
-        // (Wait, Cheryl is victim. Cheryl must go first? Or Kim is playing?)
-        // With 3 active players, Kim MIGHT be active alongside Victim Cheryl.
-        // Let's try Kim first.
         await openGift('Kim', 'flashlight');
 
         // 21. Cheryl (Victim) opens air freshener
@@ -169,66 +204,34 @@ const { chromium } = require('playwright');
         await openGift('Minnie', 'white elephant plunger');
 
 
-        // --- AUTOMATED VOTING SECTION ---
-        console.log("⏳ Game Over. Waiting 15 seconds before voting...");
-        await page.waitForTimeout(15000);
+        // --- CHAPTER 4: END GAME ---
+        await narrativePause("Game Over! Now we trigger 'Worst Gift Voting'.");
 
-        console.log("🗳️ API: Triggering Voting Phase...");
+        // Click End Game Footer Button
+        await page.click('#btnGameState');
 
-        // 1. Switch Phase to VOTING (Using the Admin Password 'demo')
-        await page.request.post(`http://localhost:3000/api/${GAME_ID}/phase/voting`, {
-            headers: { 'x-admin-secret': 'demo' },
-            data: { durationSeconds: 300 } // 5 Minutes
-        });
+        await narrativePause("The Host starts the 3-minute timer.");
 
-        // 2. Fetch Game State (We need real Gift IDs to vote)
-        const stateResponse = await page.request.get(`http://localhost:3000/api/${GAME_ID}/state`);
-        const state = await stateResponse.json();
+        // Click "Start Voting" (New Modal ID)
+        await page.click('#btnEndVote');
 
-        // Helper to match names to IDs
-        const findId = (partialName) => state.gifts.find(g => g.name.toLowerCase().includes(partialName.toLowerCase()))?.id;
+        await narrativePause("Voting is live on the TV. Let's reveal the winners.");
 
-        // 3. The Ballot
-        const ballot = [
-            { item: 'white elephant plunger', count: 5 },
-            { item: 'air freshener', count: 4 },
-            { item: 'water bottle', count: 1 },
-            { item: 'flashlight', count: 1 }
-        ];
+        // Stop Voting
+        await page.click('#btnGameState'); // "Stop Voting"
+        await page.click('#btnSysOk'); // Confirm
 
-        // 4. Cast the Votes
-        console.log("🤖 API: Casting bot votes...");
-        for (const entry of ballot) {
-            const gid = findId(entry.item);
-            if (!gid) {
-                console.warn(`⚠️ Could not find gift: ${entry.item}`);
-                continue;
-            }
+        console.log("✨ Demo Complete!");
 
-            for (let i = 0; i < entry.count; i++) {
-                await page.request.post(`http://localhost:3000/api/${GAME_ID}/vote`, {
-                    data: {
-                        giftId: gid,
-                        voterId: `bot_${entry.item.replace(/\s/g,'')}_${i}` // Unique Voter ID per vote
-                    }
-                });
-            }
+        if (IS_INTERACTIVE) {
+            console.log("\n🎤 Presentation finished. Press Ctrl+C to close browser.");
+            await new Promise(() => {});
         }
-        console.log("✅ Votes cast successfully!");
-
-        // --- 5. END VOTING & SHOW RESULTS ---
-        console.log("🏆 API: Ending Voting & Showing Results...");
-        await page.request.post(`http://localhost:3000/api/${GAME_ID}/phase/results`, {
-            headers: { 'x-admin-secret': 'demo' }
-        });
-
-        console.log("✨ Demo Complete! Look at the Scoreboard!");
-
-        // ... (End of script)
-
-        console.log("✨ Demo Complete! Leaving browser open.");
 
     } catch (e) {
-        console.error("❌ Script Failed:", e);
+        console.error("❌ Demo interrupted:", e);
     }
+
+    if (!IS_INTERACTIVE) await browser.close();
+
 })();
